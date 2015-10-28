@@ -1,0 +1,259 @@
+Subject:    [PATCH V15 00/11] x86: Intel Cache Allocation Technology Support
+From:       Fenghua Yu <fenghua.yu@intel.com>
+Date:       2015-10-02 6:09:34
+
+This series has some preparatory patches and Intel cache allocation
+support.
+
+	Prep patches :
+
+	Has some changes to hot cpu handling code in existing cache
+monitoring and RAPL kernel code. This improves hot cpu notification
+handling by not looping through all online cpus which could be expensive
+in large systems. 
+
+	Intel Cache allocation support:
+
+	Cache allocation patches adds a cgroup subsystem to support the new
+Cache Allocation feature found in future Intel Xeon Intel processors.
+Cache Allocation is a sub-feature with in Resource Director
+Technology(RDT) feature. Current patches support only L3 cache
+allocation.
+
+Cache Allocation provides a way for the Software (OS/VMM) to restrict
+cache allocation to a defined 'subset' of cache which may be overlapping
+with other 'subsets'.  This feature is used when a thread is allocating
+a cache line ie when pulling new data into the cache.  
+
+Threads are associated with a CLOS(Class of service). OS specifies the
+CLOS of a thread by writing the IA32_PQR_ASSOC MSR during context
+switch. The cache capacity associated with CLOS 'n' is specified by
+writing to the IA32_L3_MASK_n MSR. 
+
+More information about cache allocation can be found in the Intel SDM,
+Volume 3 section 17.16.  SDM does not yet use the 'RDT' term yet and it
+is planned to be changed at a later time.
+
+	Why Cache Allocation ?
+
+In todays new processors the number of cores is continuously increasing
+which in turn increase the number of threads or workloads that can
+simultaneously be run. When multi-threaded applications run
+concurrently, they compete for shared resources including L3 cache.  At
+times, this L3 cache resource contention may result in inefficient space
+utilization. For example a higher priority thread may end up with lesser
+L3 cache resource or a cache sensitive app may not get optimal cache
+occupancy thereby degrading the performance.  Cache Allocation kernel
+patch helps provides a framework for sharing L3 cache so that users can
+allocate the resource according to set requirements.
+
+*All the patches will apply on 4.3-rc2.
+
+Changes in v15:
+ - Add a global IPI to update the closid on CPUs for current tasks.
+ - Other minor changes where I remove the updating of clos_cbm_table to be
+ set to all 1s during init.
+ - Fix a few compilation warnings.
+ - Port the patches to 4.3-rc.
+
+Changes in v12:
+ - From Matt's feedback replaced static cpumask_t tmp with function
+ scope to static cpumask_t tmp_cpumask for the whole file. This is a
+ temporary mask used during handling of hot cpu notifications in
+ cqm/rapl and rdt code.  Although all the usage was serialized by hot
+ cpu locking this makes it more readable. 
+
+Changes in V11:  As per feedback from Thomas and discussions:
+
+  - removed the cpumask_any_online_but.its usage could be easily replaced with
+  'and'ing the cpu_online mask during hot cpu notifications.  Thomas
+  pointed the API had issue where there tmp mask wasnt thread safe. I
+  realized the support it indends to give does not seem to match with
+  others in cpumask.h
+  - the cqm patch which added mutex to hot cpu notification was merged
+  with the cqm hot plug patch to improve notificaiton handling
+  without commit logs and wasnt correct. seperated and just sending the
+  cqm hot plug patch and will send the mutex cqm patch seperately
+  - fixed issues in the hot cpu rdt handling. Since the cpu_starting was
+  replaced with cpu_online , now the wrmsr needs to be actually
+  scheduled on the target cpu - which the previous patch wasnt doing.
+  Replaced the cpu_dead with cpu_down_prepare. the cpu_down_failed is
+  handled the same way as cpu_online. By waiting till cpu_dead to update
+  the rdt_cpumask , we may miss some of the msr updates.
+
+Changes in V10:
+
+- changed the hot cpu notification we handle in cqm and cache allocation
+  to cpu_online and cpu_dead and removed others as the 
+  cpu_*_prepare also had corresponding cancel notification 
+  which we did not handle.
+- changed the file in rdt cgroup to l3_cache_mask to represent that its
+  for l3 cache.
+
+Changes as per Thomas and PeterZ feedback:
+- fixed the cpumask declarations in cpumask.h and rdt,cmt and rapl to
+  have static so that they burden stack space when large.
+- removed mutex in cpu_starting notifications, replaced the locking with
+  cpu_online.
+- changed name from hsw_probetest to cache_alloc_hsw_probe.
+- changed x86_rdt_max_closid to x86_cache_max_closid and
+  x86_rdt_max_cbm_len to x86_cache_max_cbm_len as they are only related
+  to cache allocation and not to all rdt.
+
+Changes in V9:
+Changes made as per Thomas feedback:
+- added a comment where we call schedule in code only when RDT is
+  enabled.
+- Reordered the local declarations to follow convention in
+  intel_cqm_xchg_rmid
+
+Changes in V8: Thanks to feedback from Thomas and following changes are
+made based on his feedback:
+
+Generic changes/Preparatory patches:
+-added a new cpumask_any_online_but which returns the next
+core sibling that is online.
+-Made changes in Intel Cache monitoring and Intel RAPL(Running average
+    power limit) code to use the new function above to find the next cpu
+that can be a designated reader for the package. Also changed the way
+the package masks are computed which can be simplified using
+topology_core_cpumask.
+
+Cache allocation specific changes:
+-Moved the documentation to the begining of the patch series.
+-Added more documentation for the rdt cgroup files in the documentation.
+-Changed the dmesg output when cache alloc is enabled to be more helpful
+and updated few other comments to be better readable.
+-removed __ prefix to functions like clos_get which were not following
+convention.
+-added code to take action on a WARN_ON in clos_put. Made a few other
+changes to reduce code text.
+-updated better readable/Kernel doc format comments for the 
+call to rdt_css_alloc, datastructures .
+-removed cgroup_init
+-changed the names of functions to only have intel_ prefix for external
+APIs.
+-replaced (void *)&closid with (void *)closid when calling
+on_each_cpu_mask
+-fixed the reference release of closid during cache bitmask write.
+-changed the code to not ignore a cache mask which has bits set outside
+of the max bits allowed. It returns an error instead.
+-replaced bitmap_set(&max_mask, 0, max_cbm_len) with max_mask =
+(1ULL << max_cbm) - 1.
+- update the rdt_cpu_mask which has one cpu for each package, using
+topology_core_cpumask instead of looping through existing rdt_cpu_mask.
+Realized topology_core_cpumask name is misleading and it actually
+returns the cores in a cpu package!
+-arranged the code better to have the code relating to similar task
+together.
+-Improved searching for the next online cpu sibling and maintaining the
+rdt_cpu_mask which has one cpu per package.
+-removed the unnecessary wrapper rdt_enabled.
+-removed unnecessary spin lock and rculock in the scheduling code.
+-merged all scheduling code into one patch not seperating the RDT common
+software cache code.
+
+Changes in V7: Based on feedback from PeterZ and Matt and following
+discussions :
+- changed lot of naming to reflect the data structures which are common
+to RDT and specific to Cache allocation.
+- removed all usage of 'cat'. replace with more friendly cache
+allocation
+- fixed lot of convention issues (whitespace, return paradigm etc)
+- changed the scheduling hook for RDT to not use a inline.
+- removed adding new scheduling hook and just reused the existing one
+similar to perf hook.
+
+Changes in V6:
+- rebased to 4.1-rc1 which has the CMT(cache monitoring) support included.
+- (Thanks to Marcelo's feedback).Fixed support for hot cpu handling for 
+IA32_L3_QOS MSRs. Although during deep C states the MSR need not be restored 
+this is needed when physically a new package is added.
+-some other coding convention changes including renaming to cache_mask using a 
+ refcnt to track the number of cgroups using a closid in clos_cbm map.
+ -1b cbm support for non-hsw SKUs. HSW is an exception which needs the cache 
+ bit masks to be at least 2 bits.
+
+Changes in v5:
+- Added support to propagate the cache bit mask update for each 
+package.
+- Removed the cache bit mask reference in the intel_rdt structure as
+  there was no need for that and we already maintain a separate
+  closid<->cbm mapping.
+- Made a few coding convention changes which include adding the 
+assertion while freeing the CLOSID.
+
+Changes in V4:
+- Integrated with the latest V5 CMT patches.
+- Changed naming of cgroup to rdt(resource director technology) from
+  cat(cache allocation technology). This was done as the RDT is the
+  umbrella term for platform shared resources allocation. Hence in
+  future it would be easier to add resource allocation to the same 
+  cgroup
+- Naming changes also applied to a lot of other data structures/APIs.
+- Added documentation on cgroup usage for cache allocation to address
+  a lot of questions from various academic and industry regarding 
+  cache allocation usage.
+
+Changes in V3:
+- Implements a common software cache for IA32_PQR_MSR
+- Implements support for hsw Cache Allocation enumeration. This does not use the brand 
+strings like earlier version but does a probe test. The probe test is done only 
+on hsw family of processors
+- Made a few coding convention, name changes
+- Check for lock being held when ClosID manipulation happens
+
+Changes in V2:
+- Removed HSW specific enumeration changes. Plan to include it later as a
+  separate patch.  
+- Fixed the code in prep_arch_switch to be specific for x86 and removed
+  x86 defines.
+- Fixed cbm_write to not write all 1s when a cgroup is freed.
+- Fixed one possible memory leak in init.  
+- Changed some of manual bitmap
+  manipulation to use the predefined bitmap APIs to make code more readable
+- Changed name in sources from cqe to cat
+- Global cat enable flag changed to static_key and disabled cgroup early_init
+Fenghua Yu (11):
+  x86/intel_cqm: Modify hot cpu notification handling
+  x86/intel_rapl: Modify hot cpu notification handling
+  x86/intel_rdt: Cache Allocation documentation
+  x86/intel_rdt: Add support for Cache Allocation detection
+  x86/intel_rdt: Add Class of service management
+  x86/intel_rdt: Add L3 cache capacity bitmask management
+  x86/intel_rdt: Implement scheduling support for Intel RDT
+  x86/intel_rdt: Hot cpu support for Cache Allocation
+  x86/intel_rdt: Intel haswell Cache Allocation enumeration
+  x86,cgroup/intel_rdt : Add intel_rdt cgroup documentation
+  x86,cgroup/intel_rdt : Add a cgroup interface to manage Intel cache
+    allocation
+
+ Documentation/cgroups/rdt.txt               | 133 +++++++
+ Documentation/x86/intel_rdt.txt             | 109 ++++++
+ arch/x86/include/asm/cpufeature.h           |   6 +-
+ arch/x86/include/asm/intel_rdt.h            |  79 ++++
+ arch/x86/include/asm/pqr_common.h           |  27 ++
+ arch/x86/include/asm/processor.h            |   3 +
+ arch/x86/kernel/cpu/Makefile                |   1 +
+ arch/x86/kernel/cpu/common.c                |  15 +
+ arch/x86/kernel/cpu/intel_rdt.c             | 585 ++++++++++++++++++++++++++++
+ arch/x86/kernel/cpu/perf_event_intel_cqm.c  |  60 +--
+ arch/x86/kernel/cpu/perf_event_intel_rapl.c |  35 +-
+ arch/x86/kernel/process_64.c                |   6 +
+ include/linux/cgroup_subsys.h               |   4 +
+ init/Kconfig                                |  12 +
+ 14 files changed, 1016 insertions(+), 59 deletions(-)
+ create mode 100644 Documentation/cgroups/rdt.txt
+ create mode 100644 Documentation/x86/intel_rdt.txt
+ create mode 100644 arch/x86/include/asm/intel_rdt.h
+ create mode 100644 arch/x86/include/asm/pqr_common.h
+ create mode 100644 arch/x86/kernel/cpu/intel_rdt.c
+
+-- 
+1.8.1.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/

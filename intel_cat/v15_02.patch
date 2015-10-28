@@ -1,0 +1,88 @@
+Subject:    [PATCH V15 02/11] x86/intel_rapl: Modify hot cpu notification handling
+From:       Fenghua Yu <fenghua.yu@intel.com>
+Date:       2015-10-02 6:09:36
+
+ - In rapl_cpu_init, use the existing package<->core map instead of
+ looping through all cpus in rapl_cpumask.
+
+ - In rapl_cpu_exit, use the same mapping instead of looping all online
+ cpus. In large systems with large number of cpus the time taken to
+ loop may be expensive and also the time increase linearly.
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+---
+ arch/x86/kernel/cpu/perf_event_intel_rapl.c | 35 ++++++++++++++---------------
+ 1 file changed, 17 insertions(+), 18 deletions(-)
+
+diff --git a/arch/x86/kernel/cpu/perf_event_intel_rapl.c b/arch/x86/kernel/cpu/perf_event_intel_rapl.c
+index 81431c0..eeec6b8 100644
+--- a/arch/x86/kernel/cpu/perf_event_intel_rapl.c
++++ b/arch/x86/kernel/cpu/perf_event_intel_rapl.c
+@@ -136,6 +136,12 @@ static struct pmu rapl_pmu_class;
+ static cpumask_t rapl_cpu_mask;
+ static int rapl_cntr_mask;
+ 
++/*
++ * Temporary cpumask used during hot cpu notificaiton handling. The usage
++ * is serialized by hot cpu locks.
++ */
++static cpumask_t tmp_cpumask;
++
+ static DEFINE_PER_CPU(struct rapl_pmu *, rapl_pmu);
+ static DEFINE_PER_CPU(struct rapl_pmu *, rapl_pmu_to_free);
+ 
+@@ -539,18 +545,16 @@ static struct pmu rapl_pmu_class = {
+ static void rapl_cpu_exit(int cpu)
+ {
+ 	struct rapl_pmu *pmu = per_cpu(rapl_pmu, cpu);
+-	int i, phys_id = topology_physical_package_id(cpu);
+ 	int target = -1;
++	int i;
+ 
+ 	/* find a new cpu on same package */
+-	for_each_online_cpu(i) {
+-		if (i == cpu)
+-			continue;
+-		if (phys_id == topology_physical_package_id(i)) {
+-			target = i;
+-			break;
+-		}
+-	}
++	cpumask_and(&tmp_cpumask, topology_core_cpumask(cpu), cpu_online_mask);
++	cpumask_clear_cpu(cpu, &tmp_cpumask);
++	i = cpumask_any(&tmp_cpumask);
++	if (i < nr_cpu_ids)
++		target = i;
++
+ 	/*
+ 	 * clear cpu from cpumask
+ 	 * if was set in cpumask and still some cpu on package,
+@@ -572,15 +576,10 @@ static void rapl_cpu_exit(int cpu)
+ 
+ static void rapl_cpu_init(int cpu)
+ {
+-	int i, phys_id = topology_physical_package_id(cpu);
+-
+-	/* check if phys_is is already covered */
+-	for_each_cpu(i, &rapl_cpu_mask) {
+-		if (phys_id == topology_physical_package_id(i))
+-			return;
+-	}
+-	/* was not found, so add it */
+-	cpumask_set_cpu(cpu, &rapl_cpu_mask);
++	/* check if cpu's package is already covered.If not, add it.*/
++	cpumask_and(&tmp_cpumask, &rapl_cpu_mask, topology_core_cpumask(cpu));
++	if (cpumask_empty(&tmp_cpumask))
++		cpumask_set_cpu(cpu, &rapl_cpu_mask);
+ }
+ 
+ static __init void rapl_hsw_server_quirk(void)
+-- 
+1.8.1.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/

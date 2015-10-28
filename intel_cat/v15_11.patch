@@ -1,0 +1,406 @@
+Subject:    [PATCH V15 11/11] x86,cgroup/intel_rdt : Add a cgroup interface to manage Intel cache allocation
+From:       Fenghua Yu <fenghua.yu@intel.com>
+Date:       2015-10-02 6:09:45
+
+Add a new cgroup 'intel_rdt' to manage cache allocation. Each cgroup
+directory is associated with a class of service id(closid). To map a
+task with closid during scheduling, this patch removes the closid field
+from task_struct and uses the already existing 'cgroups' field in
+task_struct.
+
+The cgroup has a file 'l3_cbm' which represents the L3 cache capacity
+bitmask(CBM). The CBM is global for the whole system currently. The
+capacity bitmask needs to have only contiguous bits set and number of
+bits that can be set is less than the max bits that can be set. The
+tasks belonging to a cgroup get to fill in the L3 cache represented by
+the capacity bitmask of the cgroup. For ex: if the max bits in the CBM
+is 10 and the cache size is 10MB, each bit represents 1MB of cache
+capacity.
+
+Root cgroup always has all the bits set in the l3_cbm. User can create
+more cgroups with mkdir syscall. By default the child cgroups inherit
+the capacity bitmask(CBM) from parent. User can change the CBM specified
+in hex for each cgroup. Each unique bitmask is associated with a class
+of service ID and an -ENOSPC is returned once we run out of
+closids.
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+---
+ arch/x86/include/asm/intel_rdt.h |  37 +++++++-
+ arch/x86/kernel/cpu/intel_rdt.c  | 194 +++++++++++++++++++++++++++++++++++++--
+ include/linux/cgroup_subsys.h    |   4 +
+ include/linux/sched.h            |   3 -
+ init/Kconfig                     |   4 +-
+ 5 files changed, 229 insertions(+), 13 deletions(-)
+
+diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
+index afb6da3..fbe1e00 100644
+--- a/arch/x86/include/asm/intel_rdt.h
++++ b/arch/x86/include/asm/intel_rdt.h
+@@ -3,6 +3,7 @@
+ 
+ #ifdef CONFIG_INTEL_RDT
+ 
++#include <linux/cgroup.h>
+ #include <linux/jump_label.h>
+ 
+ #define MAX_CBM_LENGTH			32
+@@ -12,20 +13,54 @@
+ extern struct static_key rdt_enable_key;
+ void __intel_rdt_sched_in(void *dummy);
+ 
++struct intel_rdt {
++	struct cgroup_subsys_state css;
++	u32 closid;
++};
++
+ struct clos_cbm_table {
+ 	unsigned long l3_cbm;
+ 	unsigned int clos_refcnt;
+ };
+ 
+ /*
++ * Return rdt group corresponding to this container.
++ */
++static inline struct intel_rdt *css_rdt(struct cgroup_subsys_state *css)
++{
++	return css ? container_of(css, struct intel_rdt, css) : NULL;
++}
++
++static inline struct intel_rdt *parent_rdt(struct intel_rdt *ir)
++{
++	return css_rdt(ir->css.parent);
++}
++
++/*
++ * Return rdt group to which this task belongs.
++ */
++static inline struct intel_rdt *task_rdt(struct task_struct *task)
++{
++	return css_rdt(task_css(task, intel_rdt_cgrp_id));
++}
++
++/*
+  * intel_rdt_sched_in() - Writes the task's CLOSid to IA32_PQR_MSR
+  *
+  * Following considerations are made so that this has minimal impact
+  * on scheduler hot path:
+  * - This will stay as no-op unless we are running on an Intel SKU
+  * which supports L3 cache allocation.
++ * - When support is present and enabled, does not do any
++ * IA32_PQR_MSR writes until the user starts really using the feature
++ * ie creates a rdt cgroup directory and assigns a cache_mask thats
++ * different from the root cgroup's cache_mask.
+  * - Caches the per cpu CLOSid values and does the MSR write only
+- * when a task with a different CLOSid is scheduled in.
++ * when a task with a different CLOSid is scheduled in. That
++ * means the task belongs to a different cgroup.
++ * - Closids are allocated so that different cgroup directories
++ * with same cache_mask gets the same CLOSid. This minimizes CLOSids
++ * used and reduces MSR write frequency.
+  */
+ static inline void intel_rdt_sched_in(void)
+ {
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index ecaf8e6..cb4d2ef 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -53,6 +53,10 @@ static cpumask_t tmp_cpumask;
+ static DEFINE_MUTEX(rdt_group_mutex);
+ struct static_key __read_mostly rdt_enable_key = STATIC_KEY_INIT_FALSE;
+ 
++static struct intel_rdt rdt_root_group;
++#define rdt_for_each_child(pos_css, parent_ir)		\
++	css_for_each_child((pos_css), &(parent_ir)->css)
++
+ struct rdt_remote_data {
+ 	int msr;
+ 	u64 val;
+@@ -108,17 +112,16 @@ static inline bool cache_alloc_supported(struct cpuinfo_x86 *c)
+ 	return false;
+ }
+ 
+-
+ void __intel_rdt_sched_in(void *dummy)
+ {
+ 	struct intel_pqr_state *state = this_cpu_ptr(&pqr_state);
+-	u32 closid = current->closid;
++	struct intel_rdt *ir = task_rdt(current);
+ 
+-	if (closid == state->closid)
++	if (ir->closid == state->closid)
+ 		return;
+ 
+-	wrmsr(MSR_IA32_PQR_ASSOC, state->rmid, closid);
+-	state->closid = closid;
++	wrmsr(MSR_IA32_PQR_ASSOC, state->rmid, ir->closid);
++	state->closid = ir->closid;
+ }
+ 
+ /*
+@@ -359,15 +362,175 @@ static int intel_rdt_cpu_notifier(struct notifier_block *nb,
+ 	return NOTIFY_OK;
+ }
+ 
++static struct cgroup_subsys_state *
++intel_rdt_css_alloc(struct cgroup_subsys_state *parent_css)
++{
++	struct intel_rdt *parent = css_rdt(parent_css);
++	struct intel_rdt *ir;
++
++	/*
++	 * cgroup_init cannot handle failures gracefully.
++	 * Return rdt_root_group.css instead of failure
++	 * always even when Cache allocation is not supported.
++	 */
++	if (!parent)
++		return &rdt_root_group.css;
++
++	ir = kzalloc(sizeof(struct intel_rdt), GFP_KERNEL);
++	if (!ir)
++		return ERR_PTR(-ENOMEM);
++
++	mutex_lock(&rdt_group_mutex);
++	ir->closid = parent->closid;
++	closid_get(ir->closid);
++	mutex_unlock(&rdt_group_mutex);
++
++	return &ir->css;
++}
++
++static void intel_rdt_css_free(struct cgroup_subsys_state *css)
++{
++	struct intel_rdt *ir = css_rdt(css);
++
++	mutex_lock(&rdt_group_mutex);
++	closid_put(ir->closid);
++	kfree(ir);
++	mutex_unlock(&rdt_group_mutex);
++}
++
++static int intel_cache_alloc_cbm_read(struct seq_file *m, void *v)
++{
++	struct intel_rdt *ir = css_rdt(seq_css(m));
++	unsigned long l3_cbm = 0;
++
++	clos_cbm_table_read(ir->closid, &l3_cbm);
++	seq_printf(m, "%08lx\n", l3_cbm);
++
++	return 0;
++}
++
++static int cbm_validate_rdt_cgroup(struct intel_rdt *ir, unsigned long cbmvalue)
++{
++	struct cgroup_subsys_state *css;
++	struct intel_rdt *par, *c;
++	unsigned long cbm_tmp = 0;
++	int err = 0;
++
++	if (!cbm_validate(cbmvalue)) {
++		err = -EINVAL;
++		goto out_err;
++	}
++
++	par = parent_rdt(ir);
++	clos_cbm_table_read(par->closid, &cbm_tmp);
++	if (!bitmap_subset(&cbmvalue, &cbm_tmp, MAX_CBM_LENGTH)) {
++		err = -EINVAL;
++		goto out_err;
++	}
++
++	rcu_read_lock();
++	rdt_for_each_child(css, ir) {
++		c = css_rdt(css);
++		clos_cbm_table_read(par->closid, &cbm_tmp);
++		if (!bitmap_subset(&cbm_tmp, &cbmvalue, MAX_CBM_LENGTH)) {
++			rcu_read_unlock();
++			err = -EINVAL;
++			goto out_err;
++		}
++	}
++	rcu_read_unlock();
++out_err:
++
++	return err;
++}
++
++/*
++ * intel_cache_alloc_cbm_write() - Validates and writes the
++ * cache bit mask(cbm) to the IA32_L3_MASK_n
++ * and also store the same in the cctable.
++ *
++ * CLOSids are reused for cgroups which have same bitmask.
++ * This helps to use the scant CLOSids optimally. This also
++ * implies that at context switch write to PQR-MSR is done
++ * only when a task with a different bitmask is scheduled in.
++ */
++static int intel_cache_alloc_cbm_write(struct cgroup_subsys_state *css,
++				 struct cftype *cft, u64 cbmvalue)
++{
++	struct intel_rdt *ir = css_rdt(css);
++	unsigned long ccbm = 0;
++	int err = 0;
++	u32 closid;
++
++	if (ir == &rdt_root_group)
++		return -EPERM;
++
++	/*
++	 * Need global mutex as cbm write may allocate a closid.
++	 */
++	mutex_lock(&rdt_group_mutex);
++
++	clos_cbm_table_read(ir->closid, &ccbm);
++	if (cbmvalue == ccbm)
++		goto out;
++
++	err = cbm_validate_rdt_cgroup(ir, cbmvalue);
++	if (err)
++		goto out;
++
++	/*
++	 * Try to get a reference for a different CLOSid and release the
++	 * reference to the current CLOSid.
++	 * Need to put down the reference here and get it back in case we
++	 * run out of closids. Otherwise we run into a problem when
++	 * we could be using the last closid that could have been available.
++	 */
++	closid_put(ir->closid);
++	if (cbm_search(cbmvalue, &closid)) {
++		ir->closid = closid;
++		closid_get(closid);
++	} else {
++		closid = ir->closid;
++		err = closid_alloc(&ir->closid);
++		if (err) {
++			closid_get(ir->closid);
++			goto out;
++		}
++
++		clos_cbm_table_update(ir->closid, cbmvalue);
++		msr_update_all(CBM_FROM_INDEX(ir->closid), cbmvalue);
++	}
++	closid_tasks_sync();
++	closcbm_map_dump();
++out:
++	mutex_unlock(&rdt_group_mutex);
++
++	return err;
++}
++
++static void rdt_cgroup_init(void)
++{
++	int max_cbm_len = boot_cpu_data.x86_cache_max_cbm_len;
++	u32 closid;
++
++	closid_alloc(&closid);
++
++	WARN_ON(closid != 0);
++
++	rdt_root_group.closid = closid;
++	clos_cbm_table_update(closid, (1ULL << max_cbm_len) - 1);
++}
++
+ static int __init intel_rdt_late_init(void)
+ {
+ 	struct cpuinfo_x86 *c = &boot_cpu_data;
+ 	u32 maxid, max_cbm_len;
+ 	int err = 0, size, i;
+ 
+-	if (!cache_alloc_supported(c))
++	if (!cache_alloc_supported(c)) {
++		rdt_root_group.css.ss->disabled = 1;
+ 		return -ENODEV;
+-
++	}
+ 	maxid = c->x86_cache_max_closid;
+ 	max_cbm_len = c->x86_cache_max_cbm_len;
+ 
+@@ -394,6 +557,7 @@ static int __init intel_rdt_late_init(void)
+ 	__hotcpu_notifier(intel_rdt_cpu_notifier, 0);
+ 
+ 	cpu_notifier_register_done();
++	rdt_cgroup_init();
+ 
+ 	static_key_slow_inc(&rdt_enable_key);
+ 	pr_info("Intel cache allocation enabled\n");
+@@ -403,3 +567,19 @@ out_err:
+ }
+ 
+ late_initcall(intel_rdt_late_init);
++
++static struct cftype rdt_files[] = {
++	{
++		.name		= "l3_cbm",
++		.seq_show	= intel_cache_alloc_cbm_read,
++		.write_u64	= intel_cache_alloc_cbm_write,
++	},
++	{ }	/* terminate */
++};
++
++struct cgroup_subsys intel_rdt_cgrp_subsys = {
++	.css_alloc		= intel_rdt_css_alloc,
++	.css_free		= intel_rdt_css_free,
++	.legacy_cftypes		= rdt_files,
++	.early_init		= 0,
++};
+diff --git a/include/linux/cgroup_subsys.h b/include/linux/cgroup_subsys.h
+index 1a96fda..c559ef5 100644
+--- a/include/linux/cgroup_subsys.h
++++ b/include/linux/cgroup_subsys.h
+@@ -58,6 +58,10 @@ SUBSYS(net_prio)
+ SUBSYS(hugetlb)
+ #endif
+ 
++#if IS_ENABLED(CONFIG_INTEL_RDT)
++SUBSYS(intel_rdt)
++#endif
++
+ /*
+  * Subsystems that implement the can_fork() family of callbacks.
+  */
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 24bfbac..b7b9501 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1668,9 +1668,6 @@ struct task_struct {
+ 	/* cg_list protected by css_set_lock and tsk->alloc_lock */
+ 	struct list_head cg_list;
+ #endif
+-#ifdef CONFIG_INTEL_RDT
+-	u32 closid;
+-#endif
+ #ifdef CONFIG_FUTEX
+ 	struct robust_list_head __user *robust_list;
+ #ifdef CONFIG_COMPAT
+diff --git a/init/Kconfig b/init/Kconfig
+index 9fe3f11..e0e18d5 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -938,6 +938,8 @@ menuconfig CGROUPS
+ 
+ 	  Say N if unsure.
+ 
++if CGROUPS
++
+ config INTEL_RDT
+ 	bool "Intel Resource Director Technology support"
+ 	depends on X86_64 && CPU_SUP_INTEL
+@@ -950,8 +952,6 @@ config INTEL_RDT
+ 
+ 	  Say N if unsure.
+ 
+-if CGROUPS
+-
+ config CGROUP_DEBUG
+ 	bool "Example debug cgroup subsystem"
+ 	default n
+-- 
+1.8.1.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
