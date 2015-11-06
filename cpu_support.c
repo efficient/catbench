@@ -93,7 +93,8 @@ static void check_cat_support(cpu_support_t *buf) {
 	cpuid(&l3_details, BIT_CAT_L3.regs.leaf, BIT_CAT_L3.bits.shift);
 	buf->cat_levels[0].cache_level = 3;
 	buf->cat_levels[0].num_ways = regs_bitrange(&l3_details, &SEL_CBM_LEN) + 1;
-	buf->cat_levels[0].shared_ways_mask = regs_bitrange(&l3_details, &SEL_SHAREABLE);
+	buf->cat_levels[0].shared_ways_mask = regs_bitrange(&l3_details, &SEL_SHAREABLE) &
+			((1 << buf->cat_levels[0].num_ways) - 1);
 	buf->cat_levels[0].num_classes = regs_bitrange(&l3_details, &SEL_CLASSES) + 1;
 	buf->cat_levels[0].supported =
 			buf->cat_levels[0].num_ways && buf->cat_levels[0].num_classes;

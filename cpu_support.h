@@ -2,21 +2,22 @@
 #define CATBENCH_CPU_SUPPORT_H_
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "log.h"
 
 typedef struct {
-	unsigned cache_level;
+	int cache_level;
 	bool supported;
-	unsigned num_ways;
+	uint8_t num_ways;
 	unsigned shared_ways_mask;
-	unsigned num_classes;
+	uint16_t num_classes;
 } cpu_support_cat_t;
 
 typedef struct {
-	unsigned num_cores;
+	uint8_t num_cores;
 	bool hthreaded;
-	unsigned num_cat_levels;
+	int num_cat_levels;
 	cpu_support_cat_t *cat_levels;
 } cpu_support_t;
 
