@@ -6,6 +6,10 @@ int main(void) {
 	cpu_support_t feats;
 	cpu_support(&feats);
 	// TODO: Log CPU features
+	if(feats.num_cores == 1) {
+		ret = 1;
+		goto cleanup;
+	}
 	if(!feats.num_cat_levels) {
 		ret = 1;
 		goto cleanup;

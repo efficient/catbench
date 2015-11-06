@@ -35,12 +35,21 @@ typedef struct {
 	bit_range_t bits;
 } cpuid_desc_t;
 
+static const tree_node_t NOD_MODL =      {0x01, 0x00};
+static const bit_range_t SEL_MODL_CPUS = {REG_b, 16, 0x000000ff};
+static const bit_range_t SEL_MODL_HTT =  {REG_d, 28, 0x00000001};
+
 static const cpuid_desc_t VEC_MAXLEAF =  {{0x00, 0x00}, {REG_a, 00, 0xffffffff}};
 static const cpuid_desc_t BIT_CAT_PQE =  {{0x07, 0x00}, {REG_b, 15, 0x00000001}};
+
 static const cpuid_desc_t BIT_CAT_L3 =   {{0x10, 0x00}, {REG_b, 01, 0x00000001}};
 static const bit_range_t SEL_CBM_LEN =   {REG_a, 00, 0x0000000f};
 static const bit_range_t SEL_SHAREABLE = {REG_b, 00, 0xffffffff};
 static const bit_range_t SEL_CLASSES =   {REG_d, 00, 0x0000ffff};
+
+static inline void cpuid_packed(cpuid_t *buf, const tree_node_t *node) {
+	cpuid(buf, node->leaf, node->subleaf);
+}
 
 static inline uint32_t regs_bitrange(const cpuid_t *bits, const bit_range_t *range) {
 	return (range->reg(bits) >> range->shift) & range->mask;
@@ -48,8 +57,18 @@ static inline uint32_t regs_bitrange(const cpuid_t *bits, const bit_range_t *ran
 
 static inline uint32_t cpuid_bitrange(const cpuid_desc_t *desc) {
 	cpuid_t node;
-	cpuid(&node, desc->regs.leaf, desc->regs.subleaf);
+	cpuid_packed(&node, &desc->regs);
 	return regs_bitrange(&node, &desc->bits);
+}
+
+static void check_cores(cpu_support_t *buf) {
+	cpuid_t chip_version;
+	cpuid_packed(&chip_version, &NOD_MODL);
+
+	buf->num_cores = regs_bitrange(&chip_version, &SEL_MODL_CPUS);
+
+	if(regs_bitrange(&chip_version, &SEL_MODL_HTT))
+		buf->hthreaded = true;
 }
 
 static void check_cat_support(cpu_support_t *buf) {
@@ -79,6 +98,7 @@ static void check_cat_support(cpu_support_t *buf) {
 
 void cpu_support(cpu_support_t *buf) {
 	memset(buf, 0, sizeof *buf);
+	check_cores(buf);
 	// TODO: check_cmt_support() ?
 	check_cat_support(buf);
 }
