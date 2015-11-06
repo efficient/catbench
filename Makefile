@@ -25,4 +25,4 @@ all: catbench
 clean:
 	git clean -fX
 
-catbench: catbench.c cpu_support.o cpuid.o
+catbench: catbench.c cpu_support.o cpuid.o log.o

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "cpuid.h"
+#include "log.h"
 
 typedef uint32_t (*const reg_selector_f)(const cpuid_t *);
 
@@ -72,17 +73,20 @@ static void check_cores(cpu_support_t *buf) {
 }
 
 static void check_cat_support(cpu_support_t *buf) {
-	if(cpuid_bitrange(&VEC_MAXLEAF) < BIT_CAT_L3.regs.leaf)
-		// TODO: Log
+	if(cpuid_bitrange(&VEC_MAXLEAF) < BIT_CAT_L3.regs.leaf) {
+		log_msg(LOG_ERROR, "CPU too old to query for CAT support\n");
 		return;
+	}
 
-	if(!cpuid_bitrange(&BIT_CAT_PQE))
-		// TODO: Log
+	if(!cpuid_bitrange(&BIT_CAT_PQE)) {
+		log_msg(LOG_ERROR, "CPU does not support CAT\n");
 		return;
+	}
 
-	if(!cpuid_bitrange(&BIT_CAT_L3))
-		// TODO: Log
+	if(!cpuid_bitrange(&BIT_CAT_L3)) {
+		log_msg(LOG_ERROR, "CPU does not support CAT for cache level 3\n");
 		return;
+	}
 	buf->num_cat_levels = 1;
 	buf->cat_levels = malloc(sizeof(*buf->cat_levels));
 
