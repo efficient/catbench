@@ -15,7 +15,7 @@ typedef struct {
 } cpu_support_cat_t;
 
 typedef struct {
-	uint8_t num_cores;
+	int num_cores;
 	bool hthreaded;
 	int num_cat_levels;
 	cpu_support_cat_t *cat_levels;

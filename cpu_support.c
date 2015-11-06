@@ -1,5 +1,6 @@
 #include "cpu_support.h"
 
+#include <sys/sysinfo.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -35,9 +36,7 @@ typedef struct {
 	bit_range_t bits;
 } cpuid_desc_t;
 
-static const tree_node_t NOD_MODL =      {0x01, 0x00};
-static const bit_range_t SEL_MODL_CPUS = {REG_b, 16, 0x000000ff};
-static const bit_range_t SEL_MODL_HTT =  {REG_d, 28, 0x00000001};
+static const cpuid_desc_t BIT_MODL_HTT = {{0x01, 0x00}, {REG_d, 28, 0x00000001}};
 
 static const cpuid_desc_t VEC_MAXLEAF =  {{0x00, 0x00}, {REG_a, 00, 0xffffffff}};
 static const cpuid_desc_t BIT_CAT_PQE =  {{0x07, 0x00}, {REG_b, 15, 0x00000001}};
@@ -62,13 +61,8 @@ static inline uint32_t cpuid_bitrange(const cpuid_desc_t *desc) {
 }
 
 static void check_cores(cpu_support_t *buf) {
-	cpuid_t chip_version;
-	cpuid_packed(&chip_version, &NOD_MODL);
-
-	buf->num_cores = regs_bitrange(&chip_version, &SEL_MODL_CPUS);
-
-	if(regs_bitrange(&chip_version, &SEL_MODL_HTT))
-		buf->hthreaded = true;
+	buf->num_cores = get_nprocs();
+	buf->hthreaded = cpuid_bitrange(&BIT_MODL_HTT);
 }
 
 static void check_cat_support(cpu_support_t *buf) {
