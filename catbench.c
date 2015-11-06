@@ -6,7 +6,7 @@ int main(void) {
 
 	cpu_support_t feats;
 	cpu_support(&feats);
-	// TODO: Log CPU features
+	cpu_support_log(LOG_INFO, &feats);
 	if(feats.num_cores == 1) {
 		log_msg(LOG_FATAL, "Benchmarks must be run on a multiprocessor\n");
 		ret = 1;

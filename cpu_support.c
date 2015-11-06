@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "cpuid.h"
-#include "log.h"
 
 typedef uint32_t (*const reg_selector_f)(const cpuid_t *);
 
@@ -113,4 +112,20 @@ void cpu_support_cleanup(cpu_support_t *victim) {
 		victim->cat_levels = NULL;
 	}
 	victim->num_cat_levels = 0;
+}
+
+void cpu_support_log(log_verbosity_t verb, const cpu_support_t *feats) {
+	log_msg(verb, "Detected CPU features:\n");
+	log_msg(verb, "\t%u logical cores, %shyperthreaded\n", feats->num_cores,
+			feats->hthreaded ? "" : "not ");
+	log_msg(verb, "\tCAT %ssupported\n", feats->num_cat_levels ? "" : "un");
+	cpu_support_foreach_cat_level(level, *feats) {
+		if(!level->supported)
+			continue;
+
+		log_msg(verb, "\t\tCAT available for cache level %u:\n", level->cache_level);
+		log_msg(verb, "\t\t\t%u-way with sharing mask %#x\n", level->num_ways,
+				level->shared_ways_mask);
+		log_msg(verb, "\t\t\t%u classes of service\n");
+	}
 }

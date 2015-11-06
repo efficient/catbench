@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "log.h"
+
 typedef struct {
 	unsigned cache_level;
 	bool supported;
@@ -20,6 +22,8 @@ typedef struct {
 
 void cpu_support(cpu_support_t *buf);
 void cpu_support_cleanup(cpu_support_t *victim);
+
+void cpu_support_log(log_verbosity_t verb, const cpu_support_t *feats);
 
 #define cpu_support_foreach_cat_level(supp_cat, supp) \
 	for(const cpu_support_cat_t *supp_cat = (supp).cat_levels; \
