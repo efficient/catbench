@@ -1,6 +1,7 @@
 #include "cpu_support.h"
 
 #include <sys/sysinfo.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -82,6 +83,7 @@ static void check_cat_support(cpu_support_t *buf) {
 	}
 	buf->num_cat_levels = 1;
 	buf->cat_levels = malloc(sizeof(*buf->cat_levels));
+	assert(buf->cat_levels);
 
 	cpuid_t l3_details;
 	cpuid(&l3_details, BIT_CAT_L3.regs.leaf, BIT_CAT_L3.bits.shift);
