@@ -10,7 +10,11 @@ static const char *const VERBOSITY_DESCRS[] = {
 	"VERBOSE: ",
 };
 
-static log_verbosity_t max_handled = LOG_VERBOSE;
+#ifndef LOG_DEFAULT_VERBOSITY
+#define LOG_DEFAULT_VERBOSITY LOG_ERROR
+#endif
+
+static log_verbosity_t max_handled = LOG_DEFAULT_VERBOSITY;
 static FILE *write_dest = NULL;
 
 void log_set_verbosity(log_verbosity_t max) {
@@ -30,6 +34,7 @@ int log_msg(log_verbosity_t verb, const char *format, ...) {
 
 	va_list ap;
 	va_start(ap, format);
+	// TODO: Log caller's name?
 	fputs(VERBOSITY_DESCRS[verb], write_dest);
 	int ret = vfprintf(write_dest, format, ap);
 	va_end(ap);

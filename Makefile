@@ -1,4 +1,5 @@
 CPPFLAGS := \
+	-DLOG_DEFAULT_VERBOSITY=LOG_VERBOSE \
 	-Wundef \
 
 CFLAGS := \
