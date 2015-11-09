@@ -1,5 +1,6 @@
 CPPFLAGS := \
 	-DLOG_DEFAULT_VERBOSITY=LOG_VERBOSE \
+	-D_GNU_SOURCE \
 	-Wundef \
 
 CFLAGS := \
@@ -20,10 +21,14 @@ CFLAGS := \
 	-Wno-unused-function \
 
 .PHONY: all
-all: catbench
+all: catbench-setcap
 
 .PHONY: clean
 clean:
 	git clean -fX
 
-catbench: cpu_support.o cpuid.o log.o
+.PHONY: catbench-setcap
+catbench-setcap: catbench
+	sudo setcap cap_sys_nice+ep $<
+
+catbench: cpu_support.o cpuid.o log.o proc_manip.o
