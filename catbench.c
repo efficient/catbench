@@ -144,9 +144,10 @@ int main(int argc, char** argv) {
 	}
         if (quit) goto cleanup;
         run_benchmarks(&feats);
+	if(!unpin_procs)
+		rearrange_processes(true, 0, &feats);
 
 cleanup:
-        rearrange_processes(true, 0, &feats);
 	cpu_support_cleanup(&feats);
 	return ret;
 }
