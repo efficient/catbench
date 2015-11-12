@@ -1,3 +1,6 @@
+#include <unistd.h>
+#include <stdlib.h>
+
 #include "cpu_support.h"
 #include "log.h"
 #include "proc_manip.h"
@@ -5,14 +8,21 @@
 // Number of times to iterate over all processes when attempting to move them between CPUs
 #define REARRANGE_RETRIES 3
 
-static bool rearrange_processes(bool multicore, const cpu_support_t *feats) {
+static int pick_core (const cpu_support_t *feats, int procs_go_where) {
+  int cpu = procs_go_where % feats->num_cores;
+  while (cpu < 0) cpu += feats-> num_cores;
+  return cpu;
+}
+
+static bool rearrange_processes(bool multicore, int procs_go_where, const cpu_support_t *feats) {
 	cpu_set_t mask;
 	CPU_ZERO(&mask);
 	if(multicore) {
 		for(int cpu = 0; cpu < feats->num_cores; ++cpu)
 			CPU_SET(cpu, &mask);
-	} else
-		CPU_SET(feats->num_cores - 1, &mask);
+	} else {
+          CPU_SET(pick_core(feats, procs_go_where), &mask);
+        }
 
 	int attempts;
 	uint8_t failed;
@@ -35,19 +45,44 @@ static bool rearrange_processes(bool multicore, const cpu_support_t *feats) {
 	return true;
 }
 
-int main(void) {
-	int ret = 0;
-
+int main(int argc, char** argv) {
+        int ret = 0;
+        int unpin_procs = 0;
+        int procs_go_where = 0;
+        int quit = 0;
 	cpu_support_t feats;
+
+        // Get dem opts
+        int c, has_p = 0;
+        while ((c = getopt(argc, argv, "hqup:")) != -1) {
+          switch (c) {
+          case 'u':
+            unpin_procs = 1;
+            break;
+          case 'p':
+            procs_go_where = atoi(optarg);
+            has_p = 1;
+            break;
+          case 'q':
+            quit = 1;
+            break;
+          case 'h':
+            log_msg(LOG_INFO, 
+"Usage: \n"
+"  -p CORE: Pin system processes to CORE\n"
+"  -u: Unpin all system processes\n"
+"  -q: Quit after migrating, before benchmarks\n"
+"  -h: Print this message and exit\n");
+            return 0;
+          }
+        }
+
+        if (has_p && unpin_procs) {
+          log_msg(LOG_FATAL, "Cannot specify both -p and -u");
+        }
+
 	cpu_support(&feats);
 	cpu_support_log(LOG_INFO, &feats);
-
-	// TODO: Move after sanity-checks
-	if(!rearrange_processes(false, &feats)) {
-		log_msg(LOG_FATAL, "Unable to relocate all system processes (permissions?)\n");
-		ret = 1;
-		goto cleanup;
-	}
 
 	if(feats.num_cores == 1) {
 		log_msg(LOG_FATAL, "Benchmarks must be run on a multiprocessor\n");
@@ -71,11 +106,16 @@ int main(void) {
 		break;
 	}
 
-	// TODO: Place process migration here
-	// TODO: Run desired benchmarks
-	// TODO: Undo process migration
+	if(!rearrange_processes(unpin_procs, procs_go_where, &feats)) {
+		log_msg(LOG_FATAL, "Unable to relocate all system processes (permissions?)\n");
+		ret = 1;
+		goto cleanup;
+	}
+        if (quit) goto cleanup;
+        // TODO: Run desired benchmarks
 
 cleanup:
+        rearrange_processes(true, 0, &feats);
 	cpu_support_cleanup(&feats);
 	return ret;
 }
