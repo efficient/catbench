@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "cpu_support.h"
 #include "log.h"
@@ -43,6 +44,35 @@ static bool rearrange_processes(bool multicore, int procs_go_where, const cpu_su
 	}
 	log_msg(LOG_INFO, "Successfully relocated all system processes in %d attempts\n", attempts);
 	return true;
+}
+
+static void* naptime(void* pointerToFalse) {
+  log_msg(LOG_INFO, "want to sleep");
+  sleep(3);
+  log_msg(LOG_INFO, "sleppt");
+  return pointerToFalse;
+}
+
+static void run_benchmarks(const cpu_support_t *feats) {
+  log_msg(LOG_INFO, "On your mark");
+  int nthreads = feats->num_cores;
+  pthread_t threads[nthreads];
+  void* (*tests[]) (void*) = {
+    &naptime,
+    NULL
+};
+
+  for (int i=0; tests[i]; i++) {
+    log_msg(LOG_INFO, "Get benched");
+    for (int j=0; j<nthreads; j++) {
+      log_msg(LOG_INFO, "GOO");
+      pthread_create(threads+j, NULL, tests[i], NULL);
+    } 
+    for (int j=0; j<nthreads; j++) {
+      pthread_join(threads[j], NULL);
+    } 
+  }
+  //TODO: Insert printification of results here.
 }
 
 int main(int argc, char** argv) {
@@ -108,11 +138,12 @@ int main(int argc, char** argv) {
 
 	if(!rearrange_processes(unpin_procs, procs_go_where, &feats)) {
 		log_msg(LOG_FATAL, "Unable to relocate all system processes (permissions?)\n");
-		ret = 1;
-		goto cleanup;
+                // Probably don't want to quit early here, because failing to migrate is common
+		// ret = 1;
+		// goto cleanup;
 	}
         if (quit) goto cleanup;
-        // TODO: Run desired benchmarks
+        run_benchmarks(&feats);
 
 cleanup:
         rearrange_processes(true, 0, &feats);

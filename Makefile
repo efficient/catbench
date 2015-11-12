@@ -6,6 +6,7 @@ CPPFLAGS := \
 CFLAGS := \
 	-Og \
 	-g3 \
+	-pthread \
 	-std=c99 \
 	-Wall \
 	-Wextra \
