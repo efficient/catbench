@@ -1,0 +1,3 @@
+[submodule "external/pqos"]
+	path = external/pqos
+	url = git://github.com/01org/intel-cmt-cat
