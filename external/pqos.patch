@@ -1,0 +1,12 @@
+diff --git i/lib/log.c w/lib/log.c
+index 15d5086..f346041 100644
+--- i/lib/log.c
++++ w/lib/log.c
+@@ -106,6 +106,7 @@ int log_fini(void)
+         if ((m_fd != STDOUT_FILENO) && (m_fd != STDERR_FILENO))
+                 close(m_fd);
+ 
++	fclose(m_file);
+ 	m_file = NULL;
+         m_opt = 0;
+ 	m_fd = -1;
