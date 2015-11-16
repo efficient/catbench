@@ -5,22 +5,7 @@ CPPFLAGS += \
 	-D_GNU_SOURCE \
 
 CFLAGS += \
-	-Og \
-	-g3 \
 	-pthread \
-	-std=c99 \
-	-Wall \
-	-Wextra \
-	-Wpedantic \
-	-Wcast-qual \
-	-Wfloat-equal \
-	-Winline \
-	-Wmissing-include-dirs \
-	-Wmissing-prototypes \
-	-Wredundant-decls \
-	-Wstrict-prototypes \
-	-Wwrite-strings \
-	-Wno-unused-function
 
 .PHONY: all
 all: catbench-setcap
