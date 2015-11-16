@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdlib.h>
+#include <pqos.h>
 #include <pthread.h>
 
 #include "cpu_support.h"
@@ -9,17 +10,18 @@
 // Number of times to iterate over all processes when attempting to move them between CPUs
 #define REARRANGE_RETRIES 3
 
-static int pick_core (const cpu_support_t *feats, int procs_go_where) {
+static int pick_core (const struct pqos_cpuinfo *feats, int procs_go_where) {
   int cpu = procs_go_where % feats->num_cores;
   while (cpu < 0) cpu += feats-> num_cores;
   return cpu;
 }
 
-static bool rearrange_processes(bool multicore, int procs_go_where, const cpu_support_t *feats) {
+static bool rearrange_processes(bool multicore, int procs_go_where,
+		const struct pqos_cpuinfo *feats) {
 	cpu_set_t mask;
 	CPU_ZERO(&mask);
 	if(multicore) {
-		for(int cpu = 0; cpu < feats->num_cores; ++cpu)
+		for(unsigned cpu = 0; cpu < feats->num_cores; ++cpu)
 			CPU_SET(cpu, &mask);
 	} else {
           CPU_SET(pick_core(feats, procs_go_where), &mask);
@@ -53,7 +55,7 @@ static void* naptime(void* pointerToFalse) {
   return pointerToFalse;
 }
 
-static void run_benchmarks(const cpu_support_t *feats) {
+static void run_benchmarks(const struct pqos_cpuinfo *feats) {
   log_msg(LOG_INFO, "On your mark");
   int nthreads = feats->num_cores;
   pthread_t threads[nthreads];
@@ -80,7 +82,6 @@ int main(int argc, char** argv) {
         int unpin_procs = 0;
         int procs_go_where = 0;
         int quit = 0;
-	cpu_support_t feats;
 
         // Get dem opts
         int c, has_p = 0;
@@ -111,43 +112,36 @@ int main(int argc, char** argv) {
           log_msg(LOG_FATAL, "Cannot specify both -p and -u");
         }
 
-	cpu_support(&feats);
-	cpu_support_log(LOG_INFO, &feats);
-
-	if(feats.num_cores == 1) {
-		log_msg(LOG_FATAL, "Benchmarks must be run on a multiprocessor\n");
+	struct pqos_config cfg = {
+		.fd_log = fileno(log_get_dest()),
+		.verbose = log_get_verbosity(),
+		.topology = NULL,
+		.free_in_use_rmid = 0,
+		.cdp_cfg = PQOS_REQUIRE_CDP_OFF,
+	};
+	int pqos_res = pqos_init(&cfg);
+	if(pqos_res != PQOS_RETVAL_OK) {
+		log_msg(LOG_FATAL, "Library init failed with code %d (HW support?)\n", pqos_res);
 		ret = 1;
 		goto cleanup;
 	}
-	if(!feats.num_cat_levels) {
-		log_msg(LOG_FATAL, "Benchmarks require altogether missing CAT support\n");
-		ret = 1;
-		goto cleanup;
-	}
-	cpu_support_foreach_cat_level(cache_level, feats) {
-		if (cache_level->cache_level != 3)
-			continue;
 
-		if (!cache_level->supported) {
-			log_msg(LOG_FATAL, "Benchmarks require missing L3 CAT support\n");
-			ret = 1;
-			goto cleanup;
-		}
-		break;
-	}
+	const struct pqos_cpuinfo *traits = NULL;
+	const struct pqos_cap *feats = NULL;
+	pqos_cap_get(&feats, &traits);
 
-	if(!rearrange_processes(unpin_procs, procs_go_where, &feats)) {
+	if(!rearrange_processes(unpin_procs, procs_go_where, traits)) {
 		log_msg(LOG_FATAL, "Unable to relocate all system processes (permissions?)\n");
                 // Probably don't want to quit early here, because failing to migrate is common
 		// ret = 1;
 		// goto cleanup;
 	}
         if (quit) goto cleanup;
-        run_benchmarks(&feats);
+        run_benchmarks(traits);
 	if(!unpin_procs)
-		rearrange_processes(true, 0, &feats);
+		rearrange_processes(true, 0, traits);
 
 cleanup:
-	cpu_support_cleanup(&feats);
+	pqos_fini();
 	return ret;
 }

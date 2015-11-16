@@ -17,8 +17,22 @@ static const char *const VERBOSITY_DESCRS[] = {
 static log_verbosity_t max_handled = LOG_DEFAULT_VERBOSITY;
 static FILE *write_dest = NULL;
 
+static inline void init_write_dest(void) {
+	if (!write_dest)
+		write_dest = stderr;
+}
+
+log_verbosity_t log_get_verbosity(void) {
+	return max_handled;
+}
+
 void log_set_verbosity(log_verbosity_t max) {
 	max_handled = max;
+}
+
+FILE *log_get_dest(void) {
+	init_write_dest();
+	return write_dest;
 }
 
 void log_set_dest(FILE *stream) {
@@ -26,8 +40,7 @@ void log_set_dest(FILE *stream) {
 }
 
 int log_msg(log_verbosity_t verb, const char *format, ...) {
-	if (!write_dest)
-		write_dest = stderr;
+	init_write_dest();
 
 	if(verb > max_handled)
 		return 0;
