@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
         }
 
 	struct pqos_config cfg = {
-		.fd_log = fileno(log_get_dest()),
+		.fd_log = log_get_dest(),
 		.verbose = log_get_verbosity(),
 		.topology = NULL,
 		.free_in_use_rmid = 0,

@@ -1,12 +1,77 @@
 diff --git i/lib/log.c w/lib/log.c
-index 15d5086..f346041 100644
+index 15d5086..d007e10 100644
 --- i/lib/log.c
 +++ w/lib/log.c
-@@ -106,6 +106,7 @@ int log_fini(void)
-         if ((m_fd != STDOUT_FILENO) && (m_fd != STDERR_FILENO))
-                 close(m_fd);
+@@ -62,7 +62,6 @@
  
-+	fclose(m_file);
+ static FILE *m_file = NULL;             /**< file that log writes to */
+ static int m_opt = 0;                   /**< log options */
+-static int m_fd = -1;			/**< log file descriptor */
+ /**
+  * ---------------------------------------
+  * Local functions
+@@ -77,22 +76,20 @@ static int m_fd = -1;			/**< log file descriptor */
+  */
+ 
+ int
+-log_init(int fd, int opt)
++log_init(FILE *f, int opt)
+ {
+         int ret = LOG_RETVAL_OK;
+ 
+         if (m_file != NULL)
+                 return LOG_RETVAL_ERROR;
+ 
+-        m_file = fdopen(fd, "a");
++        m_file = f;
+         if (m_file == NULL) {
+-                fprintf(stderr, "%s: fdopen() failed: %s\n",
+-                       __func__, strerror(errno));
++                fprintf(stderr, "log_init expected a non-NULL FILE *\n");
+                 return LOG_RETVAL_ERROR;
+         }
+ 
+         m_opt = opt;
+-		m_fd = fd;
+         return ret;
+ }
+ 
+@@ -103,12 +100,8 @@ int log_fini(void)
+         if (m_file == NULL)
+                 return LOG_RETVAL_ERROR;
+ 
+-        if ((m_fd != STDOUT_FILENO) && (m_fd != STDERR_FILENO))
+-                close(m_fd);
+-
  	m_file = NULL;
          m_opt = 0;
- 	m_fd = -1;
+-	m_fd = -1;
+ 
+         return ret;
+ }
+diff --git i/lib/log.h w/lib/log.h
+index 97572bf..94af8f4 100644
+--- i/lib/log.h
++++ w/lib/log.h
+@@ -72,7 +72,7 @@ extern "C" {
+  * @return Operation status
+  * @retval LOG_RETVAL_OK on success
+  */
+-int log_init(int fd, int opt);
++int log_init(FILE *f, int opt);
+ 
+ /**
+  * @brief Shuts down PQoS log module
+diff --git i/lib/pqos.h w/lib/pqos.h
+index 7f7ee3f..ed7bd74 100644
+--- i/lib/pqos.h
++++ w/lib/pqos.h
+@@ -88,7 +88,7 @@ enum pqos_cdp_config {
+  * PQoS library configuration structure
+  */
+ struct pqos_config {
+-        int fd_log;                     /**< file descriptor to be used for
++        FILE *fd_log;                     /**< file descriptor to be used for
+                                            library to log messages */
+         int verbose;                    /**< if true increases library
+                                            verbosity level */
