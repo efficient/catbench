@@ -14,11 +14,24 @@ all: catbench-setcap
 clean:
 	git clean -fX
 
+.PHONY: clean-recursive
+clean-recursive: clean
+	$(RM) external/pqos/lib/libpqos.a.dep external/pqos/lib/libpqos.so.1 external/pqos/lib/libpqos.so.1.0.1
+	git submodule foreach git clean -fX
+	git submodule deinit .
+
+include external/modules.mk
+
+external/pqos/lib/libpqos.so: MAKE += SHARED=y
+external/pqos/lib/libpqos.so: external/pqos/lib/libpqos.so.1
+	[ -e $@ ] || ln -s $(<F) $@
+
 .PHONY: catbench-setcap
 catbench-setcap: catbench
 	sudo setcap cap_sys_nice+ep $<
 
-catbench: cpu_support.o cpuid.o log.o proc_manip.o
+catbench: LDLIBS += -lpqos
+catbench: cpu_support.o cpuid.o log.o proc_manip.o | external/pqos/lib/libpqos.so
 
 cpu_support.o: cpu_support.h
 cpuid.o: cpuid.h

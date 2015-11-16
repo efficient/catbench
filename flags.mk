@@ -1,5 +1,6 @@
 CPPFLAGS += \
 	-Wundef \
+	-Iexternal/pqos/lib \
 
 CFLAGS += \
 	-Og \
@@ -11,9 +12,11 @@ CFLAGS += \
 	-Wcast-qual \
 	-Wfloat-equal \
 	-Winline \
-	-Wmissing-include-dirs \
 	-Wmissing-prototypes \
 	-Wredundant-decls \
 	-Wstrict-prototypes \
 	-Wwrite-strings \
 	-Wno-unused-function \
+
+LDFLAGS += \
+	-Lexternal/pqos/lib \
