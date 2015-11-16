@@ -1,6 +1,6 @@
 CPPFLAGS += \
 	-Wundef \
-	-Iexternal/pqos/lib \
+	-isystem external/pqos/lib \
 
 CFLAGS += \
 	-Og \
