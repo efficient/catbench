@@ -1,0 +1,25 @@
+#!/bin/sh
+
+logfile=""
+core=""
+mask=""
+
+runtrial() {
+	sudo sh -c "PATH=$PATH pcm.x -- taskset $mask ./square_evictions $@" | grep '^\s*'"$core"'.*$' >>$logfile
+}
+
+if [ $# -lt 3 ]
+then
+	echo "USAGE: $0 <log file> <core> <0xmask>"
+	exit 1
+fi
+
+set -x
+logfile="$1"
+core="$2"
+mask="$3"
+touch "$logfile"
+seq 0 20 200 | while read ce
+do
+	runtrial -n1 -c"$ce" -e"$ce"
+done
