@@ -1,9 +1,9 @@
 #include <unistd.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <pqos.h>
 #include <pthread.h>
 
-#include "cpu_support.h"
 #include "log.h"
 #include "proc_manip.h"
 

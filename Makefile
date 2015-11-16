@@ -32,9 +32,7 @@ catbench-setcap: catbench
 	sudo setcap cap_sys_nice+ep $<
 
 catbench: LDLIBS += -lpqos
-catbench: cpu_support.o cpuid.o log.o proc_manip.o | external/pqos/lib/libpqos.so
+catbench: log.o proc_manip.o | external/pqos/lib/libpqos.so
 
-cpu_support.o: cpu_support.h
-cpuid.o: cpuid.h
 log.o: log.h
 proc_manip.o: proc_manip.h
