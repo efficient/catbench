@@ -5,12 +5,17 @@ core=""
 mask=""
 
 runtrial() {
-	sudo sh -c "PATH=$PATH pcm.x -- taskset $mask ./square_evictions $@" | grep '^\s*'"$core"'.*$' >>$logfile
+	if [ -n "$tool" ]
+	then
+		sudo sh -c "PATH=$PATH pcm.x -- taskset $mask ./square_evictions $@" | grep '^\s*'"$core"'.*$' >>$logfile
+	else
+		perf stat -e cache-misses,cache-references taskset "$mask" ./square_evictions "$@" >>$logfile 2>&1 >/dev/null
+	fi
 }
 
-if [ $# -lt 3 ]
+if [ $# -lt 3 -o \( $# -ge 4 -a "$4" != "pcm" \) ]
 then
-	echo "USAGE: $0 <log file> <core> <0xmask>"
+	echo "USAGE: $0 <log file> <core> <0xmask> [pcm]"
 	exit 1
 fi
 
@@ -18,6 +23,7 @@ set -x
 logfile="$1"
 core="$2"
 mask="$3"
+tool="$4"
 touch "$logfile"
 seq 0 20 200 | while read ce
 do
