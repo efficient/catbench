@@ -7,24 +7,33 @@ mask=""
 runtrial() {
 	if [ -n "$tool" ]
 	then
-		sudo sh -c "PATH=$PATH pcm.x -- taskset $mask ./square_evictions $@" | grep '^\s*'"$core"'.*$' >>$logfile
+		runlog sudo sh -c PATH="$PATH" pcm.x -- taskset "$mask" ./square_evictions "$@"
 	else
-		perf stat -e cache-misses,cache-references taskset "$mask" ./square_evictions "$@" >>$logfile 2>&1 >/dev/null
+		runlog perf stat -e cache-misses,cache-references taskset "$mask" ./square_evictions "$@"
 	fi
 }
 
-if [ $# -lt 3 -o \( $# -ge 4 -a "$4" != "pcm" \) ]
+runlog() {
+	echo "\$ $@"
+	"$@"
+}
+
+if [ $# -lt 2 -o \( $# -ge 3 -a "$3" != "pcm" \) ]
 then
-	echo "USAGE: $0 <log file> <core> <0xmask> [pcm]"
+	echo "USAGE: $0 <log file> <0xmask> [pcm]"
 	exit 1
 fi
 
-set -x
 logfile="$1"
-core="$2"
-mask="$3"
-tool="$4"
-touch "$logfile"
+mask="$2"
+tool="$3"
+exec >"$logfile" 2>&1
+git log --oneline -1
+git status -uno
+git diff HEAD
+echo ===
+echo
+
 seq 0 20 200 | while read ce
 do
 	runtrial -n1 -c"$ce" -e"$ce"
