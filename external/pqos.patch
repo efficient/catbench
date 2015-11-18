@@ -1,5 +1,5 @@
 diff --git i/lib/log.c w/lib/log.c
-index 15d5086..d007e10 100644
+index 15d5086..1e89fe6 100644
 --- i/lib/log.c
 +++ w/lib/log.c
 @@ -62,7 +62,6 @@
@@ -36,13 +36,15 @@ index 15d5086..d007e10 100644
          return ret;
  }
  
-@@ -103,12 +100,8 @@ int log_fini(void)
+@@ -103,12 +100,11 @@ int log_fini(void)
          if (m_file == NULL)
                  return LOG_RETVAL_ERROR;
  
 -        if ((m_fd != STDOUT_FILENO) && (m_fd != STDERR_FILENO))
 -                close(m_fd);
--
++        if ((m_file != stdout) && (m_file != stderr))
++                fclose(m_file);
+ 
  	m_file = NULL;
          m_opt = 0;
 -	m_fd = -1;
@@ -75,3 +77,20 @@ index 7f7ee3f..ed7bd74 100644
                                             library to log messages */
          int verbose;                    /**< if true increases library
                                             verbosity level */
+diff --git i/main.c w/main.c
+index fa6c54d..992f95a 100644
+--- i/main.c
++++ w/main.c
+@@ -2229,10 +2229,9 @@ int main(int argc, char **argv)
+          * Set up file descriptor for message log
+          */
+         if (sel_log_file == NULL) {
+-                cfg.fd_log = STDOUT_FILENO;
++                cfg.fd_log = stdout;
+         } else {
+-                cfg.fd_log = open(sel_log_file, O_WRONLY|O_CREAT,
+-                                  S_IRUSR|S_IWUSR);
++                cfg.fd_log = fopen(sel_log_file, "w");
+                 if (cfg.fd_log == -1) {
+                         printf("Error opening %s log file!\n", sel_log_file);
+                         exit_val = EXIT_FAILURE;
