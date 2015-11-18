@@ -1,6 +1,6 @@
 .PRECIOUS: external/%
 external/%:
-	if ! [ -d $(@D) ]; \
+	if ! [ -f $(@D)/Makefile ]; \
 	then \
 		git submodule update --init external/$(firstword $(subst /, ,$*)); \
 		if [ -f external/$(firstword $(subst /, ,$*)).patch ]; \
