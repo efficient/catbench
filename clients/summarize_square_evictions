@@ -33,6 +33,11 @@ then
 	echo "Failed to build target utility!"
 	exit 1
 fi
+if ! make -C.. external/pqos/pqos
+then
+	echo "Failed to build pqos utility!"
+	exit 1
+fi
 
 exec >"$logfile" 2>&1
 runlog git log --oneline -1
@@ -40,6 +45,8 @@ runlog git status -uno
 runlog git diff HEAD
 echo ===
 echo
+
+runlog sudo ../external/pqos/pqos -s
 
 seq 0 20 200 | while read ce
 do
