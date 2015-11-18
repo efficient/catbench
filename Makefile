@@ -23,16 +23,11 @@ clean-recursive: clean
 
 include external/modules.mk
 
-external/pqos/lib/libpqos.so: MAKE += SHARED=y
-external/pqos/lib/libpqos.so: external/pqos/lib/libpqos.so.1
-	[ -e $@ ] || ln -s $(<F) $@
-
 .PHONY: catbench-setcap
 catbench-setcap: catbench
 	sudo setcap cap_sys_nice+ep $<
 
-catbench: LDLIBS += -lpqos
-catbench: log.o proc_manip.o | external/pqos/lib/libpqos.so
+catbench: log.o proc_manip.o external/pqos/lib/libpqos.a
 
 log.o: log.h
 proc_manip.o: proc_manip.h
