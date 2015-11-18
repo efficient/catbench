@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ $# -lt 3 ]
+then
+	echo "USAGE: $0 <infile> <outfile> <core>"
+	exit 1
+fi
+
+infile="$1"
+outfile="$2"
+core="$3"
+
+grep "^\\s\\+Core (" "$infile" | head -n1 | tr -d "|" | tr -s " " | cut -d" " -f2- | tr " " , >"$outfile"
+grep "^\\s\\+$core" "$infile" | sed 's/\([^ ]\) \([^ ]\)/\1\2/g' | tr -s " " | cut -d" " -f2- | tr " " , >>"$outfile"
