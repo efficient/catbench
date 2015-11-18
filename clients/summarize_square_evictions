@@ -28,9 +28,9 @@ logfile="$1"
 mask="$2"
 tool="$3"
 exec >"$logfile" 2>&1
-git log --oneline -1
-git status -uno
-git diff HEAD
+runlog git log --oneline -1
+runlog git status -uno
+runlog git diff HEAD
 echo ===
 echo
 
