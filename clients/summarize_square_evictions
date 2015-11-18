@@ -7,7 +7,7 @@ mask=""
 runtrial() {
 	if [ -n "$tool" ]
 	then
-		runlog sudo sh -c PATH="$PATH" pcm.x -- taskset "$mask" ./square_evictions "$@"
+		runlog sudo sh -c 'PATH='"$PATH"' pcm.x -- taskset '"$mask"' ./square_evictions '"$@"
 	else
 		runlog perf stat -e cache-misses,cache-references taskset "$mask" ./square_evictions "$@"
 	fi
