@@ -9,7 +9,7 @@ CFLAGS += \
 all: square_evictions
 
 rng_test: rng.o
-square_evictions: llc.o
+square_evictions: llc.o rng.o
 
 llc.o: llc.h
 rng.o: rng.h
