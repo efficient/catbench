@@ -8,7 +8,6 @@ CFLAGS += \
 	-std=c99 \
 	-Wall \
 	-Wextra \
-	-Wpedantic \
 	-Wcast-qual \
 	-Wfloat-equal \
 	-Winline \
@@ -17,6 +16,8 @@ CFLAGS += \
 	-Wstrict-prototypes \
 	-Wwrite-strings \
 	-Wno-unused-function \
+#	Breaks pqos.h
+#	-Wpedantic \
 
 LDFLAGS += \
 	-Lexternal/pqos/lib \

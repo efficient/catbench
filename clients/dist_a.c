@@ -4,10 +4,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <time.h>
+
+#include "../external/pqos/lib/pqos.h"
 
 #define DEFAULT_NUM_PASSES   100000
 #define DEFAULT_PERCENT 80
+/* TODO: These are probably not super right. Do the right
+   thing once everything kinda-works */
 #define NUM_WAYS 12
+#define NUM_CORES 8
 
 static bool parse_arg_arg(char flag, int *dest) {
   int val;
@@ -25,30 +31,41 @@ static bool parse_arg_arg(char flag, int *dest) {
 }
 
 static void rotate_cores(int loc) {
+  for(int i = 0; i < NUM_CORES; i++) {
+    pqos_l3ca_assoc_set(i, (i+loc)%NUM_WAYS);
+  }
 }
 
 static int square_evictions(int cache_line_size, int num_passes, int capacity) {
-  uint8_t *large = malloc(capacity_expanded);
+  uint8_t *large = malloc(capacity);
+  struct pqos_l3ca cos[NUM_WAYS];
+  for (int i=0; i < NUM_WAYS; i++) {
+    cos[i].class_id = i;
+    cos[i].cdp = false;
+    cos[i].ways_mask = 1 << i;
+    }
+  pqos_l3ca_set(0, NUM_WAYS, cos);
+
   if(!large) { // "at large"
     perror("Allocating large array");
     return 1;
   }
 		
   for(int cycle = 0; cycle < NUM_WAYS; ++cycle) {
-    int siz;
+    int size = capacity;
     uint8_t val = rand();
 
     rotate_cores(cycle);
     printf("Beginning passes: Offset %d: \n", cycle);
     clock_t now = clock();
-    for(int pass = 0; pass < passes_per_cycle; ++pass)
-      for(int offset = 0; offset < siz; offset += cache_line_size) {
+    for(int pass = 0; pass < num_passes; ++pass)
+      for(int offset = 0; offset < size; offset += cache_line_size) {
         large[offset] ^= val;
         val ^= large[offset];
         large[offset] ^= val;
       }
     clock_t then = clock();
-    printf("Pass %d took %d seconds:\n", cycle, (then - now)/CLOCKS_PER_SEC);
+    printf("Pass %d took %d seconds:\n", cycle, (int)((then - now)/CLOCKS_PER_SEC));
   }
 
   free(large);
@@ -90,5 +107,5 @@ int main(int argc, char *argv[]) {
     return 1;
 
   int cap = cache_line_size * cache_num_sets * percent / 100.0;
-  return square_evictions(cache_line_size, passes, cap);
+  return square_evictions(cache_line_size, num_passes, cap);
 }

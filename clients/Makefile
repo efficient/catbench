@@ -6,10 +6,11 @@ CPPFLAGS += \
 CFLAGS += \
 
 .PHONY: all
-all: square_evictions
+all: square_evictions dist_a
 
 rng_test: rng.o
 square_evictions: llc.o rng.o
+dist_a: llc.o rng.o ../external/pqos/lib/libpqos.a
 
 llc.o: llc.h
 rng.o: rng.h
