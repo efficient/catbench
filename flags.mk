@@ -1,8 +1,8 @@
-CPPFLAGS += \
+CPPFLAGS_global := \
 	-Wundef \
-	-isystem external/pqos/lib \
+	-isystem $(dir $(lastword $(MAKEFILE_LIST)))external/pqos/lib \
 
-CFLAGS += \
+CFLAGS_global := \
 	-Og \
 	-g3 \
 	-std=c99 \
@@ -16,8 +16,11 @@ CFLAGS += \
 	-Wstrict-prototypes \
 	-Wwrite-strings \
 	-Wno-unused-function \
-#	Breaks pqos.h
-#	-Wpedantic \
+	-Wpedantic \
 
-LDFLAGS += \
-	-Lexternal/pqos/lib \
+LDFLAGS_global := \
+	-L$(dir $(lastword $(MAKEFILE_LIST)))external/pqos/lib \
+
+CPPFLAGS += $(CPPFLAGS_global)
+CFLAGS += $(CFLAGS_global)
+LDFLAGS += $(LDFLAGS_global)
