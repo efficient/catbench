@@ -65,7 +65,7 @@ static int square_evictions(int cache_line_size, int num_passes, int capacity) {
         large[offset] ^= val;
       }
     clock_t then = clock();
-    printf("Pass %d took %d seconds:\n", cycle, (int)((then - now)/CLOCKS_PER_SEC));
+    printf("Pass %d took %f seconds:\n", cycle, ((float)(then - now)/(float)CLOCKS_PER_SEC));
   }
 
   free(large);

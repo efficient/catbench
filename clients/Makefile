@@ -10,7 +10,7 @@ all: square_evictions dist_a
 
 rng_test: rng.o
 square_evictions: llc.o rng.o
-dist_a: dist_a.c llc.o rng.o ../external/pqos/lib/libpqos.a
+dist_a: ../external/pqos/lib/libpqos.a dist_a.c llc.o rng.o
 
 llc.o: llc.h
 rng.o: rng.h
