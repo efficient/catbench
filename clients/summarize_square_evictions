@@ -1,22 +1,6 @@
 #!/bin/sh
 
-logfile=""
-core=""
-mask=""
-
-runtrial() {
-	if [ -n "$tool" ]
-	then
-		eval runlog sudo sh -c \'PATH=\"$PATH\" pcm.x -- taskset \"$mask\" ./square_evictions "$@"\'
-	else
-		runlog perf stat -e cache-misses,cache-references taskset "$mask" ./square_evictions "$@"
-	fi
-}
-
-runlog() {
-	echo "\$ $@"
-	"$@"
-}
+. ./summarize_helpers.sh
 
 if [ $# -lt 2 -o \( $# -ge 3 -a "$3" != "pcm" \) ]
 then
@@ -28,27 +12,10 @@ logfile="$1"
 mask="$2"
 tool="$3"
 
-if ! make square_evictions
-then
-	echo "Failed to build target utility!"
-	exit 1
-fi
-if ! make -C.. external/pqos/pqos
-then
-	echo "Failed to build pqos utility!"
-	exit 1
-fi
-
-exec >"$logfile" 2>&1
-runlog git log --oneline -1
-runlog git status -uno
-runlog git diff HEAD
-echo ===
-echo
-
-runlog sudo ../external/pqos/pqos -s
+driver_init square_evictions "$logfile"
+logstatus
 
 seq 0 20 200 | while read ce
 do
-	runtrial -n1 -c"$ce" -e"$ce"
+	runtrial "$mask" ./square_evictions -n1 -c"$ce" -e"$ce"
 done
