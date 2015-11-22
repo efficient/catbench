@@ -8,6 +8,8 @@ CFLAGS += \
 .PHONY: all
 all: square_evictions dist_a
 
+include ../external/modules.mk
+
 rng_test: rng.o
 square_evictions: llc.o rng.o
 dist_a: ../external/pqos/lib/libpqos.a dist_a.c llc.o rng.o

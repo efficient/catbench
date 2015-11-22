@@ -1,12 +1,11 @@
 #include "llc.h"
 
+#include <pqos.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <time.h>
-
-#include "../external/pqos/lib/pqos.h"
 
 #define DEFAULT_NUM_PASSES   100000
 #define DEFAULT_PERCENT 80
