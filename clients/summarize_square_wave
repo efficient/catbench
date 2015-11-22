@@ -1,0 +1,19 @@
+#!/bin/sh
+
+. ./summarize_helpers.sh
+
+if [ $# -lt 2 ]
+then
+	echo "USAGE: $0 <log file> <0xmask>"
+	exit 1
+fi
+
+logfile="$1"
+mask="$2"
+tool="pcm"
+toolargs="0.5"
+
+driver_init square_evictions "$logfile"
+logstatus
+
+runtrial "$mask" ./square_evictions -r
