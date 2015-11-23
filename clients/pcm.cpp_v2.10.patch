@@ -1,0 +1,48 @@
+483a484
+> 					cout << "Socket" <<  i << ";;;;;;;;;;;;;";
+485,487c486,490
+< 						cout << "Socket" <<  i << ";;;;;;;;;;;;;;";
+< 					else
+< 						cout << "Socket" <<  i << ";;;;;;;;;;;;;";
+---
+> 						cout << ";";
+> 					if (m->CoreLocalMemoryBWMetricAvailable())
+> 						cout << ";";
+> 					if (m->CoreRemoteMemoryBWMetricAvailable())
+> 						cout << ";";
+557,558c560,568
+< 			else
+< 				cout << "Core" << i << " (Socket" << setw(2) << m->getSocketId(i) << ");;;;;;;;;;;";
+---
+> 			else {
+> 				cout << "Core" << i << " (Socket" << setw(2) << m->getSocketId(i) << ");;;;;;;;;;";
+> 				if (m->L3CacheOccupancyMetricAvailable())
+> 					cout << ";";
+> 				if (m->CoreLocalMemoryBWMetricAvailable())
+> 					cout << ";";
+> 				if (m->CoreRemoteMemoryBWMetricAvailable())
+> 					cout << ";";
+> 			}
+562a573,574
+> 
+>             cout << ";";
+576c588
+<             	cout << "LMB";
+---
+>             	cout << "LMB;";
+622c634
+< 						cout << "LMB";
+---
+> 						cout << "LMB;";
+695c707
+< 						cout << "LMB";
+---
+> 						cout << "LMB;";
+698c710
+< 					cout << "READ;WRITE;TEMP;";
+---
+> 					//cout << "READ;WRITE;TEMP;";
+762c774
+<             	cout << "N/A";
+---
+>             	cout << "N/A;";
