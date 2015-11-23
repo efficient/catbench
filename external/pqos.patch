@@ -78,10 +78,10 @@ index 7f7ee3f..ed7bd74 100644
          int verbose;                    /**< if true increases library
                                             verbosity level */
 diff --git i/main.c w/main.c
-index fa6c54d..992f95a 100644
+index fa6c54d..eaa7bcb 100644
 --- i/main.c
 +++ w/main.c
-@@ -2229,10 +2229,9 @@ int main(int argc, char **argv)
+@@ -2229,11 +2229,10 @@ int main(int argc, char **argv)
           * Set up file descriptor for message log
           */
          if (sel_log_file == NULL) {
@@ -90,7 +90,20 @@ index fa6c54d..992f95a 100644
          } else {
 -                cfg.fd_log = open(sel_log_file, O_WRONLY|O_CREAT,
 -                                  S_IRUSR|S_IWUSR);
+-                if (cfg.fd_log == -1) {
 +                cfg.fd_log = fopen(sel_log_file, "w");
-                 if (cfg.fd_log == -1) {
++                if (!cfg.fd_log) {
                          printf("Error opening %s log file!\n", sel_log_file);
                          exit_val = EXIT_FAILURE;
+                         goto error_exit_2;
+@@ -2398,8 +2397,8 @@ int main(int argc, char **argv)
+         /**
+          * Close file descriptor for message log
+          */
+-        if (cfg.fd_log > 0 && cfg.fd_log != STDOUT_FILENO)
+-                close(cfg.fd_log);
++        if (cfg.fd_log && cfg.fd_log != stdout && cfg.fd_log != stderr)
++                fclose(cfg.fd_log);
+ 
+         /**
+          * Free allocated memory
