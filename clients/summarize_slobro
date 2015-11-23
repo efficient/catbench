@@ -26,10 +26,10 @@ runlog taskset 0x1 ./square_evictions -n1 -c55 -e55 -r &
 
 sleep 2
 
-toolargs="0.001 -csv=\"$logfile_a\" -yc=1 -ns -nsys -m"
+toolargs="0.001 -csv=\"$logfile_a\" -m"
 runtrial 0x2 ./square_evictions -n1 -c55 -e55 -r \&
 
-toolargs="0.001 -csv=\"$logfile_b\" -yc=2 -ns -nsys -m"
+toolargs="0.001 -csv=\"$logfile_b\" -m"
 runtrial 0x4 ./square_evictions -n1 -c55 -e55 -r \&
 
 sleep 20
