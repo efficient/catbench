@@ -24,6 +24,8 @@ logstatus
 
 runlog taskset 0x1 ./square_evictions -n1 -c55 -e55 -r &
 
+sleep 2
+
 toolargs="0.001 -csv=\"$logfile_a\" -yc=1 -ns -nsys -m"
 runtrial 0x2 ./square_evictions -n1 -c55 -e55 -r \&
 
@@ -36,4 +38,4 @@ runlog date +"%F;%T.%3N"
 runlog sudo ../external/pqos/pqos -a "llc:2=0"
 runlog date +"%F;%T.%3N"
 
-wait %%
+wait
