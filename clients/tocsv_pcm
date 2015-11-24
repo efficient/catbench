@@ -11,4 +11,4 @@ outfile="$2"
 core="$3"
 
 grep "^\\s\\+Core (" "$infile" | head -n1 | tr -d "|" | tr -s " " | cut -d" " -f2- | tr " " , >"$outfile"
-grep "^\\s\\+$core" "$infile" | sed 's/\([^ ]\) \([^ ]\)/\1\2/g' | tr -s " " | cut -d" " -f2- | tr " " , >>"$outfile"
+grep "^\\s\\+$core" "$infile" | sed 's/\([0-9]\) \([A-Z]\)/\1\2/g' | tr -s " " | cut -d" " -f2- | tr " " , >>"$outfile"
