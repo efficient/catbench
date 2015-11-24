@@ -1,8 +1,9 @@
 #include "llc.h"
 
+#include <sys/mman.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "rng.h"
@@ -16,6 +17,22 @@
 
 static inline bool pow_of_two(int num) {
 	return num && !(num & (num - 1));
+}
+
+static inline void *alloc(size_t size, bool contig) {
+	if(!contig)
+		return malloc(size);
+
+	uint8_t *loc = mmap(0, size, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_POPULATE, -1, 0);
+	return loc == MAP_FAILED ? NULL : loc;
+}
+
+static inline void dealloc(size_t size, void *victim, bool contig) {
+	if(contig)
+		munmap(victim, size);
+	else
+		free(victim);
 }
 
 static bool parse_arg_arg(char flag, int *dest) {
@@ -34,8 +51,8 @@ static bool parse_arg_arg(char flag, int *dest) {
 }
 
 static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
-		int capacity_contracted, int capacity_expanded, rng_t *randomize) {
-	uint8_t *large = malloc(capacity_expanded);
+		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize) {
+	uint8_t *large = alloc(capacity_expanded, huge);
 	if(!large) { // "at large"
 		perror("Allocating large array");
 		return 1;
@@ -69,7 +86,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 			}
 	}
 
-	free(large);
+	dealloc(capacity_expanded, large, huge);
 	return 0;
 }
 
@@ -79,12 +96,13 @@ int main(int argc, char *argv[]) {
 	int percent_contracted = DEFAULT_PERCENT_CONTRACTED;
 	int percent_expanded = DEFAULT_PERCENT_EXPANDED;
 	int custom_increment = 0;
+	bool hugepages = false;
 	bool randomize = false;
 
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:r::")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods))
@@ -102,6 +120,9 @@ int main(int argc, char *argv[]) {
 			if(!parse_arg_arg(each_arg, &percent_expanded))
 				return 1;
 			break;
+		case 'h':
+			hugepages = true;
+			break;
 		case 'r':
 			randomize = true;
 			if(optarg) {
@@ -116,6 +137,7 @@ int main(int argc, char *argv[]) {
 					" -p #: Number of PASSES per period (default %d)\n"
 					" -c %%: Percent cache CONTRACTED 1/2-period (default %d)\n"
 					" -e %%: Percent cache EXPANDED 1/2-period (default %d)\n"
+					" -h: Allocate using huge pages for contiguous memory\n"
 					" -r [#]: Randomize ordering to fool prefetcher\n"
 					"         Optionally takes a custom rng increment\n",
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
@@ -173,7 +195,7 @@ int main(int argc, char *argv[]) {
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
 	int res = square_evictions(cache_line_size, num_periods, passes_per_cycle,
-			cap_contracted, cap_expanded, random);
+			cap_contracted, cap_expanded, hugepages, random);
 	if(random)
 		rng_lcfc_clean(random);
 	return res;
