@@ -1,6 +1,15 @@
-483a484
+153c153
+< 			cout << " Core (SKT) | EXEC | IPC  | FREQ  | AFREQ | L3MISS | L2MISS | L3HIT | L2HIT | L3MPI | L2MPI |";
+---
+> 			cout << " Core (SKT) |   INST | EXEC | IPC  | FREQ  | AFREQ | L3MISS | L2MISS | L3HIT | L2HIT | L3MPI | L2MPI |";
+176c176,177
+<                     "     " << getExecUsage(cstates1[i], cstates2[i]) <<
+---
+>                     " " << setw(10) << getInstructionsRetired(cstates1[i], cstates2[i]) <<
+>                     "    " << getExecUsage(cstates1[i], cstates2[i]) <<
+483a485
 > 					cout << "Socket" <<  i << ";;;;;;;;;;;;;";
-485,487c486,490
+485,487c487,491
 < 						cout << "Socket" <<  i << ";;;;;;;;;;;;;;";
 < 					else
 < 						cout << "Socket" <<  i << ";;;;;;;;;;;;;";
@@ -10,12 +19,11 @@
 > 						cout << ";";
 > 					if (m->CoreRemoteMemoryBWMetricAvailable())
 > 						cout << ";";
-557,558c560,568
+557c561
 < 			else
-< 				cout << "Core" << i << " (Socket" << setw(2) << m->getSocketId(i) << ");;;;;;;;;;;";
 ---
 > 			else {
-> 				cout << "Core" << i << " (Socket" << setw(2) << m->getSocketId(i) << ");;;;;;;;;;";
+558a563,569
 > 				if (m->L3CacheOccupancyMetricAvailable())
 > 					cout << ";";
 > 				if (m->CoreLocalMemoryBWMetricAvailable())
@@ -23,26 +31,35 @@
 > 				if (m->CoreRemoteMemoryBWMetricAvailable())
 > 					cout << ";";
 > 			}
-562a573,574
+562a574,575
 > 
 >             cout << ";";
-576c588
+576c589
 <             	cout << "LMB";
 ---
 >             	cout << "LMB;";
-622c634
+622c635
 < 						cout << "LMB";
 ---
 > 						cout << "LMB;";
-695c707
+691c704
+< 					cout << "EXEC;IPC;FREQ;AFREQ;L3MISS;L2MISS;L3HIT;L2HIT;L3MPI;L2MPI;";
+---
+> 					cout << "INST;EXEC;IPC;FREQ;AFREQ;L3MISS;L2MISS;L3HIT;L2HIT;L3MPI;L2MPI;";
+695c708
 < 						cout << "LMB";
 ---
 > 						cout << "LMB;";
-698c710
+698c711
 < 					cout << "READ;WRITE;TEMP;";
 ---
 > 					//cout << "READ;WRITE;TEMP;";
-762c774
+762c775
 <             	cout << "N/A";
 ---
 >             	cout << "N/A;";
+904c917,918
+<                     cout << getExecUsage(cstates1[i], cstates2[i]) <<
+---
+>                     cout << getInstructionsRetired(cstates1[i], cstates2[i]) <<
+>                     ';' << getExecUsage(cstates1[i], cstates2[i]) <<
