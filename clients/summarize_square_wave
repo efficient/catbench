@@ -2,18 +2,24 @@
 
 . ./summarize_helpers.sh
 
-if [ $# -lt 2 ]
+if [ $# -lt 2 -o \( $# -ge 3 -a "$3" != "huge" \) ]
 then
-	echo "USAGE: $0 <log file> <0xmask>"
+	echo "USAGE: $0 <log file> <0xmask> [huge]"
 	exit 1
 fi
 
 logfile="$1"
 mask="$2"
+huge=""
+if [ $# -ge 3 ]
+then
+	huge="-h"
+fi
 tool="pcm"
 toolargs="0.5"
 
 driver_init square_evictions "$logfile"
 logstatus
 
-runtrial "$mask" ./square_evictions -r
+[ -n "$tool" ] && runlog sudo sh -c 'echo 1 >/proc/sys/vm/nr_hugepages'
+runtrial "$mask" ./square_evictions -e200 -r "$huge"
