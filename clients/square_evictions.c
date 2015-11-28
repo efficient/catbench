@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "rng.h"
@@ -72,6 +73,8 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 		}
 		printf("Beginning %s passes\n", desc);
 
+		clock_t start = clock();
+
 		for(int pass = 0; pass < passes_per_cycle; ++pass)
 			for(int offset = 0; offset < siz; offset += cache_line_size) {
 				unsigned ix;
@@ -84,6 +87,9 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 				val ^= large[ix];
 				large[ix] ^= val;
 			}
+
+		clock_t duration = clock() - start;
+		printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 	}
 
 	dealloc(capacity_expanded, large, huge);
