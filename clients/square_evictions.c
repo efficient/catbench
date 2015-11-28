@@ -1,6 +1,7 @@
 #include "llc.h"
 
 #include <sys/mman.h>
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,18 +76,23 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 
 		clock_t start = clock();
 
-		for(int pass = 0; pass < passes_per_cycle; ++pass)
+		for(int pass = 0; pass < passes_per_cycle; ++pass) {
+			bool seen_initial = false;
 			for(int offset = 0; offset < siz; offset += cache_line_size) {
 				unsigned ix;
 				do {
 					ix = randomize ? rng_lcfc(randomize) * cache_line_size :
 							(unsigned) offset;
 				} while(ix >= (unsigned) siz);
+				if(!ix)
+					seen_initial = true;
 
 				large[ix] ^= val;
 				val ^= large[ix];
 				large[ix] ^= val;
 			}
+			assert(seen_initial);
+		}
 
 		clock_t duration = clock() - start;
 		printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
