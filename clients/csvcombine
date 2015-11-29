@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+
+# This script is dedicated to Brandon.
+
+from itertools import zip_longest
+from sys import argv
+
+suffixes = {
+	'K': 1000,
+	'M': 1000000,
+	'G': 1000000000,
+	'T': 1000000000000,
+}
+
+def splitzip(iterable, splitfn):
+	return zip_longest(*[splitfn(elem) for elem in iterable if elem != None])
+
+def strmean(iterable, convfn):
+	return sum([convfn(elem) for elem in iterable]) / len(iterable)
+
+def sciint(strng):
+	if strng[-1].isalpha():
+		return int(strng[:-1]) * suffixes[strng[-1]]
+	else:
+		return int(strng)
+
+def main():
+	if len(argv) <= 2:
+		print("USAGE: {} <delimiter> <files>...".format(argv[0]))
+		exit(1)
+
+	delim = argv[1]
+	numfiles = len(argv) - 2
+	fds = [open(fn) for fn in argv[2:]]
+	files = splitzip([fd.read() for fd in fds], lambda x: x.splitlines())
+	for fd in fds:
+		fd.close()
+
+	for line in files:
+		res = ''
+		for col in splitzip(line, lambda x: x.split(delim)):
+			if col.count(col[0]) == len(col):
+				res += col[0]
+			elif '.' in col[0]:
+				precision = str(len(col[0]) - col[0].index('.') - 1)
+				res += ('{:.' + precision + 'f}').format(strmean(col, float))
+			else:
+				res += '{:.2f}'.format(strmean(col, sciint))
+			res += delim
+		res = res[:-1]
+		print(res)
+
+if __name__ == '__main__':
+	main()
