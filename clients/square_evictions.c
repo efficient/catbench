@@ -183,9 +183,9 @@ int main(int argc, char *argv[]) {
 		}
 
 		unsigned siz = cache_num_sets;
-		while(siz >> 1 > (unsigned) lines_expanded && siz > MINIMUM_GENERATOR_PERIOD)
+		while(siz >> 1 >= (unsigned) lines_expanded && siz >= MINIMUM_GENERATOR_PERIOD)
 			siz >>= 1;
-		while(siz << 1 < (unsigned) lines_expanded)
+		while(siz << 1 <= (unsigned) lines_expanded)
 			siz <<= 1;
 
 		if(custom_increment) {
