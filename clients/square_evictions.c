@@ -117,11 +117,12 @@ int main(int argc, char *argv[]) {
 	int custom_increment = 0;
 	bool hugepages = false;
 	bool randomize = false;
+	bool secondrng = true;
 
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::s")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods))
@@ -149,6 +150,9 @@ int main(int argc, char *argv[]) {
 					return 1;
 			}
 			break;
+		case 's':
+			secondrng = false;
+			break;
 		default:
 			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]]\n", invoc);
 			printf(
@@ -158,17 +162,23 @@ int main(int argc, char *argv[]) {
 					" -e %%: Percent cache EXPANDED 1/2-period (default %d)\n"
 					" -h: Allocate using huge pages for contiguous memory\n"
 					" -r [#]: Randomize ordering to fool prefetcher\n"
-					"         Optionally takes a custom rng increment\n",
+					"         Optionally takes a custom rng increment\n"
+					" -s: Use only one rng (default 2 w/ different periods)\n",
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
 					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED);
 			return 1;
 		}
 	}
-	if (percent_contracted > percent_expanded) {
+	if(!secondrng && !randomize) {
+		fputs("-s only makes sense in concert with -r\n", stderr);
+		return 1;
+	}
+	if(percent_contracted > percent_expanded) {
 		fprintf(stderr, "Percent contracted (%d) is larger than percent expanded (%d)\n",
 				percent_contracted, percent_expanded);
 		return 1;
-	}
+	} else if(percent_contracted == percent_expanded)
+		secondrng = false;
 
 	llc_init();
 	int cache_line_size = llc_line_size();
@@ -181,6 +191,7 @@ int main(int argc, char *argv[]) {
 	int lines_expanded = cache_num_sets * percent_expanded / 100.0;
 
 	rng_t *random = NULL;
+	rng_t *randtv = NULL;
 	const int TWO = 2;
 	if(randomize) {
 		if(!pow_of_two(cache_num_sets)) {
@@ -195,6 +206,12 @@ int main(int argc, char *argv[]) {
 		while(siz << 1 <= (unsigned) lines_expanded)
 			siz <<= 1;
 
+		unsigned siz_reduced = siz;
+		if(secondrng)
+			while(siz_reduced >> 1 >= (unsigned) lines_contracted &&
+					siz_reduced >= MINIMUM_GENERATOR_PERIOD)
+				siz_reduced >>= 1;
+
 		if(custom_increment) {
 			random = rng_lcfc_init_incr(siz, 1, &TWO, custom_increment);
 			if(!random) {
@@ -202,11 +219,19 @@ int main(int argc, char *argv[]) {
 						custom_increment, cache_num_sets);
 				return 1;
 			}
+			if(secondrng) {
+				randtv = rng_lcfc_init_incr(siz_reduced, 1, &TWO, custom_increment);
+				assert(randtv);
+			}
 		} else {
 			random = rng_lcfc_init(siz, 1, &TWO);
 			if(!random) {
 				perror("Allocating random number generator");
 				return 1;
+			}
+			if(secondrng) {
+				randtv = rng_lcfc_init(siz_reduced, 1, &TWO);
+				assert(randtv);
 			}
 		}
 	}
@@ -214,8 +239,10 @@ int main(int argc, char *argv[]) {
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
 	int res = square_evictions(cache_line_size, num_periods, passes_per_cycle,
-			cap_contracted, cap_expanded, hugepages, random, NULL);
+			cap_contracted, cap_expanded, hugepages, random, randtv);
 	if(random)
 		rng_lcfc_clean(random);
+	if(randtv)
+		rng_lcfc_clean(randtv);
 	return res;
 }
