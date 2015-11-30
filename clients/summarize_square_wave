@@ -22,4 +22,4 @@ driver_init square_evictions "$logfile"
 logstatus
 
 [ -n "$tool" ] && runlog sudo sh -c 'echo 1 >/proc/sys/vm/nr_hugepages'
-runtrial "$mask" ./square_evictions -e200 -r "$huge"
+runtrial "$mask" ./square_evictions -c50 -e200 -r "$huge"
