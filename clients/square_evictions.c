@@ -53,7 +53,11 @@ static bool parse_arg_arg(char flag, int *dest) {
 }
 
 static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
-		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize) {
+		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
+		rng_t *cont_rand) {
+	if(cont_rand)
+		assert(randomize);
+
 	uint8_t *large = alloc(capacity_expanded, huge);
 	if(!large) { // "at large"
 		perror("Allocating large array");
@@ -62,6 +66,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 		
 	for(int cycle = 0; cycle < 2 * num_periods; ++cycle) {
 		const char *desc = "";
+		rng_t *randomizer = randomize;
 		int siz;
 		uint8_t val = rand();
 
@@ -71,6 +76,8 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 		} else {
 			siz = capacity_contracted;
 			desc = "unsaturated";
+			if(randomize && cont_rand)
+				randomizer = cont_rand;
 		}
 		printf("Beginning %s passes\n", desc);
 
@@ -81,7 +88,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 			for(int offset = 0; offset < siz; offset += cache_line_size) {
 				unsigned ix;
 				do {
-					ix = randomize ? rng_lcfc(randomize) * cache_line_size :
+					ix = randomize ? rng_lcfc(randomizer) * cache_line_size :
 							(unsigned) offset;
 				} while(ix >= (unsigned) siz);
 				if(!ix)
@@ -207,7 +214,7 @@ int main(int argc, char *argv[]) {
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
 	int res = square_evictions(cache_line_size, num_periods, passes_per_cycle,
-			cap_contracted, cap_expanded, hugepages, random);
+			cap_contracted, cap_expanded, hugepages, random, NULL);
 	if(random)
 		rng_lcfc_clean(random);
 	return res;
