@@ -15,7 +15,7 @@ tool="$3"
 driver_init square_evictions "$logfile"
 logstatus
 
-seq 0 20 200 | while read ce
+seq 20 20 200 | while read ce
 do
 	runtrial "$mask" ./square_evictions -n1 -c"$ce" -e"$ce" -hr
 done
