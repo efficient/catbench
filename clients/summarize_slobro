@@ -22,15 +22,16 @@ sudo ../external/pqos/pqos -e "llc:0=0xffc;llc:1=0x1;llc:2=0x2"
 sudo ../external/pqos/pqos -a "llc:1=0,1;llc:2=2"
 logstatus
 
-runlog taskset 0x1 ./square_evictions -n1 -c55 -e55 -r &
+testprogargs="-n1 -c50 -e50 -hr"
+runlog taskset 0x1 ./square_evictions $testprogargs &
 
 sleep 2
 
 toolargs="0.001 -csv=\"$logfile_a\" -m"
-runtrial 0x2 ./square_evictions -n1 -c55 -e55 -r \&
+runtrial 0x2 ./square_evictions $testprogargs \&
 
 toolargs="0.001 -csv=\"$logfile_b\" -m"
-runtrial 0x4 ./square_evictions -n1 -c55 -e55 -r \&
+runtrial 0x4 ./square_evictions $testprogargs \&
 
 sleep 10
 
