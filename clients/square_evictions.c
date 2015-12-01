@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		unsigned siz = cache_num_sets;
-		while(siz >> 1 >= (unsigned) lines_expanded && siz >= MINIMUM_GENERATOR_PERIOD)
+		while(siz >> 1 >= (unsigned) lines_expanded && siz >> 1 >= MINIMUM_GENERATOR_PERIOD)
 			siz >>= 1;
 		while(siz << 1 <= (unsigned) lines_expanded)
 			siz <<= 1;
@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
 		unsigned siz_reduced = siz;
 		if(secondrng)
 			while(siz_reduced >> 1 >= (unsigned) lines_contracted &&
-					siz_reduced >= MINIMUM_GENERATOR_PERIOD)
+					siz_reduced >> 1 >= MINIMUM_GENERATOR_PERIOD)
 				siz_reduced >>= 1;
 
 		if(custom_increment) {
