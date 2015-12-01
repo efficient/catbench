@@ -17,5 +17,5 @@ logstatus
 
 seq 0 20 200 | while read ce
 do
-	runtrial "$mask" ./square_evictions -n1 -c"$ce" -e"$ce"
+	runtrial "$mask" ./square_evictions -n1 -c"$ce" -e"$ce" -hr
 done
