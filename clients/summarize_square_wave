@@ -2,18 +2,28 @@
 
 . ./summarize_helpers.sh
 
-if [ $# -lt 2 -o \( $# -ge 3 -a "$3" != "huge" \) ]
+if [ $# -lt 2 -o \( $# -ge 3 -a -n "$3" -a "$3" != "huge" \) ]
 then
-	echo "USAGE: $0 <log file> <0xmask> [huge]"
+	echo "USAGE: $0 <log file> <0xmask> [huge] [contracted %] [expanded %]"
 	exit 1
 fi
 
 logfile="$1"
 mask="$2"
 huge=""
-if [ $# -ge 3 ]
+if [ $# -ge 3 -a -n "$3" ]
 then
 	huge="-h"
+fi
+contract="50"
+if [ $# -ge 4 ]
+then
+	contract="$4"
+fi
+expand="200"
+if [ $# -ge 5 ]
+then
+	expand="$5"
 fi
 tool="pcm"
 toolargs="0.5"
@@ -22,4 +32,4 @@ driver_init square_evictions "$logfile"
 logstatus
 
 [ -n "$tool" ] && runlog sudo sh -c 'echo 1 >/proc/sys/vm/nr_hugepages'
-runtrial "$mask" ./square_evictions -c50 -e200 -r "$huge"
+runtrial "$mask" ./square_evictions -c"$contract" -e"$expand" -r "$huge"
