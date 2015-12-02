@@ -22,7 +22,7 @@ sudo ../external/pqos/pqos -e "llc:0=0xffc;llc:1=0x1;llc:2=0x2"
 sudo ../external/pqos/pqos -a "llc:1=0,1;llc:2=2"
 logstatus
 
-testprogargs="-n1 -c50 -e50 -hr"
+testprogargs="-n1 -c100 -e100 -hr"
 runlog taskset 0x1 ./square_evictions $testprogargs &
 
 sleep 2
