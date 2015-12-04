@@ -1,5 +1,6 @@
 #include "llc.h"
 
+#include <assert.h>
 #include <pqos.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -31,8 +32,10 @@ static bool parse_arg_arg(char flag, int *dest) {
 
 static void rotate_cores(int loc) {
   for(int i = 0; i < NUM_CORES; i++) {
-    pqos_l3ca_assoc_set(i, (i+loc)%NUM_WAYS);
+    int ret = pqos_l3ca_assoc_set(i, (i+loc)%NUM_WAYS);
+    assert(ret == PQOS_RETVAL_OK);
   }
+  sleep(2);
 }
 
 static int square_evictions(int cache_line_size, int num_passes, int capacity) {
@@ -106,5 +109,22 @@ int main(int argc, char *argv[]) {
     return 1;
 
   int cap = cache_line_size * cache_num_sets * percent / 100.0;
-  return square_evictions(cache_line_size, num_passes, cap);
+
+  struct pqos_config cfg = {
+    .fd_log = stderr,
+    .verbose = 0,
+    .topology = NULL,
+    .free_in_use_rmid = 0,
+    .cdp_cfg = PQOS_REQUIRE_CDP_OFF,
+  };
+  int pqos_res = pqos_init(&cfg);
+  if(pqos_res != PQOS_RETVAL_OK) {
+    return pqos_res;
+  }
+
+  /* TODO: return error condition instead of assertion */
+  rotate_cores(0);
+  int ret = square_evictions(cache_line_size, num_passes, cap, start_cycle);
+  pqos_fini();
+  return ret;
 }
