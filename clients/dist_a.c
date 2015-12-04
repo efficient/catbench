@@ -60,6 +60,7 @@ static clock_t config_offset_times[NUM_WAYS];
 
 static int square_evictions(int cache_line_size, int num_passes, int capacity, int start_cycle) {
   uint8_t *large = alloc(capacity, 1);
+  assert(large != NULL);
   struct pqos_l3ca cos[NUM_WAYS];
   for (int i=0; i < NUM_WAYS; i++) {
     cos[i].class_id = i;
