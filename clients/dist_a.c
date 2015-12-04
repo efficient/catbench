@@ -8,8 +8,9 @@
 #include <unistd.h>
 #include <time.h>
 
-#define DEFAULT_NUM_PASSES   100000
-#define DEFAULT_PERCENT 80
+#define DEFAULT_NUM_PASSES      100000
+#define DEFAULT_PERCENT         80
+#define DEFAULT_START_CYCLE     0
 /* TODO: These are probably not super right. Do the right
    thing once everything kinda-works */
 #define NUM_WAYS 12
@@ -38,7 +39,10 @@ static void rotate_cores(int loc) {
   sleep(2);
 }
 
-static int square_evictions(int cache_line_size, int num_passes, int capacity) {
+// Store the precise number of cycles different between each offset
+static clock_t config_offset_times[NUM_WAYS];
+
+static int square_evictions(int cache_line_size, int num_passes, int capacity, int start_cycle) {
   uint8_t *large = malloc(capacity);
   struct pqos_l3ca cos[NUM_WAYS];
   for (int i=0; i < NUM_WAYS; i++) {
@@ -53,12 +57,14 @@ static int square_evictions(int cache_line_size, int num_passes, int capacity) {
     return 1;
   }
 		
-  for(int cycle = 0; cycle < NUM_WAYS; ++cycle) {
+  for(int offset = 0; offset < NUM_WAYS; ++offset) {
+    int cycle = (start_cycle + offset) % NUM_WAYS;
     int size = capacity;
     uint8_t val = rand();
 
     rotate_cores(cycle);
     printf("Beginning passes: Offset %d: \n", cycle);
+
     clock_t now = clock();
     for(int pass = 0; pass < num_passes; ++pass)
       for(int offset = 0; offset < size; offset += cache_line_size) {
@@ -67,8 +73,20 @@ static int square_evictions(int cache_line_size, int num_passes, int capacity) {
         large[offset] ^= val;
       }
     clock_t then = clock();
+
+    config_offset_times[cycle] = then - now;
     printf("Pass %d took %f seconds:\n", cycle, ((float)(then - now)/(float)CLOCKS_PER_SEC));
   }
+
+  #define BASE_CYCLES config_offset_times[0]
+  double config_offset_diffs[NUM_WAYS];
+  printf("Number of passes: %d\n", num_passes);
+  for(int cycle = 0; cycle < NUM_WAYS; ++cycle) {
+        config_offset_diffs[cycle] = config_offset_times[cycle] - BASE_CYCLES;
+        printf("Pass %d normalized cycles: %f", cycle, config_offset_diffs[cycle]);
+        printf(" %s\n", cycle == start_cycle ? "(initial cycle)" : "");
+  }
+  #undef BASE_CYCLES
 
   free(large);
   return 0;
@@ -77,11 +95,12 @@ static int square_evictions(int cache_line_size, int num_passes, int capacity) {
 int main(int argc, char *argv[]) {
   int num_passes = DEFAULT_NUM_PASSES;
   int percent = DEFAULT_PERCENT;
+  int start_cycle = DEFAULT_START_CYCLE;
   char *invoc = argv[0];
   int each_arg;
 
   opterr = 0;
-  while((each_arg = getopt(argc, argv, "n:p:")) != -1) {
+  while((each_arg = getopt(argc, argv, "n:p:s:")) != -1) {
     switch(each_arg) {
     case 'n':
       if(!parse_arg_arg(each_arg, &num_passes))
@@ -91,11 +110,16 @@ int main(int argc, char *argv[]) {
       if(!parse_arg_arg(each_arg, &percent))
         return 1;
       break;
+    case 's':
+      if(!parse_arg_arg(each_arg, &start_cycle))
+        return 1;
+      break;
     default:
       printf("USAGE: %s [-n #] [-p #]\n", invoc);
       printf(
              " -n #: Number of passes (default %d)\n"
-             " -p #: Percentage of cache in working set (default %d)\n",
+             " -p #: Percentage of cache in working set (default %d)\n"
+             " -s #: Which way to start with\n",
              DEFAULT_NUM_PASSES, DEFAULT_PERCENT);
       return 1;
     }
