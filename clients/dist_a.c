@@ -1,12 +1,13 @@
 #include "llc.h"
 
+#include <sys/mman.h>
 #include <assert.h>
 #include <pqos.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
 #define DEFAULT_NUM_PASSES      100000
 #define DEFAULT_PERCENT         80
@@ -16,6 +17,21 @@
 #define NUM_WAYS 12
 #define NUM_CORES 8
 
+static inline void *alloc(size_t size, bool contig) {
+	if(!contig)
+		return malloc(size);
+
+	uint8_t *loc = mmap(0, size, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_POPULATE, -1, 0);
+	return loc == MAP_FAILED ? NULL : loc;
+}
+
+static inline void dealloc(size_t size, void *victim, bool contig) {
+	if(contig)
+		munmap(victim, size);
+	else
+		free(victim);
+}
 static bool parse_arg_arg(char flag, int *dest) {
   int val;
 
@@ -43,7 +59,7 @@ static void rotate_cores(int loc) {
 static clock_t config_offset_times[NUM_WAYS];
 
 static int square_evictions(int cache_line_size, int num_passes, int capacity, int start_cycle) {
-  uint8_t *large = malloc(capacity);
+  uint8_t *large = alloc(capacity, 1);
   struct pqos_l3ca cos[NUM_WAYS];
   for (int i=0; i < NUM_WAYS; i++) {
     cos[i].class_id = i;
@@ -88,7 +104,7 @@ static int square_evictions(int cache_line_size, int num_passes, int capacity, i
   }
   #undef BASE_CYCLES
 
-  free(large);
+  dealloc(capacity, large, 1);
   return 0;
 }
 
