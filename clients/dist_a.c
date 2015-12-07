@@ -17,6 +17,17 @@
 #define NUM_WAYS 12
 #define NUM_CORES 8
 
+inline uint64_t rdtscp(void) {
+	uint32_t cycles_low, cycles_high;
+	__asm volatile(
+		"RDTSCP\n\t"
+		"mov %%edx, %0\n\t"
+		"mov %%eax, %1\n\t"
+		: "=r" (cycles_high), "=r" (cycles_low)
+		);
+	return ((uint64_t)cycles_high << 32 | cycles_low);
+}
+
 static inline void *alloc(size_t size, bool contig) {
 	if(!contig)
 		return malloc(size);
@@ -32,6 +43,7 @@ static inline void dealloc(size_t size, void *victim, bool contig) {
 	else
 		free(victim);
 }
+
 static bool parse_arg_arg(char flag, int *dest) {
   int val;
 
@@ -56,9 +68,9 @@ static void rotate_cores(int loc) {
 }
 
 // Store the precise number of cycles different between each offset
-static clock_t config_offset_times[NUM_WAYS];
+static uint64_t config_offset_clocks[NUM_WAYS];
 
-static int square_evictions(int cache_line_size, int num_passes, int capacity, int start_cycle) {
+static int dist_a(int cache_line_size, int num_passes, int capacity, int start_cycle) {
   uint8_t *large = alloc(capacity, 1);
   assert(large != NULL);
   struct pqos_l3ca cos[NUM_WAYS];
@@ -82,26 +94,26 @@ static int square_evictions(int cache_line_size, int num_passes, int capacity, i
     rotate_cores(cycle);
     printf("Beginning passes: Offset %d: \n", cycle);
 
-    clock_t now = clock();
+    uint64_t begin = rdtscp();
     for(int pass = 0; pass < num_passes; ++pass)
       for(int offset = 0; offset < size; offset += cache_line_size) {
         large[offset] ^= val;
         val ^= large[offset];
         large[offset] ^= val;
       }
-    clock_t then = clock();
+    uint64_t end = rdtscp();
 
-    config_offset_times[cycle] = then - now;
-    printf("Pass %d took %f seconds:\n", cycle, ((float)(then - now)/(float)CLOCKS_PER_SEC));
+    config_offset_clocks[cycle] = end - begin;
   }
 
-  #define BASE_CYCLES config_offset_times[0]
-  double config_offset_diffs[NUM_WAYS];
+  #define BASE_CYCLES config_offset_clocks[0]
+  uint64_t config_offset_diffs[NUM_WAYS];
   printf("Number of passes: %d\n", num_passes);
   for(int cycle = 0; cycle < NUM_WAYS; ++cycle) {
-        config_offset_diffs[cycle] = config_offset_times[cycle] - BASE_CYCLES;
-        printf("Pass %d normalized cycles: %f", cycle, config_offset_diffs[cycle]);
-        printf(" %s\n", cycle == start_cycle ? "(initial cycle)" : "");
+        config_offset_diffs[cycle] = config_offset_clocks[cycle] - BASE_CYCLES;
+        //printf("Pass %d normalized cycles: %lu", cycle, config_offset_diffs[cycle]);
+	printf("%lu\n", config_offset_diffs[cycle]);
+        //printf(" %s\n", cycle == start_cycle ? "(initial cycle)" : "");
   }
   #undef BASE_CYCLES
 
@@ -165,7 +177,7 @@ int main(int argc, char *argv[]) {
 
   /* TODO: return error condition instead of assertion */
   rotate_cores(0);
-  int ret = square_evictions(cache_line_size, num_passes, cap, start_cycle);
+  int ret = dist_a(cache_line_size, num_passes, cap, start_cycle);
   pqos_fini();
   return ret;
 }
