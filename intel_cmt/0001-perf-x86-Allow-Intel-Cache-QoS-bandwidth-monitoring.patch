@@ -1,0 +1,175 @@
+From 42bef11edcb5a29303a2329a584b242542b9fc70 Mon Sep 17 00:00:00 2001
+From: Sol Boucher <sboucher@cmu.edu>
+Date: Mon, 7 Dec 2015 11:50:24 -0500
+Subject: [PATCH] perf,x86: Allow Intel Cache QoS bandwidth monitoring
+
+This adds the new perf events intel_cqm/llc_total_bw/ and
+intel_cqm/llc_local_bw/ and stops blocking their EvtIDs.
+---
+ arch/x86/kernel/cpu/perf_event_intel_cqm.c | 71 +++++++++++++++++++++---------
+ 1 file changed, 49 insertions(+), 22 deletions(-)
+
+diff --git a/arch/x86/kernel/cpu/perf_event_intel_cqm.c b/arch/x86/kernel/cpu/perf_event_intel_cqm.c
+index 377e8f8..c49ba0d 100644
+--- a/arch/x86/kernel/cpu/perf_event_intel_cqm.c
++++ b/arch/x86/kernel/cpu/perf_event_intel_cqm.c
+@@ -65,9 +65,9 @@ static cpumask_t cqm_cpumask;
+ #define RMID_VAL_ERROR		(1ULL << 63)
+ #define RMID_VAL_UNAVAIL	(1ULL << 62)
+ 
+-#define QOS_L3_OCCUP_EVENT_ID	(1 << 0)
+-
+-#define QOS_EVENT_MASK	QOS_L3_OCCUP_EVENT_ID
++#define QOS_L3_OCCUP_EVENT_ID	(0x01)
++#define QOS_L3_TBAND_EVENT_ID	(0x02)
++#define QOS_L3_LBAND_EVENT_ID	(0x03)
+ 
+ /*
+  * This is central to the rotation algorithm in __intel_cqm_rmid_rotate().
+@@ -96,7 +96,7 @@ static inline bool __rmid_valid(u32 rmid)
+ 	return true;
+ }
+ 
+-static u64 __rmid_read(u32 rmid)
++static u64 __rmid_read(u32 evtid, u32 rmid)
+ {
+ 	u64 val;
+ 
+@@ -104,7 +104,7 @@ static u64 __rmid_read(u32 rmid)
+ 	 * Ignore the SDM, this thing is _NOTHING_ like a regular perfcnt,
+ 	 * it just says that to increase confusion.
+ 	 */
+-	wrmsr(MSR_IA32_QM_EVTSEL, QOS_L3_OCCUP_EVENT_ID, rmid);
++	wrmsr(MSR_IA32_QM_EVTSEL, evtid, rmid);
+ 	rdmsrl(MSR_IA32_QM_CTR, val);
+ 
+ 	/*
+@@ -391,6 +391,7 @@ static bool __conflict_event(struct perf_event *a, struct perf_event *b)
+ }
+ 
+ struct rmid_read {
++	u32 evtid;
+ 	u32 rmid;
+ 	atomic64_t value;
+ };
+@@ -414,6 +415,7 @@ static u32 intel_cqm_xchg_rmid(struct perf_event *group, u32 rmid)
+ 	if (__rmid_valid(old_rmid) && !__rmid_valid(rmid)) {
+ 		struct rmid_read rr = {
+ 			.value = ATOMIC64_INIT(0),
++			.evtid = group->attr.config,
+ 			.rmid = old_rmid,
+ 		};
+ 
+@@ -460,7 +462,7 @@ static void intel_cqm_stable(void *arg)
+ 		if (entry->state != RMID_AVAILABLE)
+ 			break;
+ 
+-		if (__rmid_read(entry->rmid) > __intel_cqm_threshold)
++		if (__rmid_read(QOS_L3_OCCUP_EVENT_ID, entry->rmid) > __intel_cqm_threshold)
+ 			entry->state = RMID_DIRTY;
+ 	}
+ }
+@@ -893,7 +895,7 @@ static void intel_cqm_event_read(struct perf_event *event)
+ 	if (!__rmid_valid(rmid))
+ 		goto out;
+ 
+-	val = __rmid_read(rmid);
++	val = __rmid_read(event->attr.config, rmid);
+ 
+ 	/*
+ 	 * Ignore this reading on error states and do not update the value.
+@@ -911,7 +913,7 @@ static void __intel_cqm_event_count(void *info)
+ 	struct rmid_read *rr = info;
+ 	u64 val;
+ 
+-	val = __rmid_read(rr->rmid);
++	val = __rmid_read(rr->evtid, rr->rmid);
+ 
+ 	if (val & (RMID_VAL_ERROR | RMID_VAL_UNAVAIL))
+ 		return;
+@@ -970,6 +972,7 @@ static u64 intel_cqm_event_count(struct perf_event *event)
+ 	 * check @event's RMID afterwards, and if it has changed,
+ 	 * discard the result of the read.
+ 	 */
++	rr.evtid = ACCESS_ONCE(event->attr.config);
+ 	rr.rmid = ACCESS_ONCE(event->hw.cqm_rmid);
+ 
+ 	if (!__rmid_valid(rr.rmid))
+@@ -1090,9 +1093,6 @@ static int intel_cqm_event_init(struct perf_event *event)
+ 	if (event->attr.type != intel_cqm_pmu.type)
+ 		return -ENOENT;
+ 
+-	if (event->attr.config & ~QOS_EVENT_MASK)
+-		return -EINVAL;
+-
+ 	/* unsupported modes and filters */
+ 	if (event->attr.exclude_user   ||
+ 	    event->attr.exclude_kernel ||
+@@ -1139,18 +1139,43 @@ static int intel_cqm_event_init(struct perf_event *event)
+ 	return 0;
+ }
+ 
+-EVENT_ATTR_STR(llc_occupancy, intel_cqm_llc, "event=0x01");
+-EVENT_ATTR_STR(llc_occupancy.per-pkg, intel_cqm_llc_pkg, "1");
+-EVENT_ATTR_STR(llc_occupancy.unit, intel_cqm_llc_unit, "Bytes");
+-EVENT_ATTR_STR(llc_occupancy.scale, intel_cqm_llc_scale, NULL);
+-EVENT_ATTR_STR(llc_occupancy.snapshot, intel_cqm_llc_snapshot, "1");
++EVENT_ATTR_STR(llc_occupancy, cqm_llc_occup, "event=0x01");
++EVENT_ATTR_STR(llc_occupancy.per-pkg, cqm_llc_occup_pkg, "1");
++EVENT_ATTR_STR(llc_occupancy.unit, cqm_llc_occup_unit, "Bytes");
++EVENT_ATTR_STR(llc_occupancy.scale, cqm_llc_occup_scale, NULL);
++EVENT_ATTR_STR(llc_occupancy.snapshot, cqm_llc_occup_snapshot, "1");
++
++EVENT_ATTR_STR(llc_total_bw, cqm_llc_tband, "event=0x02");
++EVENT_ATTR_STR(llc_total_bw.per-pkg, cqm_llc_tband_pkg, "1");
++EVENT_ATTR_STR(llc_total_bw.unit, cqm_llc_tband_unit, "Bytes");
++EVENT_ATTR_STR(llc_total_bw.scale, cqm_llc_tband_scale, NULL);
++EVENT_ATTR_STR(llc_total_bw.snapshot, cqm_llc_tband_snapshot, "1");
++
++EVENT_ATTR_STR(llc_local_bw, cqm_llc_lband, "event=0x03");
++EVENT_ATTR_STR(llc_local_bw.per-pkg, cqm_llc_lband_pkg, "1");
++EVENT_ATTR_STR(llc_local_bw.unit, cqm_llc_lband_unit, "Bytes");
++EVENT_ATTR_STR(llc_local_bw.scale, cqm_llc_lband_scale, NULL);
++EVENT_ATTR_STR(llc_local_bw.snapshot, cqm_llc_lband_snapshot, "1");
+ 
+ static struct attribute *intel_cqm_events_attr[] = {
+-	EVENT_PTR(intel_cqm_llc),
+-	EVENT_PTR(intel_cqm_llc_pkg),
+-	EVENT_PTR(intel_cqm_llc_unit),
+-	EVENT_PTR(intel_cqm_llc_scale),
+-	EVENT_PTR(intel_cqm_llc_snapshot),
++	EVENT_PTR(cqm_llc_occup),
++	EVENT_PTR(cqm_llc_occup_pkg),
++	EVENT_PTR(cqm_llc_occup_unit),
++	EVENT_PTR(cqm_llc_occup_scale),
++	EVENT_PTR(cqm_llc_occup_snapshot),
++
++	EVENT_PTR(cqm_llc_tband),
++	EVENT_PTR(cqm_llc_tband_pkg),
++	EVENT_PTR(cqm_llc_tband_unit),
++	EVENT_PTR(cqm_llc_tband_scale),
++	EVENT_PTR(cqm_llc_tband_snapshot),
++
++	EVENT_PTR(cqm_llc_lband),
++	EVENT_PTR(cqm_llc_lband_pkg),
++	EVENT_PTR(cqm_llc_lband_unit),
++	EVENT_PTR(cqm_llc_lband_scale),
++	EVENT_PTR(cqm_llc_lband_snapshot),
++
+ 	NULL,
+ };
+ 
+@@ -1364,7 +1389,9 @@ static int __init intel_cqm_init(void)
+ 		goto out;
+ 	}
+ 
+-	event_attr_intel_cqm_llc_scale.event_str = str;
++	event_attr_cqm_llc_occup_scale.event_str = str;
++	event_attr_cqm_llc_tband_scale.event_str = str;
++	event_attr_cqm_llc_lband_scale.event_str = str;
+ 
+ 	ret = intel_cqm_setup_rmid_cache();
+ 	if (ret)
+-- 
+2.6.2
+
