@@ -28,6 +28,7 @@ catbench-setcap: catbench
 	sudo setcap cap_sys_nice+ep $<
 
 catbench: log.o proc_manip.o external/pqos/lib/libpqos.a
+perfexpl: syscallers.h
 
 log.o: log.h
 proc_manip.o: proc_manip.h
