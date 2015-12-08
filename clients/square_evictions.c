@@ -98,7 +98,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 				val ^= large[ix];
 				large[ix] ^= val;
 			}
-			assert(seen_initial);
+			assert(!siz || seen_initial);
 		}
 
 		clock_t duration = clock() - start;
