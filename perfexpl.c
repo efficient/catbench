@@ -25,12 +25,17 @@ typedef struct {
 	pid_t pid;
 } test_proc_t;
 
-static inline void await_signal(int signal) {
+static sigset_t block_signal(int signal) {
+	sigset_t mask;
+	sigemptyset(&mask);
+	sigaddset(&mask, signal);
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+	return mask;
+}
+
+static void await_signal(int signal) {
 	int received;
-	sigset_t await;
-	sigemptyset(&await);
-	sigaddset(&await, signal);
-	sigprocmask(SIG_BLOCK, &await, NULL);
+	sigset_t await = block_signal(signal);
 	sigwait(&await, &received);
 	assert(received == signal);
 }
@@ -40,6 +45,7 @@ int main(void) {
 	int ret = 0;
 
 	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
+		block_signal(SIG_CHILD_PROC_UP);
 		pid_t pid = fork();
 		switch(pid) {
 		case -1:
@@ -47,6 +53,7 @@ int main(void) {
 			ret = 1;
 			goto cleanup;
 		case 0:
+			kill(getppid(), SIG_CHILD_PROC_UP);
 			await_signal(SIG_EXEC_TEST_PROG);
 			exec_v(TEST_PROGS[prog].cmdline[0], TEST_PROGS[prog].cmdline);
 
@@ -54,14 +61,13 @@ int main(void) {
 			ret = 1;
 			goto cleanup;
 		default:
+			await_signal(SIG_CHILD_PROC_UP);
 			children[prog].pid = pid;
 		}
-		sleep(1);
 	}
 
 	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog)
 		if(kill(children[prog].pid, SIG_EXEC_TEST_PROG)) {
-			perror("Signalling child");
 			ret = 1;
 			goto cleanup;
 		}
