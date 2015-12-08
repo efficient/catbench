@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -16,20 +17,31 @@ typedef struct {
 } test_prog_t;
 
 static const test_prog_t TEST_PROGS[] = {
+	// TODO: Use hugepages!
 	{.cmdline = {"clients/square_evictions", "-n1", "-c0", "-e25", "-r"}},
 };
 static const int NUM_TEST_PROGS = sizeof TEST_PROGS / sizeof *TEST_PROGS;
 
 #define PERF_BUFFER_NUM_PAGES (1 + (1 << 5))
 static const struct perf_event_attr METRIC = {
+	// TODO: Use bandwidth counter!
 	.type = PERF_TYPE_HARDWARE,
 	.config = PERF_COUNT_HW_CACHE_MISSES,
 	.sample_period = 1,
 	.sample_type = PERF_SAMPLE_READ | PERF_SAMPLE_TIME | PERF_SAMPLE_CPU,
+	.read_format = PERF_FORMAT_GROUP,
 	.disabled = 0x1,
 	.enable_on_exec = 0x1,
 	.size = sizeof METRIC,
 };
+
+typedef struct {
+	struct perf_event_header header;
+	uint64_t time;
+	uint32_t cpu, res;
+	uint64_t nr;
+	uint64_t values[];
+} perf_record_sample_t;
 
 #define SIG_CHILD_PROC_UP  SIGUSR1
 #define SIG_EXEC_TEST_PROG SIGUSR1
@@ -53,6 +65,14 @@ static void await_signal(int signal) {
 	sigset_t await = block_signal(signal);
 	sigwait(&await, &received);
 	assert(received == signal);
+}
+
+static inline perf_record_sample_t *first_sample(struct perf_event_mmap_page *ptr) {
+	return (perf_record_sample_t *) ((uintptr_t) ptr + ptr->data_offset);
+}
+
+static inline void next_sample(perf_record_sample_t **ptr) {
+	*ptr += (*ptr)->header.size;
 }
 
 int main(void) {
@@ -122,6 +142,17 @@ int main(void) {
 	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
 		if(waitpid(children[prog].pid, NULL, 0) < 0)
 			perror("Awaiting child");
+
+		puts("time,cache-misses,cpu");
+
+		uint64_t last_misses = 0;
+		for(perf_record_sample_t *each = first_sample(children[prog].buf);
+				(uintptr_t) each <
+					(uintptr_t) children[prog].buf + children[prog].buf->data_size;
+				next_sample(&each)) {
+			printf("%llu,%llu,%u\n", each->time, each->values[0] - last_misses, each->cpu);
+			last_misses = each->values[0];
+		}
 
 		printf("Test program ran for %llu ns\n", children[prog].buf->time_running);
 		printf("Data head at %llu\n", children[prog].buf->data_head);
