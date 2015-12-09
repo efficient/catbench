@@ -1,11 +1,16 @@
 #include "llc.h"
 
+#include <asm/unistd.h>
+#include <linux/perf_event.h>
+#include <linux/hw_breakpoint.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <assert.h>
 #include <pqos.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -17,13 +22,26 @@
 #define NUM_WAYS 12
 #define NUM_CORES 8
 
-inline uint64_t rdtscp(void) {
+static long
+perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
+	       int cpu, int group_fd, unsigned long flags)
+{
+   int ret;
+
+   ret = syscall(__NR_perf_event_open, hw_event, pid, cpu,
+		  group_fd, flags);
+   return ret;
+}
+
+static inline uint64_t rdtscp(void) {
 	uint32_t cycles_low, cycles_high;
 	__asm volatile(
 		"RDTSCP\n\t"
 		"mov %%edx, %0\n\t"
 		"mov %%eax, %1\n\t"
 		: "=r" (cycles_high), "=r" (cycles_low)
+		:
+		: "eax", "edx", "ecx"
 		);
 	return ((uint64_t)cycles_high << 32 | cycles_low);
 }
@@ -59,16 +77,23 @@ static bool parse_arg_arg(char flag, int *dest) {
   return true;
 }
 
+#define NUM_ITERATIONS 100000
 static void rotate_cores(int loc) {
   for(int i = 0; i < NUM_CORES; i++) {
     int ret = pqos_l3ca_assoc_set(i, (i+loc)%NUM_WAYS);
     assert(ret == PQOS_RETVAL_OK);
   }
-  sleep(2);
+  /*for(int i = 0; i < NUM_ITERATIONS; ++i) {
+  	
+  } */
 }
+#undef NUM_ITERATIONS
 
 // Store the precise number of cycles different between each offset
+static uint64_t perf_clocks[NUM_WAYS];
 static uint64_t config_offset_clocks[NUM_WAYS];
+static uint64_t config_offset_begin[NUM_WAYS];
+static uint64_t config_offset_end[NUM_WAYS];
 
 static int dist_a(int cache_line_size, int num_passes, int capacity, int start_cycle) {
   uint8_t *large = alloc(capacity, 1);
@@ -92,8 +117,27 @@ static int dist_a(int cache_line_size, int num_passes, int capacity, int start_c
     uint8_t val = rand();
 
     rotate_cores(cycle);
-    printf("Beginning passes: Offset %d: \n", cycle);
+    //printf("Beginning passes: Offset %d: \n", cycle);
 
+    struct perf_event_attr pattr;
+    memset(&pattr, 0, sizeof(struct perf_event_attr));
+    pattr.type = PERF_TYPE_HARDWARE;
+    pattr.size = sizeof(struct perf_event_attr);
+    pattr.config = PERF_COUNT_HW_CPU_CYCLES;
+    pattr.disabled = 1;
+    pattr.exclude_kernel = 1;
+    pattr.exclude_hv = 1;
+    pid_t pid = getpid();
+    int fd = perf_event_open(&pattr, pid, -1, -1, 0);
+    if (fd == -1) {
+       fprintf(stderr, "Error opening leader %llx\n", pattr.config);
+       exit(EXIT_FAILURE);
+    }
+
+    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+
+/* Begin timed section */
+    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
     uint64_t begin = rdtscp();
     for(int pass = 0; pass < num_passes; ++pass)
       for(int offset = 0; offset < size; offset += cache_line_size) {
@@ -102,17 +146,32 @@ static int dist_a(int cache_line_size, int num_passes, int capacity, int start_c
         large[offset] ^= val;
       }
     uint64_t end = rdtscp();
+    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+/* End timed section */
 
+    long long count;
+    read(fd, &count, sizeof(long long));
+    perf_clocks[cycle] = count;
+    //printf("Perf cpu cycle count: %llu\n", count);
+    assert(end > begin);
     config_offset_clocks[cycle] = end - begin;
+    config_offset_begin[cycle] = begin;
+    config_offset_end[cycle] = end;
   }
 
   #define BASE_CYCLES config_offset_clocks[0]
   uint64_t config_offset_diffs[NUM_WAYS];
+  uint64_t config_offset_diffs1[NUM_WAYS];
   printf("Number of passes: %d\n", num_passes);
   for(int cycle = 0; cycle < NUM_WAYS; ++cycle) {
-        config_offset_diffs[cycle] = config_offset_clocks[cycle] - BASE_CYCLES;
+        config_offset_diffs[cycle] = config_offset_clocks[cycle];
+	config_offset_diffs1[cycle] = BASE_CYCLES - config_offset_clocks[cycle];
         //printf("Pass %d normalized cycles: %lu", cycle, config_offset_diffs[cycle]);
-	printf("%lu\n", config_offset_diffs[cycle]);
+	//printf("%lu   %lu\n", config_offset_diffs[cycle], config_offset_diffs1[cycle]);
+	(void) config_offset_diffs1;
+	printf("%lu  -   %lu    =   %lu\t", config_offset_end[cycle], config_offset_begin[cycle], config_offset_diffs[cycle]);
+        printf("Perf: %lu\n", perf_clocks[cycle]);
+        printf("Difference: %lu = %f percent\n", config_offset_diffs[cycle] - perf_clocks[cycle], 100 * (double) (config_offset_diffs[cycle] - perf_clocks[cycle]) / config_offset_diffs[cycle]);
         //printf(" %s\n", cycle == start_cycle ? "(initial cycle)" : "");
   }
   #undef BASE_CYCLES
@@ -122,6 +181,8 @@ static int dist_a(int cache_line_size, int num_passes, int capacity, int start_c
 }
 
 int main(int argc, char *argv[]) {
+  uint64_t begin, end;
+  begin = rdtscp();
   int num_passes = DEFAULT_NUM_PASSES;
   int percent = DEFAULT_PERCENT;
   int start_cycle = DEFAULT_START_CYCLE;
@@ -179,5 +240,7 @@ int main(int argc, char *argv[]) {
   rotate_cores(0);
   int ret = dist_a(cache_line_size, num_passes, cap, start_cycle);
   pqos_fini();
+  end = rdtscp();
+  printf("%lu\n", end - begin);
   return ret;
 }
