@@ -29,7 +29,6 @@ static const struct perf_event_attr METRIC = {
 	.config = PERF_COUNT_HW_CACHE_MISSES,
 	.sample_period = 1,
 	.sample_type = PERF_SAMPLE_READ | PERF_SAMPLE_TIME | PERF_SAMPLE_CPU,
-	.read_format = PERF_FORMAT_GROUP,
 	.disabled = 0x1,
 	.enable_on_exec = 0x1,
 	.size = sizeof METRIC,
@@ -39,8 +38,7 @@ typedef struct {
 	struct perf_event_header header;
 	uint64_t time;
 	uint32_t cpu, res;
-	uint64_t nr;
-	uint64_t values[];
+	uint64_t value;
 } perf_record_sample_t;
 
 #define SIG_CHILD_PROC_UP  SIGUSR1
@@ -111,13 +109,6 @@ int main(void) {
 			}
 			children[prog].fd = fd;
 
-			struct perf_event_attr instrs = {
-				.type = PERF_TYPE_HARDWARE,
-				.config = PERF_COUNT_HW_INSTRUCTIONS,
-				.size = sizeof instrs,
-			};
-			perf_event_open(&instrs, pid, -1, fd, PERF_FLAG_FD_OUTPUT);
-
 			struct perf_event_mmap_page *buf =
 					mmap(NULL, PERF_BUFFER_NUM_PAGES * getpagesize(),
 					PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -154,8 +145,8 @@ int main(void) {
 				(uintptr_t) each <
 					(uintptr_t) children[prog].buf + children[prog].buf->data_size;
 				next_sample(&each)) {
-			printf("%" PRId64 ",%" PRId64 ",%" PRId32 "\n", each->time, each->values[0] - last_misses, each->cpu);
-			last_misses = each->values[0];
+			printf("%" PRId64 ",%" PRId64 ",%" PRId32 "\n", each->time, each->value - last_misses, each->cpu);
+			last_misses = each->value;
 		}
 
 		printf("Test program ran for %llu ns\n", children[prog].buf->time_running);
