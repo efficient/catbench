@@ -145,8 +145,12 @@ int main(void) {
 
 		puts("time,cache-misses,cpu");
 
+		perf_record_sample_t *first = first_sample(children[prog].buf);
+		printf("%u %u\n", first->header.size, sizeof *first);
+		assert(first->header.size == sizeof *first);
+
 		uint64_t last_misses = 0;
-		for(perf_record_sample_t *each = first_sample(children[prog].buf);
+		for(perf_record_sample_t *each = first;
 				(uintptr_t) each <
 					(uintptr_t) children[prog].buf + children[prog].buf->data_size;
 				next_sample(&each)) {
