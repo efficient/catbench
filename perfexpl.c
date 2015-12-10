@@ -87,6 +87,7 @@ int main(void) {
 			ret = 1;
 			goto cleanup;
 		case 0:
+			// TODO: Set processor affinity
 			kill(getppid(), SIG_CHILD_PROC_UP);
 			await_signal(SIG_EXEC_TEST_PROG);
 			exec_v(TEST_PROGS[prog].cmdline[0], TEST_PROGS[prog].cmdline);
@@ -129,6 +130,8 @@ int main(void) {
 			ret = 1;
 			goto cleanup;
 		}
+
+        // TODO: Use mremap() to dynamically resize bufs as data_head indicates they're filling up
 
 	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
 		if(waitpid(children[prog].pid, NULL, 0) < 0)
