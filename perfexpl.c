@@ -1,10 +1,10 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <assert.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -154,7 +154,7 @@ int main(void) {
 				(uintptr_t) each <
 					(uintptr_t) children[prog].buf + children[prog].buf->data_size;
 				next_sample(&each)) {
-			printf("%llu,%llu,%u\n", each->time, each->values[0] - last_misses, each->cpu);
+			printf("%" PRId64 ",%" PRId64 ",%" PRId32 "\n", each->time, each->values[0] - last_misses, each->cpu);
 			last_misses = each->values[0];
 		}
 
