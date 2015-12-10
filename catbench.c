@@ -1,14 +1,54 @@
-#include <unistd.h>
-#include <stdbool.h>
-#include <stdlib.h>
+#include <sys/wait.h>
+#include <assert.h>
 #include <pqos.h>
-#include <pthread.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "log.h"
 #include "proc_manip.h"
+#include "syscallers.h"
 
 // Number of times to iterate over all processes when attempting to move them between CPUs
 #define REARRANGE_RETRIES 3
+
+#define MAX_TEST_PROG_CMDLINE_WORDS 5
+typedef struct {
+	const char *cmdline[MAX_TEST_PROG_CMDLINE_WORDS];
+	const char *const null;
+} test_prog_t;
+
+static const test_prog_t TEST_PROGS[] = {
+	{.cmdline = {"clients/square_evictions", "-n1", "-c0", "-e25", "-r"}},
+};
+static const int NUM_TEST_PROGS = sizeof TEST_PROGS / sizeof *TEST_PROGS;
+
+#define SIG_CHILD_PROC_UP  SIGUSR1
+#define SIG_EXEC_TEST_PROG SIGUSR1
+
+typedef struct {
+	pid_t pid;
+	// TODO: Store per-process performance data handles here.
+} test_proc_t;
+
+static sigset_t block_signal(int signal) {
+	sigset_t mask;
+	sigemptyset(&mask);
+	sigaddset(&mask, signal);
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+	return mask;
+}
+
+static void await_signal(int signal) {
+	int received;
+	sigset_t await = block_signal(signal);
+	sigwait(&await, &received);
+	assert(received == signal);
+}
 
 static int pick_core (const struct pqos_cpuinfo *feats, int procs_go_where) {
   int cpu = procs_go_where % feats->num_cores;
@@ -48,33 +88,53 @@ static bool rearrange_processes(bool multicore, int procs_go_where,
 	return true;
 }
 
-static void* naptime(void* pointerToFalse) {
-  log_msg(LOG_INFO, "want to sleep");
-  sleep(3);
-  log_msg(LOG_INFO, "sleppt");
-  return pointerToFalse;
-}
+static bool run_benchmarks(const struct pqos_cpuinfo *feats) {
+  log_msg(LOG_INFO, "On your mark\n");
+  test_proc_t children[NUM_TEST_PROGS];
+  memset(&children, 1, sizeof children);
+  bool ret = true;
 
-static void run_benchmarks(const struct pqos_cpuinfo *feats) {
-  log_msg(LOG_INFO, "On your mark");
-  int nthreads = feats->num_cores;
-  pthread_t threads[nthreads];
-  void* (*tests[]) (void*) = {
-    &naptime,
-    NULL
-};
+  for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
+    block_signal(SIG_CHILD_PROC_UP);
+    pid_t pid = fork();
+    switch(pid) {
+    case -1:
+      perror("Forking child");
+      ret = false;
+      goto cleanup;
+    case 0:
+      // TODO: Set processor affinity
+      kill(getppid(), SIG_CHILD_PROC_UP);
+      await_signal(SIG_EXEC_TEST_PROG);
+      exec_v(TEST_PROGS[prog].cmdline[0], TEST_PROGS[prog].cmdline);
 
-  for (int i=0; tests[i]; i++) {
-    log_msg(LOG_INFO, "Get benched");
-    for (int j=0; j<nthreads; j++) {
-      log_msg(LOG_INFO, "GOO");
-      pthread_create(threads+j, NULL, tests[i], NULL);
-    } 
-    for (int j=0; j<nthreads; j++) {
-      pthread_join(threads[j], NULL);
-    } 
+      perror("Executing test program");
+      ret = false;
+      goto cleanup;
+    default:
+      await_signal(SIG_CHILD_PROC_UP);
+
+      children[prog].pid = pid;
+
+      // TODO: Initialize performance counters
+    }
   }
-  //TODO: Insert printification of results here.
+
+  for(int prog = 0; prog < NUM_TEST_PROGS; ++prog)
+    if(kill(children[prog].pid, SIG_EXEC_TEST_PROG)) {
+      ret = false;
+      goto cleanup;
+    }
+
+  for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
+    if(waitpid(children[prog].pid, NULL, 0) < 0)
+      perror("Awaiting child");
+
+    // TODO: Collect and output results.
+  }
+
+cleanup:
+  return ret;
 }
 
 int main(int argc, char** argv) {

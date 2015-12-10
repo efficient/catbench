@@ -5,7 +5,6 @@ CPPFLAGS += \
 	-D_GNU_SOURCE \
 
 CFLAGS += \
-	-pthread \
 
 .PHONY: all
 all: catbench-setcap
@@ -27,7 +26,8 @@ include external/modules.mk
 catbench-setcap: catbench
 	sudo setcap cap_sys_nice+ep $<
 
-catbench: log.o proc_manip.o external/pqos/lib/libpqos.a
+catbench: log.o proc_manip.o syscallers.h external/pqos/lib/libpqos.a
+
 perfexpl: syscallers.h
 
 log.o: log.h
