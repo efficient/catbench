@@ -2,18 +2,41 @@
 
 #include <sys/mman.h>
 #include <assert.h>
-#include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 
+#include "perf_poll.h"
 #include "rng.h"
 
 #define DEFAULT_NUM_PERIODS        2
 #define DEFAULT_PASSES_PER_CYCLE   100000
 #define DEFAULT_PERCENT_CONTRACTED 80
 #define DEFAULT_PERCENT_EXPANDED   220
+
+#define PERF_LOG_FILE_HEADER_LINE  "realtime,cputime,instructions,bandwidth\n"
+static const struct perf_event_attr PERF_LOG_COUNTERS[] = {
+	{
+		.type = PERF_TYPE_HARDWARE,
+		.config = PERF_COUNT_HW_INSTRUCTIONS,
+		.read_format = PERF_FORMAT_GROUP,
+		.disabled = 0x1,
+		.size = sizeof *PERF_LOG_COUNTERS,
+	},
+	{
+		.type = 0x8,
+		.config = 0x3,
+		.size = sizeof *PERF_LOG_COUNTERS,
+	},
+};
+static const size_t PERF_LOG_NUM_COUNTERS = sizeof PERF_LOG_COUNTERS / sizeof *PERF_LOG_COUNTERS;
+typedef struct {
+	uint64_t nr;
+	uint64_t instrs;
+	uint64_t bandwidth;
+} perf_read_format_t;
 
 #define MINIMUM_GENERATOR_PERIOD   8
 
@@ -37,6 +60,12 @@ static inline void dealloc(size_t size, void *victim, bool contig) {
 		free(victim);
 }
 
+static inline clock_t realclock(void) {
+	struct timespec ns;
+	clock_gettime(CLOCK_REALTIME, &ns);
+	return ns.tv_sec * 1000000 + ns.tv_nsec / 1000;
+}
+
 static bool parse_arg_arg(char flag, int *dest) {
 	int val;
 
@@ -54,14 +83,39 @@ static bool parse_arg_arg(char flag, int *dest) {
 
 static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
 		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
-		rng_t *cont_rand) {
+		rng_t *cont_rand, FILE *perflog) {
+	int ret = 0;
+
 	if(cont_rand)
 		assert(randomize);
 
 	uint8_t *large = alloc(capacity_expanded, huge);
 	if(!large) { // "at large"
 		perror("Allocating large array");
-		return 1;
+		ret = 1;
+		goto cleanup;
+	}
+
+	int perfd = -1;
+	clock_t startperf = 0;
+	perf_read_format_t counters = {.nr = PERF_LOG_NUM_COUNTERS};
+	if(perflog) {
+		assert(CLOCKS_PER_SEC == 1000000);
+
+		perfd = perf_poll_init(PERF_LOG_NUM_COUNTERS, PERF_LOG_COUNTERS);
+		if(perfd == -1) {
+			ret = 1;
+			goto cleanup;
+		}
+
+		fputs(PERF_LOG_FILE_HEADER_LINE, perflog);
+
+		if(!perf_poll_start(perfd)) {
+			perror("Starting performance recording");
+			ret = 1;
+			goto cleanup;
+		}
+		startperf = clock();
 	}
 		
 	for(int cycle = 0; cycle < 2 * num_periods; ++cycle) {
@@ -81,7 +135,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 		}
 		printf("Beginning %s passes\n", desc);
 
-		clock_t start = clock();
+		clock_t startpass = clock();
 
 		for(int pass = 0; pass < passes_per_cycle; ++pass) {
 			bool seen_initial = false;
@@ -99,17 +153,32 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 				large[ix] ^= val;
 			}
 			assert(!siz || seen_initial);
+
+			if(perflog) {
+				ssize_t amt = read(perfd, &counters, sizeof counters);
+				assert(amt == sizeof counters);
+				assert(counters.nr == PERF_LOG_NUM_COUNTERS);
+				fprintf(perflog, "%ld,%ld,%" PRIu64 ",%" PRIu64 "\n",
+						realclock(), clock() - startperf,
+						counters.instrs, counters.bandwidth);
+			}
 		}
 
-		clock_t duration = clock() - start;
+		clock_t duration = clock() - startpass;
 		printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 	}
 
-	dealloc(capacity_expanded, large, huge);
-	return 0;
+	if(perflog && !perf_poll_stop(perfd))
+		perror("Stopping performance recording");
+
+cleanup:
+	if(large)
+		dealloc(capacity_expanded, large, huge);
+	return ret;
 }
 
 int main(int argc, char *argv[]) {
+	FILE *perflog = NULL;
 	int num_periods = DEFAULT_NUM_PERIODS;
 	int passes_per_cycle = DEFAULT_PASSES_PER_CYCLE;
 	int percent_contracted = DEFAULT_PERCENT_CONTRACTED;
@@ -122,7 +191,7 @@ int main(int argc, char *argv[]) {
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::s")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods))
@@ -153,8 +222,16 @@ int main(int argc, char *argv[]) {
 		case 's':
 			secondrng = false;
 			break;
+		case 'l':
+			perflog = fopen(optarg, "w");
+			if(!perflog) {
+				perror("Opening log file for writing");
+				return 1;
+			}
+			break;
 		default:
-			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]]\n", invoc);
+			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]] [-s] [-l @]\n",
+					invoc);
 			printf(
 					" -n #: Number of PERIODS (default %d)\n"
 					" -p #: Number of PASSES per period (default %d)\n"
@@ -163,9 +240,12 @@ int main(int argc, char *argv[]) {
 					" -h: Allocate using huge pages for contiguous memory\n"
 					" -r [#]: Randomize ordering to fool prefetcher\n"
 					"         Optionally takes a custom rng increment\n"
-					" -s: Use only one rng (default 2 w/ different periods)\n",
+					" -s: Use only one rng (default 2 w/ different periods)\n"
+					" -l @: Log performance data to specified filename\n"
+					"       Currently records: %s",
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
-					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED);
+					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED,
+					PERF_LOG_FILE_HEADER_LINE);
 			return 1;
 		}
 	}
@@ -239,10 +319,12 @@ int main(int argc, char *argv[]) {
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
 	int res = square_evictions(cache_line_size, num_periods, passes_per_cycle,
-			cap_contracted, cap_expanded, hugepages, random, randtv);
+			cap_contracted, cap_expanded, hugepages, random, randtv, perflog);
 	if(random)
 		rng_lcfc_clean(random);
 	if(randtv)
 		rng_lcfc_clean(randtv);
+	if(perflog)
+		fclose(perflog);
 	return res;
 }
