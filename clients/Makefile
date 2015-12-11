@@ -16,6 +16,7 @@ square_evictions: llc.o rng.o
 dist_a: ../external/pqos/lib/libpqos.a dist_a.c llc.o rng.o
 
 llc.o: llc.h
+perf_poll.o: perf_poll.h syscallers.h
 rng.o: rng.h
 
 %.s: %.c
