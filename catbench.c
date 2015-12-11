@@ -10,11 +10,9 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "prep_system.h"
 #include "proc_manip.h"
 #include "syscallers.h"
-
-// Number of times to iterate over all processes when attempting to move them between CPUs
-#define REARRANGE_RETRIES 3
 
 #define MAX_TEST_PROG_CMDLINE_WORDS 5
 typedef struct {
@@ -50,127 +48,90 @@ static void await_signal(int signal) {
 	assert(received == signal);
 }
 
-static int pick_core (const struct pqos_cpuinfo *feats, int procs_go_where) {
-  int cpu = procs_go_where % feats->num_cores;
-  while (cpu < 0) cpu += feats-> num_cores;
-  return cpu;
-}
-
-static bool rearrange_processes(bool multicore, int procs_go_where,
-		const struct pqos_cpuinfo *feats) {
-	cpu_set_t mask;
-	CPU_ZERO(&mask);
-	if(multicore) {
-		for(unsigned cpu = 0; cpu < feats->num_cores; ++cpu)
-			CPU_SET(cpu, &mask);
-	} else {
-          CPU_SET(pick_core(feats, procs_go_where), &mask);
-        }
-
-	int attempts;
-	uint8_t failed;
-	// TODO: Only hold cap_sys_nice here
-	for(attempts = 1; attempts <= REARRANGE_RETRIES &&
-			proc_manip_rebalance_system(&failed, &mask); ++attempts) {
-		log_msg(LOG_VERBOSE, "Relocation attempt #%d completed with code %#x\n",
-				attempts, failed);
-	}
-
-	if(attempts > REARRANGE_RETRIES) {
-		log_msg(LOG_ERROR, "Gave up before relocating all processes\n");
-		return false;
-	}
-	if(failed) {
-		log_msg(LOG_ERROR, "Final relocation attempt failed with code %#x\n", failed);
-		return false;
-	}
-	log_msg(LOG_INFO, "Successfully relocated all system processes in %d attempts\n", attempts);
-	return true;
-}
-
 static bool run_benchmarks(const struct pqos_cpuinfo *feats) {
-  log_msg(LOG_INFO, "On your mark\n");
-  test_proc_t children[NUM_TEST_PROGS];
-  memset(&children, 1, sizeof children);
-  bool ret = true;
+	(void) feats;
+	log_msg(LOG_INFO, "On your mark\n");
+	test_proc_t children[NUM_TEST_PROGS];
+	memset(&children, 1, sizeof children);
+	bool ret = true;
 
-  for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
-    block_signal(SIG_CHILD_PROC_UP);
-    pid_t pid = fork();
-    switch(pid) {
-    case -1:
-      perror("Forking child");
-      ret = false;
-      goto cleanup;
-    case 0:
-      // TODO: Set processor affinity
-      kill(getppid(), SIG_CHILD_PROC_UP);
-      await_signal(SIG_EXEC_TEST_PROG);
-      exec_v(TEST_PROGS[prog].cmdline[0], TEST_PROGS[prog].cmdline);
+	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
+		block_signal(SIG_CHILD_PROC_UP);
+		pid_t pid = fork();
+		switch(pid) {
+			case -1:
+				perror("Forking child");
+				ret = false;
+				goto cleanup;
+			case 0:
+				// TODO: Set processor affinity
+				kill(getppid(), SIG_CHILD_PROC_UP);
+				await_signal(SIG_EXEC_TEST_PROG);
+				exec_v(TEST_PROGS[prog].cmdline[0], TEST_PROGS[prog].cmdline);
 
-      perror("Executing test program");
-      ret = false;
-      goto cleanup;
-    default:
-      await_signal(SIG_CHILD_PROC_UP);
+				perror("Executing test program");
+				ret = false;
+				goto cleanup;
+			default:
+				await_signal(SIG_CHILD_PROC_UP);
 
-      children[prog].pid = pid;
+				children[prog].pid = pid;
 
-      // TODO: Initialize performance counters
-    }
-  }
+				// TODO: Initialize performance counters
+		}
+	}
 
-  for(int prog = 0; prog < NUM_TEST_PROGS; ++prog)
-    if(kill(children[prog].pid, SIG_EXEC_TEST_PROG)) {
-      ret = false;
-      goto cleanup;
-    }
+	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog)
+		if(kill(children[prog].pid, SIG_EXEC_TEST_PROG)) {
+			ret = false;
+			goto cleanup;
+		}
 
-  for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
-    if(waitpid(children[prog].pid, NULL, 0) < 0)
-      perror("Awaiting child");
+	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
+		if(waitpid(children[prog].pid, NULL, 0) < 0)
+			perror("Awaiting child");
 
-    // TODO: Collect and output results.
-  }
+		// TODO: Collect and output results.
+	}
 
 cleanup:
-  return ret;
+	return ret;
 }
 
 int main(int argc, char** argv) {
-        int ret = 0;
-        int unpin_procs = 0;
-        int procs_go_where = 0;
-        int quit = 0;
+	int ret = 0;
+	int unpin_procs = 0;
+	int procs_go_where = 0;
+	int quit = 0;
 
-        // Get dem opts
-        int c, has_p = 0;
-        while ((c = getopt(argc, argv, "hqup:")) != -1) {
-          switch (c) {
-          case 'u':
-            unpin_procs = 1;
-            break;
-          case 'p':
-            procs_go_where = atoi(optarg);
-            has_p = 1;
-            break;
-          case 'q':
-            quit = 1;
-            break;
-          case 'h':
-            log_msg(LOG_INFO, 
-"Usage: \n"
-"  -p CORE: Pin system processes to CORE\n"
-"  -u: Unpin all system processes\n"
-"  -q: Quit after migrating, before benchmarks\n"
-"  -h: Print this message and exit\n");
-            return 0;
-          }
-        }
+	// Get dem opts
+	int c, has_p = 0;
+	while ((c = getopt(argc, argv, "hqup:")) != -1) {
+		switch (c) {
+			case 'u':
+				unpin_procs = 1;
+				break;
+			case 'p':
+				procs_go_where = atoi(optarg);
+				has_p = 1;
+				break;
+			case 'q':
+				quit = 1;
+				break;
+			case 'h':
+				log_msg(LOG_INFO, 
+						"Usage: \n"
+						"  -p CORE: Pin system processes to CORE\n"
+						"  -u: Unpin all system processes\n"
+						"  -q: Quit after migrating, before benchmarks\n"
+						"  -h: Print this message and exit\n");
+				return 0;
+		}
+	}
 
-        if (has_p && unpin_procs) {
-          log_msg(LOG_FATAL, "Cannot specify both -p and -u");
-        }
+	if (has_p && unpin_procs) {
+		log_msg(LOG_FATAL, "Cannot specify both -p and -u");
+	}
 
 	struct pqos_config cfg = {
 		.fd_log = log_get_dest(),
@@ -192,12 +153,12 @@ int main(int argc, char** argv) {
 
 	if(!rearrange_processes(unpin_procs, procs_go_where, traits)) {
 		log_msg(LOG_FATAL, "Unable to relocate all system processes (permissions?)\n");
-                // Probably don't want to quit early here, because failing to migrate is common
+		// Probably don't want to quit early here, because failing to migrate is common
 		// ret = 1;
 		// goto cleanup;
 	}
-        if (quit) goto cleanup;
-        run_benchmarks(traits);
+	if (quit) goto cleanup;
+	run_benchmarks(traits);
 	if(!unpin_procs)
 		rearrange_processes(true, 0, traits);
 
