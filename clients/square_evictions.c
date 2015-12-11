@@ -155,12 +155,14 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 			assert(!siz || seen_initial);
 
 			if(perflog) {
+				perf_poll_stop(perfd);
 				ssize_t amt = read(perfd, &counters, sizeof counters);
 				assert(amt == sizeof counters);
 				assert(counters.nr == PERF_LOG_NUM_COUNTERS);
 				fprintf(perflog, "%ld,%ld,%" PRIu64 ",%" PRIu64 "\n",
 						realclock(), clock() - startperf,
 						counters.instrs, counters.bandwidth);
+				perf_poll_start(perfd);
 			}
 		}
 
