@@ -8,7 +8,7 @@ CPPFLAGS += \
 CFLAGS += \
 
 .PHONY: all
-all: square_evictions dist_a
+all: square_evictions
 
 include ../external/modules.mk
 
