@@ -1,0 +1,51 @@
+From 02807a02a9778447b4c20a6e1799ce5fe56a64ce Mon Sep 17 00:00:00 2001
+From: Sol Boucher <sboucher@cmu.edu>
+Date: Sat, 12 Dec 2015 16:16:59 -0500
+Subject: [PATCH 2/2] perf,x86: Don't overwrite CoSes when configuring CMT
+ RMIDs
+
+Obviously, this made it impossible to use CAT and MBM at the same time.
+---
+ arch/x86/kernel/cpu/perf_event_intel_cqm.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/perf_event_intel_cqm.c b/arch/x86/kernel/cpu/perf_event_intel_cqm.c
+index c49ba0d..3167f67 100644
+--- a/arch/x86/kernel/cpu/perf_event_intel_cqm.c
++++ b/arch/x86/kernel/cpu/perf_event_intel_cqm.c
+@@ -992,6 +992,7 @@ static void intel_cqm_event_start(struct perf_event *event, int mode)
+ {
+ 	struct intel_pqr_state *state = this_cpu_ptr(&pqr_state);
+ 	u32 rmid = event->hw.cqm_rmid;
++	u32 ign, cos;
+ 
+ 	if (!(event->hw.cqm_state & PERF_HES_STOPPED))
+ 		return;
+@@ -1006,12 +1007,15 @@ static void intel_cqm_event_start(struct perf_event *event, int mode)
+ 	}
+ 
+ 	state->rmid = rmid;
++	rdmsr(MSR_IA32_PQR_ASSOC, ign, cos);
++	state->closid = cos;
+ 	wrmsr(MSR_IA32_PQR_ASSOC, rmid, state->closid);
+ }
+ 
+ static void intel_cqm_event_stop(struct perf_event *event, int mode)
+ {
+ 	struct intel_pqr_state *state = this_cpu_ptr(&pqr_state);
++	u32 ign, cos;
+ 
+ 	if (event->hw.cqm_state & PERF_HES_STOPPED)
+ 		return;
+@@ -1022,6 +1026,8 @@ static void intel_cqm_event_stop(struct perf_event *event, int mode)
+ 
+ 	if (!--state->rmid_usecnt) {
+ 		state->rmid = 0;
++		rdmsr(MSR_IA32_PQR_ASSOC, ign, cos);
++		state->closid = cos;
+ 		wrmsr(MSR_IA32_PQR_ASSOC, 0, state->closid);
+ 	} else {
+ 		WARN_ON_ONCE(!state->rmid);
+-- 
+2.6.2
+

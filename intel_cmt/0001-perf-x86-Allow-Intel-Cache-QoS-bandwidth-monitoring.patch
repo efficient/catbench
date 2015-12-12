@@ -1,7 +1,7 @@
 From 42bef11edcb5a29303a2329a584b242542b9fc70 Mon Sep 17 00:00:00 2001
 From: Sol Boucher <sboucher@cmu.edu>
 Date: Mon, 7 Dec 2015 11:50:24 -0500
-Subject: [PATCH] perf,x86: Allow Intel Cache QoS bandwidth monitoring
+Subject: [PATCH 1/2] perf,x86: Allow Intel Cache QoS bandwidth monitoring
 
 This adds the new perf events intel_cqm/llc_total_bw/ and
 intel_cqm/llc_local_bw/ and stops blocking their EvtIDs.
