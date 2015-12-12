@@ -6,7 +6,7 @@
 #include "bench_commands.h"
 #include "log.h"
 #include "prep_system.h"
-#define LARGE_NUMBER "100"
+#define LARGE_NUMBER "3"
 
 #define COMMON_COS 	1
 #define OTHER_COS 	2
@@ -14,12 +14,12 @@
 #define READER_CORE 	0
 #define SWITCHER_CORE	1
 
-#define NUM_SWITCHES	1000
+#define NUM_SWITCHES	(1 << 25)
 
 // TODO add flag to square_evictions for timing each memory access
 static test_prog_t progs[] = {
 	{
-		.cmdline = {"clients/square_evictions", "-e100", "-c100", "-n"LARGE_NUMBER, "-m"},
+		.cmdline = {"clients/square_evictions", "-e20", "-c20", "-n"LARGE_NUMBER, "-m"},
 		.target_cpu = 0,
 	},
 };
@@ -72,6 +72,9 @@ int main(int argc, char** argv) {
 	}
 	/* Keep swapping COS of our other core */
 	// TODO fix this
+	printf("Done swapping!\n");
+	wait_benchmarks();
+	run_benchmarks(progs, 1);
 	wait_benchmarks();
 	cleanup_system(true);
 }
