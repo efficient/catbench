@@ -76,6 +76,8 @@ int main(int argc, char **argv) {
 			log_msg(LOG_FATAL, "Failed to associate CoS with core\n");
 			return 1;
 		}
+		// FIXME: This is needed due to a race in libpqos: otherwise, only the first works!
+		sleep(2);
 	}
 
 	run_benchmarks(progs, NUM_PROGS);
