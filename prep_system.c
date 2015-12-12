@@ -1,6 +1,7 @@
 #include "prep_system.h"
 
 #include <pqos.h>
+#include <stdlib.h>
 
 #include "log.h"
 #include "proc_manip.h"
@@ -42,9 +43,20 @@ static bool rearrange_processes(bool multicore, int procs_go_where,
 	return true;
 }
 
+#define GIT_LOG_CMD 	"git log --online -1"
+#define GIT_STATUS_CMD  "git status -uno"
+#define GIT_DIFF_CMD	"git diff HEAD"
+#define DELIM 		"==="
 // Purposely ignoring the usual style for pointers!
 // I don't know enough about PL to argue about it though!
 int prep_system(bool multicore, int procs_go_where) {
+	printf("%s\n", GIT_LOG_CMD);
+	system(GIT_LOG_CMD);
+	printf("%s\n", GIT_STATUS_CMD);
+	system(GIT_STATUS_CMD);
+	printf("%s\n", GIT_DIFF_CMD);
+	system(GIT_DIFF_CMD);
+	printf("%s\n", "DELIM");
 	int ret = 0;
 	struct pqos_config cfg = {
 		.fd_log = log_get_dest(),
@@ -67,6 +79,11 @@ int prep_system(bool multicore, int procs_go_where) {
 	}
 	return ret;
 }
+
+#undef GIT_LOG_CMD
+#undef GIT_STATUS_CMD
+#undef GIT_DIFF_CMD
+#undef DELIM
 
 // TODO add pqos_fini errors to return value
 int cleanup_system(bool unpin_procs) {
