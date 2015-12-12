@@ -29,10 +29,11 @@ catbench-setcap: catbench
 
 # external/pqos/lib/libpqos.a should be at the end of these lines to compile correctly
 catbench: log.o proc_manip.o syscallers.h prep_system.o bench_commands.o external/pqos/lib/libpqos.a
-dist_a: log.o proc_manip.o syscallers.h prep_system.o bench_commands.o external/pqos/lib/libpqos.a 
+dist_a: rdtscp.h log.o proc_manip.o prep_system.o bench_commands.o external/pqos/lib/libpqos.a
 
 perfexpl: syscallers.h
 
+bench_commands.o: bench_commands.h syscallers.h
 log.o: log.h
-proc_manip.o: proc_manip.h
 prep_system.o: external/pqos/lib/libpqos.a
+proc_manip.o: proc_manip.h
