@@ -5,8 +5,8 @@
 #include <linux/perf_event.h>
 #include <unistd.h>
 
-static inline int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_fd,
-		unsigned long flags) {
+static inline int perf_event_open(const struct perf_event_attr *attr, pid_t pid, int cpu,
+		int group_fd, unsigned long flags) {
 	return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
