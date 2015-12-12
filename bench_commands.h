@@ -33,6 +33,6 @@ bool run_benchmarks(const test_prog_t* test_progs, const int num_test_progs);
 
 // Upon any error will return a negative value
 // Upon success returns 0
-int parse_args(int argc, char** argv, args_t* args);
+int parse_common_args(int argc, char** argv, args_t* args);
 
 #endif

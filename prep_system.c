@@ -12,7 +12,7 @@ static int pick_core (const struct pqos_cpuinfo *traits, int procs_go_where) {
 	return cpu;
 }
 
-bool rearrange_processes(bool multicore, int procs_go_where,
+static bool rearrange_processes(bool multicore, int procs_go_where,
 		const struct pqos_cpuinfo *traits) {
 	cpu_set_t mask;
 	CPU_ZERO(&mask);

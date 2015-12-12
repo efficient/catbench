@@ -25,7 +25,7 @@ static void await_signal(int signal) {
 	assert(received == signal);
 }
 
-int parse_args(int argc, char** argv, args_t* args) {
+int parse_common_args(int argc, char** argv, args_t* args) {
 	int ret = 0;
 	// Get dem opts
 	int c, has_p = 0;

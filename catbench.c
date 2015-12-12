@@ -24,7 +24,7 @@ static const int num_test_progs = sizeof test_progs / sizeof *test_progs;
 int main(int argc, char** argv) {
 	int ret = 0;
 	args_t args;
-	parse_args(argc, argv, &args);
+	parse_common_args(argc, argv, &args);
 	int unpin_procs = args.unpin_procs;
 	int procs_go_where = args.procs_go_where;
 	int quit = args.quit;
