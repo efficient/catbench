@@ -180,6 +180,10 @@ cleanup:
 }
 
 int main(int argc, char *argv[]) {
+	int ret = 0;
+
+	rng_t *random = NULL;
+	rng_t *randtv = NULL;
 	FILE *perflog = NULL;
 	int num_periods = DEFAULT_NUM_PERIODS;
 	int passes_per_cycle = DEFAULT_PASSES_PER_CYCLE;
@@ -196,20 +200,28 @@ int main(int argc, char *argv[]) {
 	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:")) != -1) {
 		switch(each_arg) {
 		case 'n':
-			if(!parse_arg_arg(each_arg, &num_periods))
-				return 1;
+			if(!parse_arg_arg(each_arg, &num_periods)) {
+				ret = 1;
+				goto cleanup;
+			}
 			break;
 		case 'p':
-			if(!parse_arg_arg(each_arg, &passes_per_cycle))
-				return 1;
+			if(!parse_arg_arg(each_arg, &passes_per_cycle)) {
+				ret = 1;
+				goto cleanup;
+			}
 			break;
 		case 'c':
-			if(!parse_arg_arg(each_arg, &percent_contracted))
-				return 1;
+			if(!parse_arg_arg(each_arg, &percent_contracted)) {
+				ret = 1;
+				goto cleanup;
+			}
 			break;
 		case 'e':
-			if(!parse_arg_arg(each_arg, &percent_expanded))
-				return 1;
+			if(!parse_arg_arg(each_arg, &percent_expanded)) {
+				ret = 1;
+				goto cleanup;
+			}
 			break;
 		case 'h':
 			hugepages = true;
@@ -217,8 +229,10 @@ int main(int argc, char *argv[]) {
 		case 'r':
 			randomize = true;
 			if(optarg) {
-				if(!parse_arg_arg(each_arg, &custom_increment))
-					return 1;
+				if(!parse_arg_arg(each_arg, &custom_increment)) {
+					ret = 1;
+					goto cleanup;
+				}
 			}
 			break;
 		case 's':
@@ -228,7 +242,8 @@ int main(int argc, char *argv[]) {
 			perflog = fopen(optarg, "w");
 			if(!perflog) {
 				perror("Opening log file for writing");
-				return 1;
+				ret = 1;
+				goto cleanup;
 			}
 			break;
 		default:
@@ -248,17 +263,20 @@ int main(int argc, char *argv[]) {
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
 					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED,
 					PERF_LOG_FILE_HEADER_LINE);
-			return 1;
+			ret = 1;
+			goto cleanup;
 		}
 	}
 	if(!secondrng && !randomize) {
 		fputs("-s only makes sense in concert with -r\n", stderr);
-		return 1;
+		ret = 1;
+		goto cleanup;
 	}
 	if(percent_contracted > percent_expanded) {
 		fprintf(stderr, "Percent contracted (%d) is larger than percent expanded (%d)\n",
 				percent_contracted, percent_expanded);
-		return 1;
+		ret = 1;
+		goto cleanup;
 	} else if(percent_contracted == percent_expanded)
 		secondrng = false;
 
@@ -266,20 +284,21 @@ int main(int argc, char *argv[]) {
 	int cache_line_size = llc_line_size();
 	int cache_num_sets = llc_num_sets();
 	llc_cleanup();
-	if(cache_line_size <= 0 || cache_num_sets <= 0)
-		return 1;
+	if(cache_line_size <= 0 || cache_num_sets <= 0) {
+		ret = 1;
+		goto cleanup;
+	}
 
 	int lines_contracted = cache_num_sets * percent_contracted / 100.0;
 	int lines_expanded = cache_num_sets * percent_expanded / 100.0;
 
-	rng_t *random = NULL;
-	rng_t *randtv = NULL;
 	const int TWO = 2;
 	if(randomize) {
 		if(!pow_of_two(cache_num_sets)) {
 			fprintf(stderr, "Number of cache sets (%d) is not a power of two\n",
 					cache_num_sets);
-			return 1;
+			ret = 1;
+			goto cleanup;
 		}
 
 		unsigned siz = cache_num_sets;
@@ -299,7 +318,8 @@ int main(int argc, char *argv[]) {
 			if(!random) {
 				fprintf(stderr, "Provided rng increment (%d) not coprime with %d\n",
 						custom_increment, cache_num_sets);
-				return 1;
+				ret = 1;
+				goto cleanup;
 			}
 			if(secondrng) {
 				randtv = rng_lcfc_init_incr(siz_reduced, 1, &TWO, custom_increment);
@@ -309,7 +329,8 @@ int main(int argc, char *argv[]) {
 			random = rng_lcfc_init(siz, 1, &TWO);
 			if(!random) {
 				perror("Allocating random number generator");
-				return 1;
+				ret = 1;
+				goto cleanup;
 			}
 			if(secondrng) {
 				randtv = rng_lcfc_init(siz_reduced, 1, &TWO);
@@ -320,13 +341,15 @@ int main(int argc, char *argv[]) {
 
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
-	int res = square_evictions(cache_line_size, num_periods, passes_per_cycle,
+	ret = square_evictions(cache_line_size, num_periods, passes_per_cycle,
 			cap_contracted, cap_expanded, hugepages, random, randtv, perflog);
+
+cleanup:
 	if(random)
 		rng_lcfc_clean(random);
 	if(randtv)
 		rng_lcfc_clean(randtv);
 	if(perflog)
 		fclose(perflog);
-	return res;
+	return ret;
 }
