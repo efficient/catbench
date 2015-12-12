@@ -1,5 +1,3 @@
-#include "llc.h"
-
 #include <asm/unistd.h>
 #include <linux/perf_event.h>
 #include <linux/hw_breakpoint.h>
@@ -7,6 +5,7 @@
 #include <sys/mman.h>
 #include <assert.h>
 #include <pqos.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,8 +14,9 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#include "../rdtscp.h"
-#include "../syscallers.h"
+#include "bench_commands.h"
+#include "prep_system.h"
+#include "rdtscp.h"
 
 #define DEFAULT_NUM_PASSES      100000
 #define DEFAULT_PERCENT         80
@@ -65,7 +65,9 @@ static int dist_a(int num_passes, int start_cycle) {
 	for(int offset = 0; offset < NUM_WAYS; ++offset) {
 		int cycle = (start_cycle + offset) % NUM_WAYS;
 		rotate_cores(cycle);
-		const char *cmdline[] = {"clients/square_evictions", "-n1", "-c5", "-e5", "-p100000", "-r", NULL};
+		test_prog_t cmdline[] = {
+		{.cmdline = {"clients/square_evictions", "-n1", "-c5", "-e5", "-p100000", "-r"}},
+		};
 		/* Begin timed section */
 		uint64_t begin = rdtscp();
 		run_benchmarks(cmdline, 1);
