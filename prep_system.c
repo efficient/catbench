@@ -45,7 +45,7 @@ static bool rearrange_processes(bool multicore, int procs_go_where,
 
 #define GIT_LOG_CMD 	"git log --online -1"
 #define GIT_STATUS_CMD  "git status -uno"
-#define GIT_DIFF_CMD	"git diff HEAD"
+#define GIT_DIFF_CMD	"git --no-pager diff HEAD"
 #define DELIM 		"==="
 // Purposely ignoring the usual style for pointers!
 // I don't know enough about PL to argue about it though!

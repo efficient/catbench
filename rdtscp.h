@@ -16,4 +16,12 @@ static inline uint64_t rdtscp(void) {
 	return ((uint64_t)cycles_high << 32 | cycles_low);
 }
 
+static inline uint64_t logtwo(const uint64_t x) {
+	uint64_t y;
+	__asm volatile( "\tbsr %1, %0\n"
+			: "=r"(y)
+			: "r" (x)
+	    );
+	return y;
+}
 #endif

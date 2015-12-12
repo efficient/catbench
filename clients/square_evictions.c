@@ -18,6 +18,11 @@
 #define DEFAULT_PERCENT_CONTRACTED 80
 #define DEFAULT_PERCENT_EXPANDED   220
 
+#define MAX_MEMREF_CYCLES_POW	17
+#define LOWER(x) (1 << x)
+#define UPPER(x) (1 << (x+1))
+uint64_t histogram[MAX_MEMREF_CYCLES_POW] = {0};
+
 #define PERF_LOG_FILE_HEADER_LINE  "realtime,cputime,instructions,bandwidth\n"
 static const struct perf_event_attr PERF_LOG_COUNTERS[] = {
 	{
@@ -202,6 +207,10 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 					if(time > max_time) {
 						max_time = time;
 						printf("Current max cycles for a memory access %lu\n", max_time);
+					}
+					// Ignore the first 2 cycles due to memory fetch behavior
+					if(cycle < 2) {
+						++histogram[logtwo(time)];
 					}
 				}
 			}
@@ -429,5 +438,10 @@ cleanup:
 		munmap(perfbuf, perfbuf->siz);
 	if(perflog)
 		fclose(perflog);
+	if(measure_all) {
+		for(int i = 0; i < MAX_MEMREF_CYCLES_POW; ++i) {
+			printf("Mem access cycles >= 2^%d: %lu\n", i, histogram[i]);
+		}
+	}
 	return ret;
 }

@@ -6,7 +6,9 @@
 #include "bench_commands.h"
 #include "log.h"
 #include "prep_system.h"
-#define LARGE_NUMBER "3"
+
+// Should be at least 2, on 1 it might measure memory fetches, 2+ will use definitely use cache
+#define LARGE_NUMBER "2"
 
 #define COMMON_COS 	1
 #define OTHER_COS 	2
@@ -14,7 +16,10 @@
 #define READER_CORE 	0
 #define SWITCHER_CORE	1
 
-#define NUM_SWITCHES	(1 << 25)
+// 21 takes about 8 seconds
+// 23 takes about 40 seconds
+// 24 takes about 1 minute
+#define NUM_SWITCHES	(1 << 24)
 
 // TODO add flag to square_evictions for timing each memory access
 static test_prog_t progs[] = {
@@ -42,8 +47,13 @@ static const struct pqos_l3ca COS_MASKS[] = {
 static const size_t NUM_COS_MASKS = sizeof COS_MASKS / sizeof *COS_MASKS;
 
 int main(int argc, char** argv) {
-	(void) argc;
-	(void) argv;
+	int swappy = 0;
+	/* lol */
+	if(argc > 1) {
+		if(argv[1][0] == '-' && argv[1][1] == 's')
+			swappy = 1;
+	}
+	/* end lol */
 	if(prep_system(false, -1) < 0) {
 		log_msg(LOG_FATAL, "Failed to complete initial setup\n");
 		return 1;
@@ -65,16 +75,17 @@ int main(int argc, char** argv) {
 		sleep(2);
 	}
 	run_benchmarks(progs, 1);
-	for(int i = 0; i < NUM_SWITCHES; ++i) {
-		if(pqos_l3ca_assoc_set(SWITCHER_CORE, OTHER_COS) != PQOS_RETVAL_OK) {
-			log_msg(LOG_FATAL, "Failed to switch Cos on switcher process\n");
+	if(swappy) {
+		printf("Swapping CoSes\n");
+		for(int i = 0; i < NUM_SWITCHES; ++i) {
+			if(pqos_l3ca_assoc_set(SWITCHER_CORE, OTHER_COS) != PQOS_RETVAL_OK) {
+				log_msg(LOG_FATAL, "Failed to switch Cos on switcher process\n");
+			}
 		}
+		/* Keep swapping COS of our other core */
+		// TODO fix this
+		printf("Done swapping!\n");
 	}
-	/* Keep swapping COS of our other core */
-	// TODO fix this
-	printf("Done swapping!\n");
-	wait_benchmarks();
-	run_benchmarks(progs, 1);
 	wait_benchmarks();
 	cleanup_system(true);
 }
