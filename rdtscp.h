@@ -1,6 +1,8 @@
 #ifndef RDTSCP_H_
 #define RDTSCP_H_
 
+#include <stdint.h>
+
 static inline uint64_t rdtscp(void) {
 	uint32_t cycles_low, cycles_high;
 	__asm volatile(
