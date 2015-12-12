@@ -8,6 +8,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "movnt.h"
 #include "perf_poll.h"
 #include "rng.h"
 
@@ -38,6 +39,20 @@ typedef struct {
 	uint64_t bandwidth;
 } perf_read_format_t;
 
+#define PERF_LOG_BUFFER_INIT_SIZE (5 * 1024 * 1024)
+#define PERF_LOG_BUFFER_GROW_FACT 2
+typedef struct {
+	uint64_t realtime;
+	uint64_t cputime;
+	uint64_t instrs;
+	uint64_t bandwidth;
+} perf_log_buffer_entry_t;
+typedef struct {
+	size_t siz;
+	size_t occ;
+	perf_log_buffer_entry_t log[];
+} perf_log_buffer_t;
+
 #define MINIMUM_GENERATOR_PERIOD   8
 
 static inline bool pow_of_two(int num) {
@@ -66,6 +81,34 @@ static inline clock_t realclock(void) {
 	return ns.tv_sec * 1000000 + ns.tv_nsec / 1000;
 }
 
+static inline bool bufappend(perf_log_buffer_t **buf, int perfd, clock_t startperf) {
+	perf_read_format_t counters;
+	perf_poll_stop(perfd);
+
+	if((*buf)->occ + sizeof *(*buf)->log > (*buf)->siz) {
+		puts("Outgrew performance logging buffer; expanding it...");
+		perf_log_buffer_t *newloc = mremap(*buf, (*buf)->siz,
+				PERF_LOG_BUFFER_GROW_FACT * (*buf)->siz, MREMAP_MAYMOVE);
+		if(newloc == MAP_FAILED) {
+			perror("Expanding in-memory log buffer");
+			return false;
+		}
+		*buf = newloc;
+		(*buf)->siz *= PERF_LOG_BUFFER_GROW_FACT;
+	}
+
+	ssize_t amt = read(perfd, &counters, sizeof counters);
+	assert(amt == sizeof counters);
+	assert(counters.nr == PERF_LOG_NUM_COUNTERS);
+
+	movntq4((uint64_t *) ((uintptr_t) *buf + (*buf)->occ), realclock(), clock() - startperf,
+			counters.instrs, counters.bandwidth);
+	(*buf)->occ += sizeof *(*buf)->log;
+
+	perf_poll_start(perfd);
+	return true;
+}
+
 static bool parse_arg_arg(char flag, int *dest) {
 	int val;
 
@@ -83,7 +126,9 @@ static bool parse_arg_arg(char flag, int *dest) {
 
 static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
 		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
-		rng_t *cont_rand, FILE *perflog) {
+		rng_t *cont_rand, perf_log_buffer_t **perflog) {
+	assert(perflog);
+
 	int ret = 0;
 
 	if(cont_rand)
@@ -98,8 +143,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 
 	int perfd = -1;
 	clock_t startperf = 0;
-	perf_read_format_t counters = {.nr = PERF_LOG_NUM_COUNTERS};
-	if(perflog) {
+	if(*perflog) {
 		assert(CLOCKS_PER_SEC == 1000000);
 
 		perfd = perf_poll_init(PERF_LOG_NUM_COUNTERS, PERF_LOG_COUNTERS);
@@ -107,8 +151,6 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 			ret = 1;
 			goto cleanup;
 		}
-
-		fputs(PERF_LOG_FILE_HEADER_LINE, perflog);
 
 		if(!perf_poll_start(perfd)) {
 			perror("Starting performance recording");
@@ -154,23 +196,18 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 			}
 			assert(!siz || seen_initial);
 
-			if(perflog) {
-				perf_poll_stop(perfd);
-				ssize_t amt = read(perfd, &counters, sizeof counters);
-				assert(amt == sizeof counters);
-				assert(counters.nr == PERF_LOG_NUM_COUNTERS);
-				fprintf(perflog, "%ld,%ld,%" PRIu64 ",%" PRIu64 "\n",
-						realclock(), clock() - startperf,
-						counters.instrs, counters.bandwidth);
-				perf_poll_start(perfd);
-			}
+			if(*perflog)
+				if(!bufappend(perflog, perfd, startperf)) {
+					ret = 1;
+					goto cleanup;
+				}
 		}
 
 		clock_t duration = clock() - startpass;
 		printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 	}
 
-	if(perflog && !perf_poll_stop(perfd))
+	if(*perflog && !perf_poll_stop(perfd))
 		perror("Stopping performance recording");
 
 cleanup:
@@ -185,6 +222,7 @@ int main(int argc, char *argv[]) {
 	rng_t *random = NULL;
 	rng_t *randtv = NULL;
 	FILE *perflog = NULL;
+	perf_log_buffer_t *perfbuf = NULL;
 	int num_periods = DEFAULT_NUM_PERIODS;
 	int passes_per_cycle = DEFAULT_PASSES_PER_CYCLE;
 	int percent_contracted = DEFAULT_PERCENT_CONTRACTED;
@@ -279,6 +317,18 @@ int main(int argc, char *argv[]) {
 		goto cleanup;
 	} else if(percent_contracted == percent_expanded)
 		secondrng = false;
+	if(perflog) {
+		perfbuf = mmap(0, PERF_LOG_BUFFER_INIT_SIZE, PROT_READ | PROT_WRITE,
+				MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+		if(perfbuf == MAP_FAILED) {
+			puts("Allocating in-memory log buffer");
+			perfbuf = NULL;
+			ret = 1;
+			goto cleanup;
+		}
+		perfbuf->siz = PERF_LOG_BUFFER_INIT_SIZE;
+		perfbuf->occ = (uintptr_t) perfbuf->log - (uintptr_t) perfbuf;
+	}
 
 	llc_init();
 	int cache_line_size = llc_line_size();
@@ -342,13 +392,25 @@ int main(int argc, char *argv[]) {
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
 	ret = square_evictions(cache_line_size, num_periods, passes_per_cycle,
-			cap_contracted, cap_expanded, hugepages, random, randtv, perflog);
+			cap_contracted, cap_expanded, hugepages, random, randtv, &perfbuf);
+
+	if(perflog) {
+		assert(perfbuf);
+		fputs(PERF_LOG_FILE_HEADER_LINE, perflog);
+		for(perf_log_buffer_entry_t *entry = perfbuf->log;
+				(uintptr_t) entry < (uintptr_t) perfbuf + perfbuf->occ; ++entry)
+			fprintf(perflog, "%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 "\n",
+					entry->realtime, entry->cputime,
+					entry->instrs, entry->bandwidth);
+	}
 
 cleanup:
 	if(random)
 		rng_lcfc_clean(random);
 	if(randtv)
 		rng_lcfc_clean(randtv);
+	if(perfbuf)
+		munmap(perfbuf, perfbuf->siz);
 	if(perflog)
 		fclose(perflog);
 	return ret;
