@@ -7,7 +7,7 @@ CPPFLAGS += \
 CFLAGS += \
 
 .PHONY: all
-all: catbench-setcap dist_a slowbro
+all: catbench-setcap dist_a slowbro locksmith
 
 .PHONY: clean
 clean:
@@ -31,6 +31,7 @@ catbench-setcap: catbench
 catbench: log.o proc_manip.o syscallers.h prep_system.o bench_commands.o external/pqos/lib/libpqos.a
 dist_a: rdtscp.h log.o proc_manip.o prep_system.o bench_commands.o external/pqos/lib/libpqos.a
 slowbro: bench_commands.o log.o prep_system.o proc_manip.o external/pqos/lib/libpqos.a
+locksmith: bench_commands.o log.o prep_system.o proc_manip.o external/pqos/lib/libpqos.a
 
 perfexpl: syscallers.h
 

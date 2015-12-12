@@ -10,6 +10,7 @@
 
 #include "movnt.h"
 #include "perf_poll.h"
+#include "../rdtscp.h"
 #include "rng.h"
 
 #define DEFAULT_NUM_PERIODS        2
@@ -126,7 +127,7 @@ static bool parse_arg_arg(char flag, int *dest) {
 
 static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
 		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
-		rng_t *cont_rand, perf_log_buffer_t **perflog) {
+		rng_t *cont_rand, perf_log_buffer_t **perflog, bool measure_all) {
 	assert(perflog);
 
 	int ret = 0;
@@ -164,6 +165,8 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 		const char *desc = "";
 		rng_t *randomizer = randomize;
 		int siz;
+		uint64_t time = 0;
+		uint64_t max_time = 0;
 		uint8_t val = rand();
 
 		if(cycle % 2) {
@@ -189,10 +192,18 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 				} while(ix >= (unsigned) siz);
 				if(!ix)
 					seen_initial = true;
-
+				if(measure_all)
+					time = rdtscp();
 				large[ix] ^= val;
 				val ^= large[ix];
 				large[ix] ^= val;
+				if(measure_all) {
+					time = rdtscp() - time;
+					if(time > max_time) {
+						max_time = time;
+						printf("Current max cycles for a memory access %lu\n", max_time);
+					}
+				}
 			}
 			assert(!siz || seen_initial);
 
@@ -231,11 +242,12 @@ int main(int argc, char *argv[]) {
 	bool hugepages = false;
 	bool randomize = false;
 	bool secondrng = true;
+	bool measure_all = false;
 
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:m")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -284,8 +296,11 @@ int main(int argc, char *argv[]) {
 				goto cleanup;
 			}
 			break;
+		case 'm':
+			measure_all = true;
+			break;
 		default:
-			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]] [-s] [-l @]\n",
+			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]] [-s] [-l @] [-m]\n",
 					invoc);
 			printf(
 					" -n #: Number of PERIODS (default %d)\n"
@@ -297,7 +312,8 @@ int main(int argc, char *argv[]) {
 					"         Optionally takes a custom rng increment\n"
 					" -s: Use only one rng (default 2 w/ different periods)\n"
 					" -l @: Log performance data to specified filename\n"
-					"       Currently records: %s",
+					"       Currently records: %s"
+					" -m: MEAsure all memory accesses using rdtscp\n",
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
 					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED,
 					PERF_LOG_FILE_HEADER_LINE);
@@ -392,7 +408,7 @@ int main(int argc, char *argv[]) {
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
 	ret = square_evictions(cache_line_size, num_periods, passes_per_cycle,
-			cap_contracted, cap_expanded, hugepages, random, randtv, &perfbuf);
+			cap_contracted, cap_expanded, hugepages, random, randtv, &perfbuf, measure_all);
 
 	if(perflog) {
 		assert(perfbuf);
