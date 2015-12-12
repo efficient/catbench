@@ -98,10 +98,14 @@ bool run_benchmarks(const test_prog_t* test_progs, const int num_test_progs) {
 					goto cleanup;
 				}
 				int size = CPU_ALLOC_SIZE(num_cpus);
-				assert(size > 0);
+				if(size <= 0) {
+					ret = false;
+					log_msg(LOG_FATAL, "CPU_ALLOC_SIZE failed\n");
+					goto cleanup;
+				}
 				if(test_progs[prog].target_cpu >= num_cpus) {
 					ret = false;
-					log_msg(LOG_FATAL, "Invalid CPU number");
+					log_msg(LOG_FATAL, "Invalid CPU number\n");
 					goto cleanup;
 				}
 				CPU_ZERO_S(size, cpuset);
@@ -109,6 +113,8 @@ bool run_benchmarks(const test_prog_t* test_progs, const int num_test_progs) {
 				int err = sched_setaffinity(SELF_PID, size, cpuset);
 				if(err == -1) {
 					perror("sched_setaffinity");
+					ret = false;
+					goto cleanup;
 				}
 				CPU_FREE(cpuset);
 				kill(getppid(), SIG_CHILD_PROC_UP);
@@ -125,6 +131,7 @@ bool run_benchmarks(const test_prog_t* test_progs, const int num_test_progs) {
 				childpids[prog].pid = pid;
 
 				// TODO: Initialize performance counters
+				// No longer necessary because this function returns after all children start (?)
 		}
 	}
 
