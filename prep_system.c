@@ -56,7 +56,7 @@ int prep_system(bool multicore, int procs_go_where) {
 	system(GIT_STATUS_CMD);
 	printf("%s\n", GIT_DIFF_CMD);
 	system(GIT_DIFF_CMD);
-	printf("%s\n", "DELIM");
+	printf("%s\n", DELIM);
 	int ret = 0;
 	struct pqos_config cfg = {
 		.fd_log = log_get_dest(),
