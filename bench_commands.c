@@ -10,12 +10,6 @@
 #include "log.h"
 #include "syscallers.h"
 
-static const test_prog_t TEST_PROGS[] = {
-	{.cmdline = {"clients/square_evictions", "-n1", "-c0", "-e25", "-r"}},
-};
-
-static const int NUM_TEST_PROGS = sizeof TEST_PROGS / sizeof *TEST_PROGS;
-
 static sigset_t block_signal(int signal) {
 	sigset_t mask;
 	sigemptyset(&mask);
@@ -64,13 +58,13 @@ int parse_args(int argc, char** argv, args_t* args) {
 	return ret;
 }
 
-bool run_benchmarks(void) {
+bool run_benchmarks(const test_prog_t* test_progs, const int num_test_progs) {
 	log_msg(LOG_INFO, "On your mark\n");
-	test_proc_t children[NUM_TEST_PROGS];
+	test_proc_t children[num_test_progs];
 	memset(&children, 1, sizeof children);
 	bool ret = true;
 
-	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
+	for(int prog = 0; prog < num_test_progs; ++prog) {
 		block_signal(SIG_CHILD_PROC_UP);
 		pid_t pid = fork();
 		switch(pid) {
@@ -82,7 +76,7 @@ bool run_benchmarks(void) {
 				// TODO: Set processor affinity
 				kill(getppid(), SIG_CHILD_PROC_UP);
 				await_signal(SIG_EXEC_TEST_PROG);
-				exec_v(TEST_PROGS[prog].cmdline[0], TEST_PROGS[prog].cmdline);
+				exec_v(test_progs[prog].cmdline[0], test_progs[prog].cmdline);
 
 				perror("Executing test program");
 				ret = false;
@@ -96,13 +90,13 @@ bool run_benchmarks(void) {
 		}
 	}
 
-	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog)
+	for(int prog = 0; prog < num_test_progs; ++prog)
 		if(kill(children[prog].pid, SIG_EXEC_TEST_PROG)) {
 			ret = false;
 			goto cleanup;
 		}
 
-	for(int prog = 0; prog < NUM_TEST_PROGS; ++prog) {
+	for(int prog = 0; prog < num_test_progs; ++prog) {
 		if(waitpid(children[prog].pid, NULL, 0) < 0)
 			perror("Awaiting child");
 

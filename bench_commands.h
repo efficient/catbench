@@ -29,7 +29,7 @@ typedef struct {
 	// TODO: Store per-process performance data handles here.
 } test_proc_t;
 
-bool run_benchmarks(void);
+bool run_benchmarks(const test_prog_t* test_progs, const int num_test_progs);
 
 // Upon any error will return a negative value
 // Upon success returns 0

@@ -13,10 +13,10 @@ bool rearrange_processes(bool multicore, int procs_go_where,
 
 /* Returns 0 on success
  * Returns -1 on failure */
-int prep_system(bool multicore, int procs_go_where, const struct pqos_cpuinfo* traits);
+int prep_system(bool multicore, int procs_go_where);
 
 /* Returns 0 on success
  * Returns -1 on failure */
-int cleanup_system(bool unpin_procs, const struct pqos_cpuinfo* traits);
+int cleanup_system(bool unpin_procs);
 
 #endif
