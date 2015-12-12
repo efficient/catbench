@@ -7,7 +7,7 @@ CPPFLAGS += \
 CFLAGS += \
 
 .PHONY: all
-all: catbench-setcap dist_a-setcap
+all: catbench-setcap dist_a
 
 .PHONY: clean
 clean:
@@ -27,12 +27,8 @@ include external/modules.mk
 catbench-setcap: catbench
 	sudo setcap cap_sys_nice+ep $<
 
-dist_a-setcap: dist_a
-	sudo setcap cap_sys_nice+ep $<
-
-# external/pqos/lib/libpqos.a should be at the end of this line to compile correctly
+# external/pqos/lib/libpqos.a should be at the end of these lines to compile correctly
 catbench: log.o proc_manip.o syscallers.h prep_system.o bench_commands.o external/pqos/lib/libpqos.a
-
 dist_a: log.o proc_manip.o syscallers.h prep_system.o bench_commands.o external/pqos/lib/libpqos.a 
 
 perfexpl: syscallers.h
