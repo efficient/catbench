@@ -1,4 +1,4 @@
-#include "llc.h"
+ #include "llc.h"
 
 #include <asm/unistd.h>
 #include <linux/perf_event.h>
@@ -22,7 +22,7 @@
 #define DEFAULT_START_CYCLE     0
 /* TODO: These are probably not super right. Do the right
    thing once everything kinda-works */
-#define MAX_NUM_WAYS 100
+#define NUM_WAYS 12
 #define NUM_CORES 8
 
 
@@ -54,32 +54,31 @@ static bool parse_arg_arg(char flag, int *dest) {
   return true;
 }
 
-static void rotate_cores(int loc, int cache_num_ways) {
+static void rotate_cores(int loc) {
   for(int i = 0; i < NUM_CORES; i++) {
-    int ret = pqos_l3ca_assoc_set(i, (i+loc)%cache_num_ways);
+    int ret = pqos_l3ca_assoc_set(i, (i+loc)%NUM_WAYS);
     assert(ret == PQOS_RETVAL_OK);
   }
 }
 
 // Store the precise number of cycles different between each offset
-static uint64_t perf_clocks[MAX_NUM_WAYS];
-static uint64_t config_offset_clocks[MAX_NUM_WAYS];
-static uint64_t config_offset_begin[MAX_NUM_WAYS];
-static uint64_t config_offset_end[MAX_NUM_WAYS];
+static uint64_t config_offset_clocks[NUM_WAYS];
+static uint64_t config_offset_begin[NUM_WAYS];
+static uint64_t config_offset_end[NUM_WAYS];
 
-static int dist_a(int cache_num_sets, int num_passes, int start_cycle) {
-  struct pqos_l3ca cos[cache_num_sets];
-  for (int i=0; i < cache_num_sets; i++) {
+static int dist_a(int num_passes, int start_cycle) {
+  struct pqos_l3ca cos[NUM_WAYS];
+  for (int i=0; i < NUM_WAYS; i++) {
     cos[i].class_id = i;
     cos[i].cdp = false;
     cos[i].ways_mask = 1 << i;
     }
-  pqos_l3ca_set(0, cache_num_sets, cos);
+  pqos_l3ca_set(0, NUM_WAYS, cos);
 		
-  for(int offset = 0; offset < cache_num_sets; ++offset) {
-    int cycle = (start_cycle + offset) % cache_num_sets;
-    rotate_cores(cycle, cache_num_sets);
-    const char *cmdline[] = {"square_eviction", "-n1", "-c25", "-e25", "-r"};
+  for(int offset = 0; offset < NUM_WAYS; ++offset) {
+    int cycle = (start_cycle + offset) % NUM_WAYS;
+    rotate_cores(cycle);
+    const char *cmdline[] = {"clients/square_evictions", "-n1", "-c5", "-e5", "-p100000", "-r", NULL};
     /* Begin timed section */
     uint64_t begin = rdtscp();
     pid_t pid = fork();
@@ -89,7 +88,8 @@ static int dist_a(int cache_num_sets, int num_passes, int start_cycle) {
       break;
     case 0:
       exec_v(cmdline[0], cmdline);
-      break;
+      perror("execing square_evictions\n");
+      return -1;
     default:
       waitpid(pid, NULL, 0);
     }
@@ -101,16 +101,9 @@ static int dist_a(int cache_num_sets, int num_passes, int start_cycle) {
     config_offset_end[cycle] = end;
   }
 
-  uint64_t config_offset_diffs[cache_num_sets];
-  uint64_t config_offset_diffs1[cache_num_sets];
   printf("Number of passes: %d\n", num_passes);
-  for(int cycle = 0; cycle < cache_num_sets; ++cycle) {
-        config_offset_diffs[cycle] = config_offset_clocks[cycle];
-	config_offset_diffs1[cycle] = config_offset_clocks[0] - config_offset_clocks[cycle];
-	(void) config_offset_diffs1;
-	printf("%lu  -   %lu    =   %lu\t", config_offset_end[cycle], config_offset_begin[cycle], config_offset_diffs[cycle]);
-        printf("Perf: %lu\n", perf_clocks[cycle]);
-        printf("Difference: %lu = %f percent\n", config_offset_diffs[cycle] - perf_clocks[cycle], 100 * (double) (config_offset_diffs[cycle] - perf_clocks[cycle]) / config_offset_diffs[cycle]);
+  for(int cycle = 0; cycle < NUM_WAYS; ++cycle) {
+    printf("DISTA REPORTING CYCLE %d: %lu\n", cycle, config_offset_clocks[cycle]);
   }
 
   return 0;
@@ -166,9 +159,11 @@ int main(int argc, char *argv[]) {
   llc_cleanup();
   if(cache_num_sets <= 0)
     return 1;
-  printf("Num ways: %d\n", cache_num_sets);
+  printf("Num sets: %d\n", cache_num_sets);
 
   /* TODO: return error condition instead of assertion */
-  rotate_cores(0, cache_num_sets);
-  return dist_a(cache_num_sets, num_passes, start_cycle);
+  rotate_cores(0);
+  int ret = dist_a(num_passes, start_cycle);
+  pqos_fini();
+  return ret;
 }
