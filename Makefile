@@ -26,7 +26,7 @@ include external/modules.mk
 catbench-setcap: catbench
 	sudo setcap cap_sys_nice+ep $<
 
-catbench: log.o proc_manip.o syscallers.h external/pqos/lib/libpqos.a prep_system.o
+catbench: log.o proc_manip.o syscallers.h external/pqos/lib/libpqos.a prep_system.o bench_commands.o
 
 perfexpl: syscallers.h
 
