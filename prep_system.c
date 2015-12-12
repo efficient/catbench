@@ -1,7 +1,6 @@
 #include "prep_system.h"
 
 #include <pqos.h>
-#include <stdbool.h>
 
 #include "log.h"
 #include "proc_manip.h"

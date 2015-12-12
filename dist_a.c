@@ -67,10 +67,12 @@ static int dist_a(int num_passes, int start_cycle) {
 		rotate_cores(cycle);
 		test_prog_t cmdline[] = {
 		{.cmdline = {"clients/square_evictions", "-n1", "-c5", "-e5", "-p100000", "-r"}},
+		{.target_cpu = 0},
 		};
 		/* Begin timed section */
-		uint64_t begin = rdtscp();
 		run_benchmarks(cmdline, 1);
+		uint64_t begin = rdtscp();
+		wait_benchmarks();
 		uint64_t end = rdtscp();
 		/* End timed section */
 		assert(end > begin);

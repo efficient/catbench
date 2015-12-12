@@ -17,6 +17,7 @@ typedef struct {
 typedef struct {
 	const char *cmdline[MAX_TEST_PROG_CMDLINE_WORDS];
 	const char *const null;
+	const int target_cpu;
 } test_prog_t;
 
 #undef MAX_TEST_PROG_CMDLINE_WORDS
@@ -30,6 +31,9 @@ typedef struct {
 } test_proc_t;
 
 bool run_benchmarks(const test_prog_t* test_progs, const int num_test_progs);
+
+/* If wait_benchmarks is run without first running run_benchmarks, wait_benchmark will return immediately with return value 0 */
+int wait_benchmarks(void);
 
 // Upon any error will return a negative value
 // Upon success returns 0
