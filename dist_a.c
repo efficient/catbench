@@ -22,6 +22,10 @@
 #define DEFAULT_PERCENT         80
 #define DEFAULT_START_CYCLE     0
 #define TRASH_CORE		-1
+
+// Which CPU to run square_evictions on
+#define TARGET_CPU 3
+
 /* TODO: These are probably not super right. Do the right
    thing once everything kinda-works */
 #define NUM_WAYS 12
@@ -66,8 +70,9 @@ static int dist_a(int num_passes, int start_cycle) {
 		int cycle = (start_cycle + offset) % NUM_WAYS;
 		rotate_cores(cycle);
 		test_prog_t cmdline[] = {
-		{.cmdline = {"clients/square_evictions", "-n1", "-c5", "-e5", "-p100000", "-r"}},
-		{.target_cpu = 0},
+		// Use -h for hugepages
+		{.cmdline = {"clients/square_evictions", "-n1", "-c50", "-e50", "-p1000000", "-hr"}},
+		{.target_cpu = TARGET_CPU},
 		};
 		/* Begin timed section */
 		run_benchmarks(cmdline, 1);
@@ -121,7 +126,7 @@ int main(int argc, char *argv[]) {
 				return 1;
 		}
 	}
-	prep_system(true, TRASH_CORE);
+	prep_system(false, TRASH_CORE);
 	rotate_cores(0);
 	int ret = dist_a(num_passes, start_cycle);
 	cleanup_system(true);

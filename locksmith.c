@@ -21,7 +21,9 @@
 // 24 takes about 1 minute
 #define NUM_SWITCHES	(1 << 24)
 
-// TODO add flag to square_evictions for timing each memory access
+#define MASK_SWAP
+#undef COS_SWAP
+
 static test_prog_t progs[] = {
 	{
 		.cmdline = {"clients/square_evictions", "-e25", "-c25", "-n"LARGE_NUMBER, "-m", "-h"},
@@ -45,6 +47,21 @@ static const struct pqos_l3ca COS_MASKS[] = {
 		.ways_mask = 0x10 | 0x20 | 0x40 | 0x80,
 	},
 };
+
+static const struct pqos_l3ca COS_MASKS2[] = {
+	{
+		.class_id = OTHER_COS,
+		.ways_mask = 0x1 | 0x2 | 0x4 | 0x8,
+	},
+};
+
+static const struct pqos_l3ca COS_MASKS3[] = {
+	{
+		.class_id = OTHER_COS,
+		.ways_mask = 0x10 | 0x20 | 0x40 | 0x80,
+	},
+};
+
 static const size_t NUM_COS_MASKS = sizeof COS_MASKS / sizeof *COS_MASKS;
 
 int main(int argc, char** argv) {
@@ -77,6 +94,7 @@ int main(int argc, char** argv) {
 	}
 	run_benchmarks(progs, 1);
 	if(swappy) {
+#ifdef  COS_SWAP
 		printf("Swapping CoSes\n");
 		for(int i = 0; i < NUM_SWITCHES; ++i) {
 			if(pqos_l3ca_assoc_set(SWITCHER_CORE, OTHER_COS) != PQOS_RETVAL_OK) {
@@ -86,6 +104,16 @@ int main(int argc, char** argv) {
 		/* Keep swapping COS of our other core */
 		// TODO fix this
 		printf("Done swapping!\n");
+#endif
+#ifdef MASK_SWAP
+		printf("Swapping masks\n");
+		for(int i = 0; i < NUM_SWITCHES; ++i) {
+			pqos_l3ca_set(0, 1, COS_MASKS2);
+			pqos_l3ca_set(0, 1, COS_MASKS3);
+		}
+		printf("Done swapping!\n");
+
+#endif
 	}
 	wait_benchmarks();
 	cleanup_system(true);
