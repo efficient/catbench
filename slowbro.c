@@ -13,10 +13,10 @@ static test_prog_t progs[] = {
 		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p50000", "-hr"},
 		.target_cpu = 0,
 	}, {
-		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p10000", "-hr", "-j64", NULL},
+		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p25000", "-hr", "-j640", NULL},
 		.target_cpu = 1,
 	}, {
-		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p10000", "-hr", "-j64", NULL},
+		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p25000", "-hr", "-j640", NULL},
 		.target_cpu = 2,
 	},
 };
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
 
 	run_benchmarks(progs, NUM_PROGS);
 
-	sleep(10);
+	sleep(5);
 	printf("About to change CoS: %ld\n", realclock());
 	if(pqos_l3ca_assoc_set(COS_MAPPING_SWITCH_WHICH_CORE, COS_MAPPING_SWITCH_TO_COS) !=
 			PQOS_RETVAL_OK) {
