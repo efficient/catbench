@@ -132,7 +132,7 @@ static bool parse_arg_arg(char flag, int *dest) {
 
 static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
 		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
-		rng_t *cont_rand, perf_log_buffer_t **perflog, bool measure_all) {
+		rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride, bool measure_all) {
 	assert(perflog);
 
 	int ret = 0;
@@ -151,6 +151,9 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 	clock_t startperf = 0;
 	if(*perflog) {
 		assert(CLOCKS_PER_SEC == 1000000);
+
+		if(perfstride == -1)
+			perfstride = capacity_expanded / cache_line_size;
 
 		perfd = perf_poll_init(PERF_LOG_NUM_COUNTERS, PERF_LOG_COUNTERS);
 		if(perfd == -1) {
@@ -213,14 +216,14 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 						++histogram[logtwo(time)];
 					}
 				}
+
+				if(*perflog && offset / cache_line_size % perfstride == 0)
+					if(!bufappend(perflog, perfd, startperf)) {
+						ret = 1;
+						goto cleanup;
+					}
 			}
 			assert(!siz || seen_initial);
-
-			if(*perflog)
-				if(!bufappend(perflog, perfd, startperf)) {
-					ret = 1;
-					goto cleanup;
-				}
 		}
 
 		clock_t duration = clock() - startpass;
@@ -248,6 +251,7 @@ int main(int argc, char *argv[]) {
 	int percent_contracted = DEFAULT_PERCENT_CONTRACTED;
 	int percent_expanded = DEFAULT_PERCENT_EXPANDED;
 	int custom_increment = 0;
+	int perfstride = -1;
 	bool hugepages = false;
 	bool randomize = false;
 	bool secondrng = true;
@@ -256,7 +260,7 @@ int main(int argc, char *argv[]) {
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:m")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:j:m")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -305,6 +309,17 @@ int main(int argc, char *argv[]) {
 				goto cleanup;
 			}
 			break;
+		case 'j':
+			if(!parse_arg_arg(each_arg, &perfstride)) {
+				ret = 1;
+				goto cleanup;
+			}
+			if(perfstride <= 0) {
+				fputs("-j expects a positive integer\n", stderr);
+				ret = 1;
+				goto cleanup;
+			}
+			break;
 		case 'm':
 			measure_all = true;
 			break;
@@ -322,6 +337,7 @@ int main(int argc, char *argv[]) {
 					" -s: Use only one rng (default 2 w/ different periods)\n"
 					" -l @: Log performance data to specified filename\n"
 					"       Currently records: %s"
+					" -j #: Logging recording stride (default once per pass)\n"
 					" -m: MEAsure all memory accesses using rdtscp\n",
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
 					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED,
@@ -353,6 +369,10 @@ int main(int argc, char *argv[]) {
 		}
 		perfbuf->siz = PERF_LOG_BUFFER_INIT_SIZE;
 		perfbuf->occ = (uintptr_t) perfbuf->log - (uintptr_t) perfbuf;
+	} else if(perfstride != -1) {
+		fputs("-j only makes sense in concert with -l\n", stderr);
+		ret = 1;
+		goto cleanup;
 	}
 
 	llc_init();
@@ -417,7 +437,8 @@ int main(int argc, char *argv[]) {
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
 	ret = square_evictions(cache_line_size, num_periods, passes_per_cycle,
-			cap_contracted, cap_expanded, hugepages, random, randtv, &perfbuf, measure_all);
+			cap_contracted, cap_expanded, hugepages, random, randtv,
+			&perfbuf, perfstride, measure_all);
 
 	if(perflog) {
 		assert(perfbuf);
