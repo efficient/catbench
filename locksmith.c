@@ -24,11 +24,12 @@
 // TODO add flag to square_evictions for timing each memory access
 static test_prog_t progs[] = {
 	{
-		.cmdline = {"clients/square_evictions", "-e20", "-c20", "-n"LARGE_NUMBER, "-m"},
+		.cmdline = {"clients/square_evictions", "-e25", "-c25", "-n"LARGE_NUMBER, "-m", "-h"},
 		.target_cpu = 0,
 	},
 };
 
+// Initial state is both cores on same CoS
 static const unsigned COS_MAPPINGS[] = {
 	[READER_CORE] = COMMON_COS,
 	[SWITCHER_CORE] = COMMON_COS
