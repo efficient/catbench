@@ -66,7 +66,7 @@ static int dist_a(int num_passes, int start_cycle) {
 		int cycle = (start_cycle + offset) % NUM_WAYS;
 		rotate_cores(cycle);
 		test_prog_t cmdline[] = {
-		{.cmdline = {"clients/square_evictions", "-n10", "-c5", "-e5", "-p1000000", "-r"}},
+		{.cmdline = {"clients/square_evictions", "-n1", "-c5", "-e5", "-p100000", "-r"}},
 		{.target_cpu = 0},
 		};
 		/* Begin timed section */
