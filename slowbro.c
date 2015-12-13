@@ -7,16 +7,16 @@
 #include "log.h"
 #include "prep_system.h"
 
-#define ARG_IDX_TO_REPL_WITH_LOG_FLAG 5
+#define ARG_IDX_TO_REPL_WITH_LOG_FLAG 7
 static test_prog_t progs[] = {
 	{
-		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-hr"},
+		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p50000", "-hr"},
 		.target_cpu = 0,
 	}, {
-		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-hr", NULL},
+		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p10000", "-hr", "-j64", NULL},
 		.target_cpu = 1,
 	}, {
-		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-hr", NULL},
+		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p10000", "-hr", "-j64", NULL},
 		.target_cpu = 2,
 	},
 };
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
 
 	run_benchmarks(progs, NUM_PROGS);
 
-	sleep(15);
+	sleep(10);
 	printf("About to change CoS: %ld\n", realclock());
 	if(pqos_l3ca_assoc_set(COS_MAPPING_SWITCH_WHICH_CORE, COS_MAPPING_SWITCH_TO_COS) !=
 			PQOS_RETVAL_OK) {

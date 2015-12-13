@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#define MAX_TEST_PROG_CMDLINE_WORDS 6
+#define MAX_TEST_PROG_CMDLINE_WORDS 8
 
 typedef struct {
 	int unpin_procs;
