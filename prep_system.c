@@ -6,6 +6,7 @@
 #include "log.h"
 #include "proc_manip.h"
 
+/* TODO: Fix prep_system first argument, clean_system argument */
 static int pick_core (const struct pqos_cpuinfo *traits, int procs_go_where) {
 	int cpu = procs_go_where % traits->num_cores;
 	while (cpu < 0) cpu += traits-> num_cores;
@@ -43,7 +44,7 @@ static bool rearrange_processes(bool multicore, int procs_go_where,
 	return true;
 }
 
-#define GIT_LOG_CMD 	"git log --online -1"
+#define GIT_LOG_CMD 	"git log --oneline -1"
 #define GIT_STATUS_CMD  "git status -uno"
 #define GIT_DIFF_CMD	"git --no-pager diff HEAD"
 #define DELIM 		"==="
