@@ -13,10 +13,10 @@ static test_prog_t progs[] = {
 		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p50000", "-hr"},
 		.target_cpu = 0,
 	}, {
-		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p25000", "-hr", "-j640", NULL},
+		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p25000", "-hr", "-j480", NULL},
 		.target_cpu = 1,
 	}, {
-		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p25000", "-hr", "-j640", NULL},
+		.cmdline = {"clients/square_evictions", "-e100", "-c0", "-n1", "-p25000", "-hr", "-j480", NULL},
 		.target_cpu = 2,
 	},
 };
