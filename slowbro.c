@@ -24,9 +24,13 @@ static const size_t NUM_PROGS = sizeof progs / sizeof *progs;
 
 #define COS_MAPPING_SWITCH_WHICH_CORE 0
 #define COS_MAPPING_SWITCH_TO_COS     2
+static const struct pqos_l3ca COS_MASK_REPLACEMENT = {
+	.class_id = 0,
+	.ways_mask = 0x2,
+};
 
 static const unsigned COS_MAPPINGS[] = {
-	[0] = 1,
+	[0] = 0,
 	[1] = 1,
 	[2] = 2,
 };
@@ -34,6 +38,9 @@ static const size_t NUM_COS_MAPPINGS = sizeof COS_MAPPINGS / sizeof *COS_MAPPING
 
 static const struct pqos_l3ca COS_MASKS[] = {
 	{
+		.class_id = 0,
+		.ways_mask = 0x1,
+	}, {
 		.class_id = 1,
 		.ways_mask = 0x1,
 	}, {
@@ -50,9 +57,15 @@ static inline clock_t realclock(void) {
 }
 
 int main(int argc, char **argv) {
+	bool slowpoke = true;
+
 	if(argc < 3) {
-		printf("USAGE: %s <outfile1> <outfile2>\n", argv[0]);
+		printf("USAGE: %s <outfile1> <outfile2> []\n", argv[0]);
 		return 1;
+	}
+	if(argc >= 4) {
+		puts("OPERATING IN SLOWPOKE MODE... VERY MASK, SUCH BITWISE, SO DIFFERENT");
+		slowpoke = true;
 	}
 
 	char logswitch1[2 + strlen(argv[1]) + 1];
@@ -82,10 +95,17 @@ int main(int argc, char **argv) {
 
 	sleep(5);
 	printf("About to change CoS: %ld\n", realclock());
-	if(pqos_l3ca_assoc_set(COS_MAPPING_SWITCH_WHICH_CORE, COS_MAPPING_SWITCH_TO_COS) !=
-			PQOS_RETVAL_OK) {
-		log_msg(LOG_FATAL, "Failed to reassociate mobile test program\n");
-		return 1;
+	if(!slowpoke) {
+		if(pqos_l3ca_assoc_set(COS_MAPPING_SWITCH_WHICH_CORE, COS_MAPPING_SWITCH_TO_COS) !=
+				PQOS_RETVAL_OK) {
+			log_msg(LOG_FATAL, "Failed to reassociate mobile test program\n");
+			return 1;
+		}
+	} else {
+		if(pqos_l3ca_set(0, 1, &COS_MASK_REPLACEMENT) != PQOS_RETVAL_OK) {
+			log_msg(LOG_FATAL, "Failed to change mask of mobile test program\n");
+			return 1;
+		}
 	}
 	printf("Just changed CoS: %ld\n", realclock());
 
