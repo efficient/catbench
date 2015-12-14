@@ -25,12 +25,12 @@ static const size_t NUM_PROGS = sizeof progs / sizeof *progs;
 #define COS_MAPPING_SWITCH_WHICH_CORE 0
 #define COS_MAPPING_SWITCH_TO_COS     2
 static const struct pqos_l3ca COS_MASK_REPLACEMENT = {
-	.class_id = 0,
+	.class_id = 3,
 	.ways_mask = 0x2,
 };
 
 static const unsigned COS_MAPPINGS[] = {
-	[0] = 0,
+	[0] = 3,
 	[1] = 1,
 	[2] = 2,
 };
@@ -38,7 +38,7 @@ static const size_t NUM_COS_MAPPINGS = sizeof COS_MAPPINGS / sizeof *COS_MAPPING
 
 static const struct pqos_l3ca COS_MASKS[] = {
 	{
-		.class_id = 0,
+		.class_id = 3,
 		.ways_mask = 0x1,
 	}, {
 		.class_id = 1,
@@ -46,7 +46,10 @@ static const struct pqos_l3ca COS_MASKS[] = {
 	}, {
 		.class_id = 2,
 		.ways_mask = 0x2,
-	},
+	}, {
+		.class_id = 0,
+		.ways_mask = 0xffc,
+	}
 };
 static const size_t NUM_COS_MASKS = sizeof COS_MASKS / sizeof *COS_MASKS;
 
