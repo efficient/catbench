@@ -1,0 +1,11 @@
+#!/bin/sh
+
+emptydelim="$1"
+headersrc="$2"
+recordsrc="$3"
+
+head -n1 "$headersrc"
+tail -n2 "$recordsrc" | rev | cut -d" " -f1 | rev | while read each
+do
+	printf '%s%s\n' "$each" "$emptydelim"
+done

@@ -1,0 +1,55 @@
+#!/usr/bin/python3
+
+# This script is also dedicated to Brandon.
+
+from itertools import zip_longest
+from sys import argv
+
+def firstcol(string, delim):
+	if string == None:
+		return float('inf')
+	return int(string.split(delim)[0])
+
+def restcols(string, delim):
+	if string == None:
+		return 0
+	return string[string.index(delim) + 1:].strip()
+
+def main():
+	if len(argv) <= 2:
+		print("USAGE: {} <delimiter> <files>...".format(argv[0]))
+		exit(1)
+
+	delim = argv[1]
+	numfiles = len(argv) - 2
+	fds = [open(fn) for fn in argv[2:]]
+
+	numdelims = None
+	for fd in fds:
+		curnumdelims = next(fd).count(delim)
+		if numdelims == None:
+			numdelims = curnumdelims
+			continue
+		if curnumdelims != numdelims:
+			print('Error: CSVs have different numbers of columns or delimiters')
+			return
+	placeholder = delim * numdelims
+
+	nextel = [next(fd) for fd in fds]
+
+	while nextel.count(None) != len(fds):
+		maxel = firstcol(min(nextel, key = lambda x: firstcol(x, delim)), delim)
+		res = str(maxel)
+		for idx in range(len(nextel)):
+			if firstcol(nextel[idx], delim) == maxel:
+				res += delim + restcols(nextel[idx], delim)
+				nextel[idx] = next(fds[idx], None)
+			else:
+				res += placeholder
+		print(res)
+
+	for fd in fds:
+		fd.close()
+
+if __name__ == '__main__':
+	main()
