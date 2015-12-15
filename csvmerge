@@ -26,8 +26,14 @@ def main():
 
 	numdelims = None
 	for fd in fds:
-		curnumdelims = next(fd).count(delim)
+		curheader = next(fd)
+		curnumdelims = curheader.count(delim)
 		if numdelims == None:
+			print(curheader.strip(), end='')
+			for time in range(numfiles - 1):
+				print(delim, end='')
+				print(restcols(curheader, delim), end='')
+			print()
 			numdelims = curnumdelims
 			continue
 		if curnumdelims != numdelims:
