@@ -1,0 +1,15 @@
+#!/bin/sh
+
+delim="$1"
+checkfile="$2"
+shift 2
+
+if [ $(wc -l "$checkfile" | cut -d" " -f1 ) -ne $(cat "$@" | sort | cut -d"$delim" -f1 | uniq | wc -l) ]
+then
+	echo "ERROR: Unexpected number of lines in output file. Do one or more input files have duplicate primary keys?!"
+	exit 1
+else
+	echo "Looks good to me, approval."
+fi
+
+true
