@@ -1,0 +1,30 @@
+Ways to extend our 712 benchmarks
+---------------------------------
+Remember to tasket the test driver programs when running them so they don't end up on a core we didn't want! Might want to automate this or at least issue a warning! In general, warnings for the things we're messing up repeatedly might be in order.
+
+Sanity check
+============
+ - Try rerunning square_evictions prototype driver to see whether it does the expected miss things with hugepages enabled. I seeem to recall it was doing something weird and/or not doing anything as we varied the percentage? Might need to try turning off randomization and/or manually prime factorizing some numbers to get custom percentages without rng-cycling overhead.
+
+Recording page mappings
+=======================
+ - We should do this for better reproducability/understanding of past results, and to try to understand why we got the flat line for square_evictions without hugepages.
+
+Slo*
+====
+ - Verify the global/interprocess coherency of Linux clock_gettime() calls
+ - Tighten upper bound without code changes: Run a bunch of trials looking for favorable interleavings and Birthday Problems. Each run gives us a tighter bound under the conditions of the test, and we only have to chase the latency into libpqos and/or the kernel if we are able to get the bound small enough that it falls below the 9-10 us interval.
+ - If needed, try using statistics to try to determine where within the interval events fall? Probably less promising...
+
+Lock*
+=====
+ - Is the LLC locked globally: try changing the non--memory-bound CPU to different CoSes from the active CPU and mutually-exclusive masks vs. the active CPU.
+ - Are all memory accesses stalled (incl. LLC misses): try an memory-bound CPU load that has a high percentage of cache misses.
+
+Future work
+-----------
+Read the last section of the 712 paper!
+
+Kernel dynamic process-level allocation
+=======================================
+ - When we're forced to move one process's cache between ways, is there a way for the kernel to migrate its contents to avoid deferring the repopulation to the task itself? If we cannot accomplish this, the kernel shouldn't bother to allocate the "victim" process any new cache space until it is rescheduled; otherwise, that will become wasted/dead space until the process can make use of it. This doesn't *seem* to be a deal-breaker, because you're more likely to have to move small guys who'll be faster at repopulating their lost cache space than the huge ones would...
