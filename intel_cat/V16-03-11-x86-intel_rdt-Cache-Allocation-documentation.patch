@@ -1,6 +1,24 @@
-Subject:    [PATCH V15 03/11] x86/intel_rdt: Cache Allocation documentation
-From:       Fenghua Yu <fenghua.yu@intel.com>
-Date:       2015-10-02 6:09:37
+From patchwork Thu Dec 17 22:46:08 2015
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V16,03/11] x86/intel_rdt: Cache Allocation documentation
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 7876551
+Message-Id: <1450392376-6397-4-git-send-email-fenghua.yu@intel.com>
+To: "H. Peter Anvin" <hpa@linux.intel.com>, "Ingo Molnar" <mingo@elte.hu>,
+	"Thomas Gleixner" <tglx@linutronix.de>, "Tony Luck" <tony.luck@intel.com>,
+	"Ravi V Shankar" <ravi.v.shankar@intel.com>,
+	"Peter Zijlstra" <peterz@infradead.org>, "Tejun Heo" <tj@kernel.org>,
+	"Marcelo Tosatti" <mtosatti@redhat.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+	"x86" <x86@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>,
+	Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Date: Thu, 17 Dec 2015 14:46:08 -0800
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 
 Adds a description of Cache allocation technology, overview of kernel
 framework implementation. The framework has APIs to manage class of
@@ -26,8 +44,9 @@ section 17.16.
 
 Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
 ---
- Documentation/x86/intel_rdt.txt | 109 ++++++++++++++++++++++++++++++++++++++++
+Documentation/x86/intel_rdt.txt | 109 ++++++++++++++++++++++++++++++++++++++++
  1 file changed, 109 insertions(+)
  create mode 100644 Documentation/x86/intel_rdt.txt
 
@@ -146,11 +165,3 @@ index 0000000..05ec819
 + there is a task with different PQR is scheduled on the CPU. Typically
 + if the task groups are bound to be scheduled on a set of CPUs, the
 + number of MSR writes is greatly reduced.
--- 
-1.8.1.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/

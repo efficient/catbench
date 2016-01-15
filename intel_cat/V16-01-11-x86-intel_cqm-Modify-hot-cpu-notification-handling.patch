@@ -1,6 +1,24 @@
-Subject:    [PATCH V15 01/11] x86/intel_cqm: Modify hot cpu notification handling
-From:       Fenghua Yu <fenghua.yu@intel.com>
-Date:       2015-10-02 6:09:35
+From patchwork Thu Dec 17 22:46:06 2015
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V16,01/11] x86/intel_cqm: Modify hot cpu notification handling
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 7876541
+Message-Id: <1450392376-6397-2-git-send-email-fenghua.yu@intel.com>
+To: "H. Peter Anvin" <hpa@linux.intel.com>, "Ingo Molnar" <mingo@elte.hu>,
+	"Thomas Gleixner" <tglx@linutronix.de>, "Tony Luck" <tony.luck@intel.com>,
+	"Ravi V Shankar" <ravi.v.shankar@intel.com>,
+	"Peter Zijlstra" <peterz@infradead.org>, "Tejun Heo" <tj@kernel.org>,
+	"Marcelo Tosatti" <mtosatti@redhat.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+	"x86" <x86@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>,
+	Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Date: Thu, 17 Dec 2015 14:46:06 -0800
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 
  - In cqm_pick_event_reader, use the existing package<->core map instead
  of looping through all cpus in cqm_cpumask.
@@ -11,12 +29,13 @@ Date:       2015-10-02 6:09:35
 
 Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
 ---
- arch/x86/kernel/cpu/perf_event_intel_cqm.c | 34 +++++++++++++++---------------
+arch/x86/kernel/cpu/perf_event_intel_cqm.c | 34 +++++++++++++++---------------
  1 file changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/arch/x86/kernel/cpu/perf_event_intel_cqm.c b/arch/x86/kernel/cpu/perf_event_intel_cqm.c
-index 377e8f8..93e54ad 100644
+index a316ca9..dd82bc7 100644
 --- a/arch/x86/kernel/cpu/perf_event_intel_cqm.c
 +++ b/arch/x86/kernel/cpu/perf_event_intel_cqm.c
 @@ -62,6 +62,12 @@ static LIST_HEAD(cache_groups);
@@ -83,11 +102,3 @@ index 377e8f8..93e54ad 100644
  }
  
  static int intel_cqm_cpu_notifier(struct notifier_block *nb,
--- 
-1.8.1.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/

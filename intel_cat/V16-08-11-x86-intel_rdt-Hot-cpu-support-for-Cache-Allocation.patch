@@ -1,6 +1,24 @@
-Subject:    [PATCH V15 08/11] x86/intel_rdt: Hot cpu support for Cache Allocation
-From:       Fenghua Yu <fenghua.yu@intel.com>
-Date:       2015-10-02 6:09:42
+From patchwork Thu Dec 17 22:46:13 2015
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V16,08/11] x86/intel_rdt: Hot cpu support for Cache Allocation
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 7877061
+Message-Id: <1450392376-6397-9-git-send-email-fenghua.yu@intel.com>
+To: "H. Peter Anvin" <hpa@linux.intel.com>, "Ingo Molnar" <mingo@elte.hu>,
+	"Thomas Gleixner" <tglx@linutronix.de>, "Tony Luck" <tony.luck@intel.com>,
+	"Ravi V Shankar" <ravi.v.shankar@intel.com>,
+	"Peter Zijlstra" <peterz@infradead.org>, "Tejun Heo" <tj@kernel.org>,
+	"Marcelo Tosatti" <mtosatti@redhat.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+	"x86" <x86@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>,
+	Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Date: Thu, 17 Dec 2015 14:46:13 -0800
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 
 This patch adds hot plug cpu support for Intel Cache allocation. Support
 includes updating the cache bitmask MSRs IA32_L3_QOS_n when a new CPU
@@ -11,8 +29,9 @@ for IA32_PQR_ASSOC MSRs are reset during hot cpu notifications.
 
 Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
 ---
- arch/x86/kernel/cpu/intel_rdt.c | 76 +++++++++++++++++++++++++++++++++++++++++
+arch/x86/kernel/cpu/intel_rdt.c | 76 +++++++++++++++++++++++++++++++++++++++++
  1 file changed, 76 insertions(+)
 
 diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
@@ -119,11 +138,3 @@ index 8379df8..31f8588 100644
  	static_key_slow_inc(&rdt_enable_key);
  	pr_info("Intel cache allocation enabled\n");
  out_err:
--- 
-1.8.1.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/

@@ -1,6 +1,24 @@
-Subject:    [PATCH V15 07/11] x86/intel_rdt: Implement scheduling support for Intel RDT
-From:       Fenghua Yu <fenghua.yu@intel.com>
-Date:       2015-10-02 6:09:41
+From patchwork Thu Dec 17 22:46:12 2015
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V16, 07/11] x86/intel_rdt: Implement scheduling support for Intel RDT
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 7877071
+Message-Id: <1450392376-6397-8-git-send-email-fenghua.yu@intel.com>
+To: "H. Peter Anvin" <hpa@linux.intel.com>, "Ingo Molnar" <mingo@elte.hu>,
+	"Thomas Gleixner" <tglx@linutronix.de>, "Tony Luck" <tony.luck@intel.com>,
+	"Ravi V Shankar" <ravi.v.shankar@intel.com>,
+	"Peter Zijlstra" <peterz@infradead.org>, "Tejun Heo" <tj@kernel.org>,
+	"Marcelo Tosatti" <mtosatti@redhat.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+	"x86" <x86@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>,
+	Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Date: Thu, 17 Dec 2015 14:46:12 -0800
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 
 Adds support for IA32_PQR_ASSOC MSR writes during task scheduling. For
 Cache Allocation, MSR write would let the task fill in the cache
@@ -37,8 +55,9 @@ minimally impacts scheduler hot path:
 
 Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
 ---
- arch/x86/include/asm/intel_rdt.h           | 28 ++++++++++++++++++++++++++++
+arch/x86/include/asm/intel_rdt.h           | 28 ++++++++++++++++++++++++++++
  arch/x86/include/asm/pqr_common.h          | 27 +++++++++++++++++++++++++++
  arch/x86/kernel/cpu/intel_rdt.c            | 25 +++++++++++++++++++++++++
  arch/x86/kernel/cpu/perf_event_intel_cqm.c | 26 +++-----------------------
@@ -183,7 +202,7 @@ index 6ad5b48..8379df8 100644
  out_err:
  
 diff --git a/arch/x86/kernel/cpu/perf_event_intel_cqm.c b/arch/x86/kernel/cpu/perf_event_intel_cqm.c
-index 93e54ad..04a696f 100644
+index dd82bc7..b05f21e 100644
 --- a/arch/x86/kernel/cpu/perf_event_intel_cqm.c
 +++ b/arch/x86/kernel/cpu/perf_event_intel_cqm.c
 @@ -7,41 +7,22 @@
@@ -250,7 +269,7 @@ index 93e54ad..04a696f 100644
  
  	WARN_ON(c->x86_cache_max_rmid != cqm_max_rmid);
 diff --git a/arch/x86/kernel/process_64.c b/arch/x86/kernel/process_64.c
-index 3c1bbcf..82440e4 100644
+index e835d26..76066ec 100644
 --- a/arch/x86/kernel/process_64.c
 +++ b/arch/x86/kernel/process_64.c
 @@ -48,6 +48,7 @@
@@ -261,7 +280,7 @@ index 3c1bbcf..82440e4 100644
  
  asmlinkage extern void ret_from_fork(void);
  
-@@ -447,6 +448,11 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
+@@ -439,6 +440,11 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
  			loadsegment(ss, __KERNEL_DS);
  	}
  
@@ -273,11 +292,3 @@ index 3c1bbcf..82440e4 100644
  	return prev_p;
  }
  
--- 
-1.8.1.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/

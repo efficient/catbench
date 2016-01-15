@@ -1,6 +1,26 @@
-Subject:    [PATCH V15 11/11] x86,cgroup/intel_rdt : Add a cgroup interface to manage Intel cache allocation
-From:       Fenghua Yu <fenghua.yu@intel.com>
-Date:       2015-10-02 6:09:45
+From patchwork Thu Dec 17 22:46:16 2015
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V16, 11/11] x86,
+	cgroup/intel_rdt : Add a cgroup interface to manage Intel cache
+	allocation
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 7877041
+Message-Id: <1450392376-6397-12-git-send-email-fenghua.yu@intel.com>
+To: "H. Peter Anvin" <hpa@linux.intel.com>, "Ingo Molnar" <mingo@elte.hu>,
+	"Thomas Gleixner" <tglx@linutronix.de>, "Tony Luck" <tony.luck@intel.com>,
+	"Ravi V Shankar" <ravi.v.shankar@intel.com>,
+	"Peter Zijlstra" <peterz@infradead.org>, "Tejun Heo" <tj@kernel.org>,
+	"Marcelo Tosatti" <mtosatti@redhat.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+	"x86" <x86@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>,
+	Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Date: Thu, 17 Dec 2015 14:46:16 -0800
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 
 Add a new cgroup 'intel_rdt' to manage cache allocation. Each cgroup
 directory is associated with a class of service id(closid). To map a
@@ -26,13 +46,14 @@ closids.
 
 Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
 ---
- arch/x86/include/asm/intel_rdt.h |  37 +++++++-
- arch/x86/kernel/cpu/intel_rdt.c  | 194 +++++++++++++++++++++++++++++++++++++--
+arch/x86/include/asm/intel_rdt.h |  37 +++++++-
+ arch/x86/kernel/cpu/intel_rdt.c  | 199 +++++++++++++++++++++++++++++++++++++--
  include/linux/cgroup_subsys.h    |   4 +
  include/linux/sched.h            |   3 -
  init/Kconfig                     |   4 +-
- 5 files changed, 229 insertions(+), 13 deletions(-)
+ 5 files changed, 234 insertions(+), 13 deletions(-)
 
 diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
 index afb6da3..fbe1e00 100644
@@ -103,10 +124,10 @@ index afb6da3..fbe1e00 100644
  static inline void intel_rdt_sched_in(void)
  {
 diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
-index ecaf8e6..cb4d2ef 100644
+index ecaf8e6..acbede2 100644
 --- a/arch/x86/kernel/cpu/intel_rdt.c
 +++ b/arch/x86/kernel/cpu/intel_rdt.c
-@@ -53,6 +53,10 @@ static cpumask_t tmp_cpumask;
+@@ -53,11 +53,17 @@ static cpumask_t tmp_cpumask;
  static DEFINE_MUTEX(rdt_group_mutex);
  struct static_key __read_mostly rdt_enable_key = STATIC_KEY_INIT_FALSE;
  
@@ -117,7 +138,14 @@ index ecaf8e6..cb4d2ef 100644
  struct rdt_remote_data {
  	int msr;
  	u64 val;
-@@ -108,17 +112,16 @@ static inline bool cache_alloc_supported(struct cpuinfo_x86 *c)
+ };
+ 
++static DEFINE_SPINLOCK(closid_lock);
++
+ /*
+  * cache_alloc_hsw_probe() - Have to probe for Intel haswell server CPUs
+  * as it does not have CPUID enumeration support for Cache allocation.
+@@ -108,17 +114,18 @@ static inline bool cache_alloc_supported(struct cpuinfo_x86 *c)
  	return false;
  }
  
@@ -134,12 +162,14 @@ index ecaf8e6..cb4d2ef 100644
  
 -	wrmsr(MSR_IA32_PQR_ASSOC, state->rmid, closid);
 -	state->closid = closid;
++	spin_lock(&closid_lock);
 +	wrmsr(MSR_IA32_PQR_ASSOC, state->rmid, ir->closid);
++	spin_unlock(&closid_lock);
 +	state->closid = ir->closid;
  }
  
  /*
-@@ -359,15 +362,175 @@ static int intel_rdt_cpu_notifier(struct notifier_block *nb,
+@@ -359,15 +366,176 @@ static int intel_rdt_cpu_notifier(struct notifier_block *nb,
  	return NOTIFY_OK;
  }
  
@@ -268,10 +298,11 @@ index ecaf8e6..cb4d2ef 100644
 +	 */
 +	closid_put(ir->closid);
 +	if (cbm_search(cbmvalue, &closid)) {
++		spin_lock(&closid_lock);
 +		ir->closid = closid;
++		spin_unlock(&closid_lock);
 +		closid_get(closid);
 +	} else {
-+		closid = ir->closid;
 +		err = closid_alloc(&ir->closid);
 +		if (err) {
 +			closid_get(ir->closid);
@@ -310,14 +341,14 @@ index ecaf8e6..cb4d2ef 100644
  
 -	if (!cache_alloc_supported(c))
 +	if (!cache_alloc_supported(c)) {
-+		rdt_root_group.css.ss->disabled = 1;
++		static_branch_disable(&intel_rdt_cgrp_subsys_enabled_key);
  		return -ENODEV;
 -
 +	}
  	maxid = c->x86_cache_max_closid;
  	max_cbm_len = c->x86_cache_max_cbm_len;
  
-@@ -394,6 +557,7 @@ static int __init intel_rdt_late_init(void)
+@@ -394,6 +562,7 @@ static int __init intel_rdt_late_init(void)
  	__hotcpu_notifier(intel_rdt_cpu_notifier, 0);
  
  	cpu_notifier_register_done();
@@ -325,7 +356,7 @@ index ecaf8e6..cb4d2ef 100644
  
  	static_key_slow_inc(&rdt_enable_key);
  	pr_info("Intel cache allocation enabled\n");
-@@ -403,3 +567,19 @@ out_err:
+@@ -403,3 +572,19 @@ out_err:
  }
  
  late_initcall(intel_rdt_late_init);
@@ -361,7 +392,7 @@ index 1a96fda..c559ef5 100644
   * Subsystems that implement the can_fork() family of callbacks.
   */
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 24bfbac..b7b9501 100644
+index 0a6db46..edad7a4 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -1668,9 +1668,6 @@ struct task_struct {
@@ -396,11 +427,3 @@ index 9fe3f11..e0e18d5 100644
  config CGROUP_DEBUG
  	bool "Example debug cgroup subsystem"
  	default n
--- 
-1.8.1.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/

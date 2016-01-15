@@ -1,14 +1,34 @@
-Subject:    [PATCH V15 10/11] x86,cgroup/intel_rdt : Add intel_rdt cgroup documentation
-From:       Fenghua Yu <fenghua.yu@intel.com>
-Date:       2015-10-02 6:09:44
+From patchwork Thu Dec 17 22:46:15 2015
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V16, 10/11] x86,
+	cgroup/intel_rdt : Add intel_rdt cgroup documentation
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 7876561
+Message-Id: <1450392376-6397-11-git-send-email-fenghua.yu@intel.com>
+To: "H. Peter Anvin" <hpa@linux.intel.com>, "Ingo Molnar" <mingo@elte.hu>,
+	"Thomas Gleixner" <tglx@linutronix.de>, "Tony Luck" <tony.luck@intel.com>,
+	"Ravi V Shankar" <ravi.v.shankar@intel.com>,
+	"Peter Zijlstra" <peterz@infradead.org>, "Tejun Heo" <tj@kernel.org>,
+	"Marcelo Tosatti" <mtosatti@redhat.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+	"x86" <x86@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>,
+	Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Date: Thu, 17 Dec 2015 14:46:15 -0800
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 
 Add documentation on using the cache allocation cgroup interface with
 examples.
 
 Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
 ---
- Documentation/cgroups/rdt.txt | 133 ++++++++++++++++++++++++++++++++++++++++++
+Documentation/cgroups/rdt.txt | 133 ++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 133 insertions(+)
  create mode 100644 Documentation/cgroups/rdt.txt
 
@@ -151,11 +171,3 @@ index 0000000..9fa6c6a
 +Tie the group1 to socket1 and group2 to socket2
 +  $ /bin/echo <cpumask for socket1> > /sys/fs/cgroup/rdt/group1/cpuset.cpus
 +  $ /bin/echo <cpumask for socket2> > /sys/fs/cgroup/rdt/group2/cpuset.cpus
--- 
-1.8.1.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/

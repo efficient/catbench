@@ -1,6 +1,24 @@
-Subject:    [PATCH V15 02/11] x86/intel_rapl: Modify hot cpu notification handling
-From:       Fenghua Yu <fenghua.yu@intel.com>
-Date:       2015-10-02 6:09:36
+From patchwork Thu Dec 17 22:46:07 2015
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V16,02/11] x86/intel_rapl: Modify hot cpu notification handling
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 7877111
+Message-Id: <1450392376-6397-3-git-send-email-fenghua.yu@intel.com>
+To: "H. Peter Anvin" <hpa@linux.intel.com>, "Ingo Molnar" <mingo@elte.hu>,
+	"Thomas Gleixner" <tglx@linutronix.de>, "Tony Luck" <tony.luck@intel.com>,
+	"Ravi V Shankar" <ravi.v.shankar@intel.com>,
+	"Peter Zijlstra" <peterz@infradead.org>, "Tejun Heo" <tj@kernel.org>,
+	"Marcelo Tosatti" <mtosatti@redhat.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+	"x86" <x86@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>,
+	Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Date: Thu, 17 Dec 2015 14:46:07 -0800
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 
  - In rapl_cpu_init, use the existing package<->core map instead of
  looping through all cpus in rapl_cpumask.
@@ -11,15 +29,16 @@ Date:       2015-10-02 6:09:36
 
 Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
 Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
 ---
- arch/x86/kernel/cpu/perf_event_intel_rapl.c | 35 ++++++++++++++---------------
+arch/x86/kernel/cpu/perf_event_intel_rapl.c | 35 ++++++++++++++---------------
  1 file changed, 17 insertions(+), 18 deletions(-)
 
 diff --git a/arch/x86/kernel/cpu/perf_event_intel_rapl.c b/arch/x86/kernel/cpu/perf_event_intel_rapl.c
-index 81431c0..eeec6b8 100644
+index ed446bd..0e0fe70 100644
 --- a/arch/x86/kernel/cpu/perf_event_intel_rapl.c
 +++ b/arch/x86/kernel/cpu/perf_event_intel_rapl.c
-@@ -136,6 +136,12 @@ static struct pmu rapl_pmu_class;
+@@ -130,6 +130,12 @@ static struct pmu rapl_pmu_class;
  static cpumask_t rapl_cpu_mask;
  static int rapl_cntr_mask;
  
@@ -32,7 +51,7 @@ index 81431c0..eeec6b8 100644
  static DEFINE_PER_CPU(struct rapl_pmu *, rapl_pmu);
  static DEFINE_PER_CPU(struct rapl_pmu *, rapl_pmu_to_free);
  
-@@ -539,18 +545,16 @@ static struct pmu rapl_pmu_class = {
+@@ -533,18 +539,16 @@ static struct pmu rapl_pmu_class = {
  static void rapl_cpu_exit(int cpu)
  {
  	struct rapl_pmu *pmu = per_cpu(rapl_pmu, cpu);
@@ -58,7 +77,7 @@ index 81431c0..eeec6b8 100644
  	/*
  	 * clear cpu from cpumask
  	 * if was set in cpumask and still some cpu on package,
-@@ -572,15 +576,10 @@ static void rapl_cpu_exit(int cpu)
+@@ -566,15 +570,10 @@ static void rapl_cpu_exit(int cpu)
  
  static void rapl_cpu_init(int cpu)
  {
@@ -78,11 +97,3 @@ index 81431c0..eeec6b8 100644
  }
  
  static __init void rapl_hsw_server_quirk(void)
--- 
-1.8.1.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
