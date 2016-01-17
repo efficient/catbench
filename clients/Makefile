@@ -1,9 +1,9 @@
 include ../flags.mk
 
 CPPFLAGS += \
-	-D_BSD_SOURCE \
-	-D_GNU_SOURCE \
+	-D_DEFAULT_SOURCE \
 	-D_POSIX_C_SOURCE=200809L \
+	-D_GNU_SOURCE \
 
 CFLAGS += \
 
