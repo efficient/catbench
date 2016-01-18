@@ -132,12 +132,12 @@ static bool parse_arg_arg(char flag, int *dest) {
 }
 
 static struct {
+	uint8_t *arr;
 	int cache_line_size;
 	int num_periods;
 	int passes_per_cycle;
 	int capacity_contracted;
 	int capacity_expanded;
-	bool huge;
 	rng_t *randomize;
 	rng_t *cont_rand;
 	perf_log_buffer_t **perflog;
@@ -148,19 +148,19 @@ static struct {
 
 static void square_evictions_handler(int);
 
-typedef int (*evictions_fun_t)(int, int, int, int, int, bool, rng_t *, rng_t *,
+typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, rng_t *, rng_t *,
 		perf_log_buffer_t **, int, bool, int);
 
-static int square_evictions_async(int cache_line_size, int num_periods, int passes_per_cycle,
-		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
-		rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride, bool measure_all,
-		int max_accesses) {
+static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_periods,
+		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
+		rng_t *randomize, rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride,
+		bool measure_all, int max_accesses) {
+	square_evictions_saved.arr = arr;
 	square_evictions_saved.cache_line_size = cache_line_size;
 	square_evictions_saved.num_periods = num_periods;
 	square_evictions_saved.passes_per_cycle = passes_per_cycle;
 	square_evictions_saved.capacity_contracted = capacity_contracted;
 	square_evictions_saved.capacity_expanded = capacity_expanded;
-	square_evictions_saved.huge = huge;
 	square_evictions_saved.randomize = randomize;
 	square_evictions_saved.cont_rand = cont_rand;
 	square_evictions_saved.perflog = perflog;
@@ -178,23 +178,14 @@ static int square_evictions_async(int cache_line_size, int num_periods, int pass
 	return 0;
 }
 
-static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
-		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
-		rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride, bool measure_all,
-		int max_accesses) {
+static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
+		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
+		rng_t *randomize, rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride,
+		bool measure_all, int max_accesses) {
 	assert(perflog);
-
-	int ret = 0;
 
 	if(cont_rand)
 		assert(randomize);
-
-	uint8_t *large = alloc(capacity_expanded, huge);
-	if(!large) { // "at large"
-		perror("Allocating large array");
-		ret = 1;
-		goto cleanup;
-	}
 
 	int perfd = -1;
 	clock_t startperf = 0;
@@ -205,15 +196,12 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 			perfstride = capacity_expanded / cache_line_size;
 
 		perfd = perf_poll_init(PERF_LOG_NUM_COUNTERS, PERF_LOG_COUNTERS);
-		if(perfd == -1) {
-			ret = 1;
-			goto cleanup;
-		}
+		if(perfd == -1)
+			return 1;
 
 		if(!perf_poll_start(perfd)) {
 			perror("Starting performance recording");
-			ret = 1;
-			goto cleanup;
+			return 1;
 		}
 		startperf = clock();
 	}
@@ -252,9 +240,9 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 					seen_initial = true;
 				if(measure_all)
 					time = rdtscp();
-				large[ix] ^= val;
-				val ^= large[ix];
-				large[ix] ^= val;
+				arr[ix] ^= val;
+				val ^= arr[ix];
+				arr[ix] ^= val;
 
 				if(measure_all) {
 					time = rdtscp() - time;
@@ -269,10 +257,8 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 				}
 
 				if(*perflog && offset / cache_line_size % perfstride == 0)
-					if(!bufappend(perflog, perfd, startperf)) {
-						ret = 1;
-						goto cleanup;
-					}
+					if(!bufappend(perflog, perfd, startperf))
+						return 1;
 
 				++accesses;
 				if(accesses == max_accesses)
@@ -289,20 +275,17 @@ breakoutermost:
 	if(*perflog && !perf_poll_stop(perfd))
 		perror("Stopping performance recording");
 
-cleanup:
-	if(large)
-		dealloc(capacity_expanded, large, huge);
-	return ret;
+	return 0;
 }
 
 static void square_evictions_handler(int sig) {
 	(void) sig;
-	square_evictions(square_evictions_saved.cache_line_size,
+	square_evictions(square_evictions_saved.arr,
+			square_evictions_saved.cache_line_size,
 			square_evictions_saved.num_periods,
 			square_evictions_saved.passes_per_cycle,
 			square_evictions_saved.capacity_contracted,
 			square_evictions_saved.capacity_expanded,
-			square_evictions_saved.huge,
 			square_evictions_saved.randomize,
 			square_evictions_saved.cont_rand,
 			square_evictions_saved.perflog,
@@ -314,6 +297,7 @@ static void square_evictions_handler(int sig) {
 int main(int argc, char *argv[]) {
 	int ret = 0;
 
+	uint8_t *large = NULL;
 	rng_t *random = NULL;
 	rng_t *randtv = NULL;
 	FILE *perflog = NULL;
@@ -543,8 +527,15 @@ int main(int argc, char *argv[]) {
 	evictions_fun_t call = square_evictions;
 	if(await_signal)
 		call = square_evictions_async;
-	ret = call(cache_line_size, num_periods, passes_per_cycle, cap_contracted, cap_expanded,
-			hugepages, random, randtv, &perfbuf, perfstride, measure_all, accesses);
+
+	large = alloc(cap_expanded, hugepages);
+	if(!large) { // "at large"
+		perror("Allocating large array");
+		ret = 1;
+		goto cleanup;
+	}
+	ret = call(large, cache_line_size, num_periods, passes_per_cycle, cap_contracted,
+			cap_expanded, random, randtv, &perfbuf, perfstride, measure_all, accesses);
 
 	if(perflog) {
 		assert(perfbuf);
@@ -557,6 +548,8 @@ int main(int argc, char *argv[]) {
 	}
 
 cleanup:
+	if(large)
+		dealloc(cap_expanded, large, hugepages);
 	if(random)
 		rng_lcfc_clean(random);
 	if(randtv)
