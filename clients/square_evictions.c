@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <assert.h>
 #include <inttypes.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -130,6 +131,53 @@ static bool parse_arg_arg(char flag, int *dest) {
 	return true;
 }
 
+static struct {
+	int cache_line_size;
+	int num_periods;
+	int passes_per_cycle;
+	int capacity_contracted;
+	int capacity_expanded;
+	bool huge;
+	rng_t *randomize;
+	rng_t *cont_rand;
+	perf_log_buffer_t **perflog;
+	int perfstride;
+	bool measure_all;
+	int max_accesses;
+} square_evictions_saved;
+
+static void square_evictions_handler(int);
+
+typedef int (*evictions_fun_t)(int, int, int, int, int, bool, rng_t *, rng_t *,
+		perf_log_buffer_t **, int, bool, int);
+
+static int square_evictions_async(int cache_line_size, int num_periods, int passes_per_cycle,
+		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
+		rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride, bool measure_all,
+		int max_accesses) {
+	square_evictions_saved.cache_line_size = cache_line_size;
+	square_evictions_saved.num_periods = num_periods;
+	square_evictions_saved.passes_per_cycle = passes_per_cycle;
+	square_evictions_saved.capacity_contracted = capacity_contracted;
+	square_evictions_saved.capacity_expanded = capacity_expanded;
+	square_evictions_saved.huge = huge;
+	square_evictions_saved.randomize = randomize;
+	square_evictions_saved.cont_rand = cont_rand;
+	square_evictions_saved.perflog = perflog;
+	square_evictions_saved.perfstride = perfstride;
+	square_evictions_saved.measure_all = measure_all;
+	square_evictions_saved.max_accesses = max_accesses;
+
+	struct sigaction signal_setup = {.sa_handler = square_evictions_handler};
+	if(sigaction(SIGUSR1, &signal_setup, NULL) != 0) {
+		perror("Setting up signal handler");
+		return 1;
+	}
+
+	while(true);
+	return 0;
+}
+
 static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
 		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
 		rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride, bool measure_all,
@@ -247,6 +295,22 @@ cleanup:
 	return ret;
 }
 
+static void square_evictions_handler(int sig) {
+	(void) sig;
+	square_evictions(square_evictions_saved.cache_line_size,
+			square_evictions_saved.num_periods,
+			square_evictions_saved.passes_per_cycle,
+			square_evictions_saved.capacity_contracted,
+			square_evictions_saved.capacity_expanded,
+			square_evictions_saved.huge,
+			square_evictions_saved.randomize,
+			square_evictions_saved.cont_rand,
+			square_evictions_saved.perflog,
+			square_evictions_saved.perfstride,
+			square_evictions_saved.measure_all,
+			square_evictions_saved.max_accesses);
+}
+
 int main(int argc, char *argv[]) {
 	int ret = 0;
 
@@ -266,11 +330,12 @@ int main(int argc, char *argv[]) {
 	bool randomize = false;
 	bool secondrng = true;
 	bool measure_all = false;
+	bool await_signal = false;
 
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:j:ma:b:")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:j:ma:b:i")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -345,6 +410,9 @@ int main(int argc, char *argv[]) {
 				goto cleanup;
 			}
 			break;
+		case 'i':
+			await_signal = true;
+			break;
 		default:
 			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]] [-s] [-l @] [-m] [-a #] [-b #]\n",
 					invoc);
@@ -362,7 +430,8 @@ int main(int argc, char *argv[]) {
 					" -j #: Logging recording stride (default once per pass)\n"
 					" -m: MEAsure all memory accesses using rdtscp\n"
 					" -a #: Limit accesses to a subset of this cardinality\n"
-					" -b #: Perform first access this far into the rng period\n",
+					" -b #: Perform first access this far into the rng period\n"
+					" -i: Wait and perform the specified traversal on USR1\n",
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
 					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED,
 					PERF_LOG_FILE_HEADER_LINE);
@@ -471,9 +540,11 @@ int main(int argc, char *argv[]) {
 
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
-	ret = square_evictions(cache_line_size, num_periods, passes_per_cycle,
-			cap_contracted, cap_expanded, hugepages, random, randtv,
-			&perfbuf, perfstride, measure_all, accesses);
+	evictions_fun_t call = square_evictions;
+	if(await_signal)
+		call = square_evictions_async;
+	ret = call(cache_line_size, num_periods, passes_per_cycle, cap_contracted, cap_expanded,
+			hugepages, random, randtv, &perfbuf, perfstride, measure_all, accesses);
 
 	if(perflog) {
 		assert(perfbuf);
