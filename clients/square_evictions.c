@@ -132,7 +132,8 @@ static bool parse_arg_arg(char flag, int *dest) {
 
 static int square_evictions(int cache_line_size, int num_periods, int passes_per_cycle,
 		int capacity_contracted, int capacity_expanded, bool huge, rng_t *randomize,
-		rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride, bool measure_all) {
+		rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride, bool measure_all,
+		int max_accesses) {
 	assert(perflog);
 
 	int ret = 0;
@@ -173,6 +174,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 		const char *desc = "";
 		rng_t *randomizer = randomize;
 		int siz;
+		int accesses = 0;
 		uint64_t time = 0;
 		uint64_t max_time = 0;
 		uint8_t val = rand();
@@ -205,6 +207,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 				large[ix] ^= val;
 				val ^= large[ix];
 				large[ix] ^= val;
+
 				if(measure_all) {
 					time = rdtscp() - time;
 					if(time > max_time) {
@@ -222,6 +225,10 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 						ret = 1;
 						goto cleanup;
 					}
+
+				++accesses;
+				if(accesses == max_accesses)
+					goto breakoutermost;
 			}
 			assert(!siz || seen_initial);
 		}
@@ -229,6 +236,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 		clock_t duration = clock() - startpass;
 		printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 	}
+breakoutermost:
 
 	if(*perflog && !perf_poll_stop(perfd))
 		perror("Stopping performance recording");
@@ -252,6 +260,8 @@ int main(int argc, char *argv[]) {
 	int percent_expanded = DEFAULT_PERCENT_EXPANDED;
 	int custom_increment = 0;
 	int perfstride = -1;
+	int accesses = 0;
+	int baserandom = 0;
 	bool hugepages = false;
 	bool randomize = false;
 	bool secondrng = true;
@@ -260,7 +270,7 @@ int main(int argc, char *argv[]) {
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:j:m")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:j:ma:b:")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -323,8 +333,20 @@ int main(int argc, char *argv[]) {
 		case 'm':
 			measure_all = true;
 			break;
+		case 'a':
+			if(!parse_arg_arg(each_arg, &accesses)) {
+				ret = 1;
+				goto cleanup;
+			}
+			break;
+		case 'b':
+			if(!parse_arg_arg(each_arg, &baserandom)) {
+				ret = 1;
+				goto cleanup;
+			}
+			break;
 		default:
-			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]] [-s] [-l @] [-m]\n",
+			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]] [-s] [-l @] [-m] [-a #] [-b #]\n",
 					invoc);
 			printf(
 					" -n #: Number of PERIODS (default %d)\n"
@@ -338,7 +360,9 @@ int main(int argc, char *argv[]) {
 					" -l @: Log performance data to specified filename\n"
 					"       Currently records: %s"
 					" -j #: Logging recording stride (default once per pass)\n"
-					" -m: MEAsure all memory accesses using rdtscp\n",
+					" -m: MEAsure all memory accesses using rdtscp\n"
+					" -a #: Limit accesses to a subset of this cardinality\n"
+					" -b #: Perform first access this far into the rng period\n",
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
 					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED,
 					PERF_LOG_FILE_HEADER_LINE);
@@ -371,6 +395,11 @@ int main(int argc, char *argv[]) {
 		perfbuf->occ = (uintptr_t) perfbuf->log - (uintptr_t) perfbuf;
 	} else if(perfstride != -1) {
 		fputs("-j only makes sense in concert with -l\n", stderr);
+		ret = 1;
+		goto cleanup;
+	}
+	if((accesses || baserandom) && !randomize) {
+		fputs("-a and -b only make sense in concert with -r\n", stderr);
 		ret = 1;
 		goto cleanup;
 	}
@@ -432,13 +461,19 @@ int main(int argc, char *argv[]) {
 				assert(randtv);
 			}
 		}
+
+		for(int wasted = 0; wasted < baserandom; ++wasted) {
+			rng_lcfc(random);
+			if(secondrng)
+				rng_lcfc(randtv);
+		}
 	}
 
 	int cap_contracted = cache_line_size * lines_contracted;
 	int cap_expanded = cache_line_size * lines_expanded;
 	ret = square_evictions(cache_line_size, num_periods, passes_per_cycle,
 			cap_contracted, cap_expanded, hugepages, random, randtv,
-			&perfbuf, perfstride, measure_all);
+			&perfbuf, perfstride, measure_all, accesses);
 
 	if(perflog) {
 		assert(perfbuf);
