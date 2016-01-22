@@ -269,6 +269,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 
 		clock_t duration = clock() - startpass;
 		printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
+		fflush(stdout);
 	}
 breakoutermost:
 
