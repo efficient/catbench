@@ -24,14 +24,14 @@ pid=`echo $rawpid | cut -d " " -f1`
 
 if "$enable_cat"
 then
-	sudo mkdir $cgroup_path/lockserver
-	sudo echo $pid > $cgroup_path/lockserver/tasks
-	sudo echo 0x1 > $cgroup_path/lockserver/intel_rdt.l3_cbm
+	mkdir $cgroup_path/lockserver
+	echo $pid > $cgroup_path/lockserver/tasks
+	echo 0x1 > $cgroup_path/lockserver/intel_rdt.l3_cbm
 
-	sudo mkdir $cgroup_path/trash
-	sudo echo 0xffe > $cgroup_path/trash/intel_rdt.l3_cbm
+	mkdir $cgroup_path/trash
+	echo 0xffe > $cgroup_path/trash/intel_rdt.l3_cbm
 	#by doing this, our child processes are automatically added to the trash cgroup
-	sudo echo $$ > $cgroup_path/trash/tasks
+	echo $$ > $cgroup_path/trash/tasks
 fi
 
 
