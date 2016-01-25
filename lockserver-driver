@@ -34,12 +34,12 @@ done
 cgroup_path="/sys/fs/cgroup/intel_rdt"
 
 # Default value should be the OR of trash_mask and lockserver_mask if $enable_cat is true
-trash_mask=0x00f
+trash_mask=0xfff
 lockserver_mask=0x001
 
 if "$enable_cat"
 then
-	trash_mask=0x00e
+	trash_mask=0xffe
 fi
 
 mkdir $cgroup_path/trash
