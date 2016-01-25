@@ -1,29 +1,49 @@
 #!/bin/sh
 
+enable_cat=false
+while [ $# -ge 1 ]
+do
+	case "$1" in
+	"-c")
+		enable_cat=true
+		;;
+	esac
+	shift
+done
+
 cgroup_path="/sys/fs/cgroup/intel_rdt"
 
 clients/square_evictions -n 1 -p 1 -c 0 -e 100 -r -i > lockserver_log &
 rawpid=`while ! (ps | grep square); do true; done`
 pid=`echo $rawpid | cut -d " " -f1`
-echo $pid
-sudo mkdir $cgroup_path/lockserver
-sudo echo $pid > $cgroup_path/lockserver/tasks
-sudo echo 0x1 > $cgroup_path/lockserver/intel_rdt.l3_cbm
 
-sudo mkdir $cgroup_path/trash
-sudo echo 0xffe > $cgroup_path/trash/intel_rdt.l3_cbm
+if "$enable_cat"
+then
+	sudo mkdir $cgroup_path/lockserver
+	sudo echo $pid > $cgroup_path/lockserver/tasks
+	sudo echo 0x1 > $cgroup_path/lockserver/intel_rdt.l3_cbm
 
-#by doing this, our child processes are automatically added to the trash cgroup
-sudo echo $$ > $cgroup_path/trash/tasks
+	sudo mkdir $cgroup_path/trash
+	sudo echo 0xffe > $cgroup_path/trash/intel_rdt.l3_cbm
+	#by doing this, our child processes are automatically added to the trash cgroup
+	sudo echo $$ > $cgroup_path/trash/tasks
+fi
+
 
 for var in `seq 0 2`; do
 	clients/square_evictions > /dev/null 2>&1 &
 done
+sleep 2
 
 kill -s 10 $pid
 
-# CLEANUP
+# Sleep to allow our processes to actually run for a little while
 sleep 2
+
+# CLEANUP
 killall square_evictions
-sudo rmdir $cgroup_path/lockserver
-sudo rmdir $cgroup_path/trash
+if "$enable_cat"
+then
+	cgdelete intel_rdt:lockserver
+	cgdelete intel_rdt:trash
+fi
