@@ -1,7 +1,7 @@
 #!/bin/sh
 
 cgroup_path="/sys/fs/cgroup/intel_rdt"
-# TODO: square evictions does not properly log times when -a is specified yet
+
 clients/square_evictions -n 1 -p 1 -c 0 -e 100 -r -i > lockserver_log &
 rawpid=`while ! (ps | grep square); do true; done`
 pid=`echo $rawpid | cut -d " " -f1`
