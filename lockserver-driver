@@ -3,6 +3,8 @@
 enable_cat=false
 logfile_name="lockserver_log"
 
+lockserver_alloc_percent=100
+trash_alloc_percent=100
 
 while [ $# -ge 1 ]
 do
@@ -14,6 +16,17 @@ do
 		logfile_name="$2"
 		shift
 		;;
+	"-l")
+		lockserver_alloc_percent="$2"
+		shift
+		;;
+	"-t")
+		trash_alloc_percent="$2"
+		shift
+		;;
+	*)
+		echo "Invalid argument"
+		exit 1
 	esac
 	shift
 done
@@ -34,8 +47,8 @@ echo $trash_mask > $cgroup_path/trash/intel_rdt.l3_cbm
 #by doing this, our child processes are automatically added to the trash cgroup
 echo $$ > $cgroup_path/trash/tasks
 
-echo $logfile_name
-clients/square_evictions -n 10000 -p 1 -c 100 -e 100 -r -i -h > "$logfile_name" &
+# This is the lockserver
+clients/square_evictions -n 10000 -p 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -r -i -h > "$logfile_name" &
 rawpid=`while ! (ps | grep square); do true; done`
 pid=`echo $rawpid | cut -d " " -f1`
 
