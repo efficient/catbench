@@ -2,6 +2,8 @@
 
 enable_cat=false
 logfile_name="lockserver_log"
+
+
 while [ $# -ge 1 ]
 do
 	case "$1" in
@@ -18,7 +20,22 @@ done
 
 cgroup_path="/sys/fs/cgroup/intel_rdt"
 
-clients/square_evictions -n 10000 -p 1 -c 0 -e 100 -r -i -h > "$logfile_name" &
+# Default value should be the OR of trash_mask and lockserver_mask if $enable_cat is true
+trash_mask=0x00f
+lockserver_mask=0x001
+
+if "$enable_cat"
+then
+	trash_mask=0x00e
+fi
+
+mkdir $cgroup_path/trash
+echo $trash_mask > $cgroup_path/trash/intel_rdt.l3_cbm
+#by doing this, our child processes are automatically added to the trash cgroup
+echo $$ > $cgroup_path/trash/tasks
+
+echo $logfile_name
+clients/square_evictions -n 10000 -p 1 -c 100 -e 100 -r -i -h > "$logfile_name" &
 rawpid=`while ! (ps | grep square); do true; done`
 pid=`echo $rawpid | cut -d " " -f1`
 
@@ -26,12 +43,7 @@ if "$enable_cat"
 then
 	mkdir $cgroup_path/lockserver
 	echo $pid > $cgroup_path/lockserver/tasks
-	echo 0x1 > $cgroup_path/lockserver/intel_rdt.l3_cbm
-
-	mkdir $cgroup_path/trash
-	echo 0xffe > $cgroup_path/trash/intel_rdt.l3_cbm
-	#by doing this, our child processes are automatically added to the trash cgroup
-	echo $$ > $cgroup_path/trash/tasks
+	echo $lockserver_mask > $cgroup_path/lockserver/intel_rdt.l3_cbm
 fi
 
 
@@ -47,8 +59,8 @@ sleep 2
 
 # CLEANUP
 killall square_evictions
+cgdelete intel_rdt:trash
 if "$enable_cat"
 then
 	cgdelete intel_rdt:lockserver
-	cgdelete intel_rdt:trash
 fi
