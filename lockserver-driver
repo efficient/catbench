@@ -36,7 +36,7 @@ fi
 
 
 for var in `seq 0 2`; do
-	clients/square_evictions > /dev/null 2>&1 &
+	clients/square_evictions -h > /dev/null &
 done
 sleep 2
 
