@@ -6,6 +6,8 @@ logfile_name="lockserver_log"
 lockserver_alloc_percent=100
 trash_alloc_percent=100
 
+num_trash=28
+
 while [ $# -ge 1 ]
 do
 	case "$1" in
@@ -22,6 +24,10 @@ do
 		;;
 	"-t")
 		trash_alloc_percent="$2"
+		shift
+		;;
+	"-n")
+		num_trash="$2"
 		shift
 		;;
 	*)
@@ -60,7 +66,7 @@ then
 fi
 
 
-for var in `seq 0 27`; do
+for var in `seq 1 "$num_trash"`; do
 	clients/square_evictions -c "$trash_alloc_percent" -e "$trash_alloc_percent" -h > /dev/null &
 done
 sleep 10
