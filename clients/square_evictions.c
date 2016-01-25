@@ -206,6 +206,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		startperf = clock();
 	}
 		
+	clock_t duration = 0;
 	for(int cycle = 0; cycle < 2 * num_periods; ++cycle) {
 		const char *desc = "";
 		rng_t *randomizer = randomize;
@@ -261,15 +262,22 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 						return 1;
 
 				++accesses;
-				if(accesses == max_accesses)
+				if(accesses == max_accesses) {
+					duration += clock() - startpass;
+					printf("Completed traversal in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
+					fflush(stdout);
 					goto breakoutermost;
+				}
 			}
 			assert(!siz || seen_initial);
 		}
 
-		clock_t duration = clock() - startpass;
-		printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
-		fflush(stdout);
+		if(!max_accesses) {
+			clock_t duration = clock() - startpass;
+			printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
+			fflush(stdout);
+		} else
+			duration += clock() - startpass;
 	}
 breakoutermost:
 
