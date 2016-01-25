@@ -1,0 +1,6 @@
+sudo ./lockserver-driver -o no-cat.dat
+sudo ./lockserver-driver -c -o with-cat.dat
+echo "With CAT"
+./avg_data.pl with-cat.dat
+echo "Without CAT"
+./avg_data.pl no-cat.dat
