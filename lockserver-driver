@@ -47,10 +47,10 @@ then
 fi
 
 
-for var in `seq 0 2`; do
+for var in `seq 0 23`; do
 	clients/square_evictions -h > /dev/null &
 done
-sleep 2
+sleep 10
 
 kill -s 10 $pid
 
