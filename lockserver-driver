@@ -6,7 +6,7 @@ logfile_name="lockserver_log"
 lockserver_alloc_percent=100
 trash_alloc_percent=100
 
-num_trash=28
+num_trash=8
 
 while [ $# -ge 1 ]
 do
