@@ -1,0 +1,109 @@
+#!/bin/sh
+
+header=""
+record=""
+
+seen_hugepages="false"
+seen_randomize="false"
+seen_singlerng="false"
+seen_logprfchr="false"
+seen_profmemac="false"
+seen_daemonize="false"
+
+while [ $# -gt 0 ]
+do
+	lastheader="$header"
+
+	switch="$1"
+	shift
+
+	case "$switch" in
+	-n*)
+		header="$header,passes_per_phase"
+		;;
+	-p*)
+		header="$header,phases_per_period"
+		;;
+	-c*)
+		header="$header,contracted_way_percent"
+		;;
+	-e*)
+		header="$header,expanded_allocation_way_percent"
+		;;
+	-h*)
+		seen_hugepages="true"
+		;;
+	-r*)
+		seen_randomize="true"
+
+		case "$1" in
+		-*)
+			;;
+		*)
+			shift
+			;;
+		esac
+		continue
+		;;
+	-s*)
+		seen_singlerng="true"
+		;;
+	-l*)
+		seen_logprfchr="true"
+
+		case "$1" in
+		-*)
+			;;
+		*)
+			shift
+			;;
+		esac
+		continue
+		;;
+	-j*)
+		header="$header,log_entries_per_pass"
+		;;
+	-m*)
+		seen_profmemac="true"
+		;;
+	-a*)
+		header="$header,accesses_per_activation"
+		;;
+	-b*)
+		header="$header,rng_period_offset"
+		;;
+	-i*)
+		seen_daemonize="true"
+		;;
+	*)
+		echo "Unexpected switch: $switch"
+		exit 1
+		;;
+	esac
+
+	suffix="`printf %s "$switch" | sed 's/..\(.*\)/\1/'`"
+	case "$suffix" in
+	[a-z]*)
+		set -- "-$suffix" "$@"
+		;;
+	*)
+		if [ "$header" = "$lastheader" ]
+		then
+			continue
+		fi
+
+		if [ -n "$suffix" ]
+		then
+			record="$record,$suffix"
+		else
+			record="$record,$1"
+			shift
+		fi
+		;;
+	esac
+done
+
+header="$header,hugepages,randomize,singlerng,log_performance_characteristics,profile_memory_accesses,daemonize"
+record="$record,$seen_hugepages,$seen_randomize,$seen_singlerng,$seen_logprfchr,$seen_profmemac,$seen_daemonize"
+
+echo "$header\n$record" | sed 's/,//'
