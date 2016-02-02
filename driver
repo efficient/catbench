@@ -39,11 +39,14 @@ then
 fi
 git status -uno
 git submodule status
-git diff --ignore-submodules HEAD >"$dir/`git log --oneline --abbrev-commit --no-decorate -1 | cut -d" " -f1`.patch"
+METADATA="`git log --oneline --abbrev-commit --no-decorate -1 | cut -d" " -f1`"
+git diff --ignore-submodules HEAD >"$dir/$METADATA.patch"
 
 uname -a
 cp "/boot/config-`uname -r`" "$dir"
 
+METADATA="command:$*,,files:$dir,commit:$METADATA,patch:`md5sum "$dir/$METADATA.patch" | cut -d" " -f1`"
+export METADATA
 echo "$ $@"
 eval "$@"
 status="$?"
