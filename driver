@@ -28,7 +28,7 @@ then
 	exit 127
 fi
 
-dir="catbench-$1_`date +%F_%H-%M-%S_%z`"
+dir="catbench-`basename $1`_`date +%F_%H-%M-%S_%z`"
 mkdir "$dir"
 
 logging_commence
