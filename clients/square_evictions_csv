@@ -1,5 +1,18 @@
 #!/bin/sh
 
+has_trailing_switches() {
+	local found=1
+	for trailing in "$@"
+	do
+		case "$trailing" in
+		-*)
+			found=0
+			;;
+		esac
+	done
+	return "$found"
+}
+
 header=""
 record=""
 
@@ -76,8 +89,24 @@ do
 		seen_daemonize="true"
 		;;
 	*)
-		echo "Unexpected switch: $switch"
-		exit 1
+		if has_trailing_switches "$@"
+		then
+			echo "Unexpected switch: $switch" >&2
+			exit 1
+		fi
+
+		for pair in "$switch" "$@"
+		do
+			if ! ( echo "$pair" | grep : >/dev/null )
+			then
+				echo "Expected a pair instead of: $pair" >&2
+				exit 1
+			fi
+
+			header="$header,`echo -n "$pair" | rev | cut -d: -f2- | rev`"
+			record="$record,`echo -n "$pair" | rev | cut -d: -f1 | rev`"
+		done
+		break
 		;;
 	esac
 
