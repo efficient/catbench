@@ -30,52 +30,10 @@ def setup_optparse():
 	args = parser.parse_args();
 	return args.datafile, args.series_columns, args.x_column, args.y_columns, args.ignore_columns, args.title, args.ylabel, args.outfile;
 
-def graph(filename, scol, xcol, ycols, icols):
-	xpoints = list();
-	series50 = list();
-	series50cat = list();
-	series100 = list();
-	series100cat = list();
-
-	fd = open(filename, 'r');
-	lines = fd.read().splitlines();
-	lines.pop(0);
-	count = 0;
-	for line in lines:
-		cols = line.split(',');
-		if(count % 2 == 0):
-			xpoints.append(cols[0]);
-		if(cols[1] == "50"):
-			series50cat.append(cols[2]);
-			series50.append(cols[3]);
-		if(cols[1] == "100"):
-			series100cat.append(cols[2]);
-			series100.append(cols[3]);
-		count = count + 1;
-	fig = plt.figure();
-	ax = fig.add_subplot(1,1,1);
-
-	ax.set_xlabel("Trash Process Memory usage (Cache Way %)");
-	ax.set_ylabel("Lockserver memory access(es) latency (s)");
-
-	box = ax.get_position()
-	ax.set_position([box.x0, box.y0, box.width, box.height * 0.7])
-
-	line1, = ax.plot(xpoints, series50cat, label='Lockserver 50%, with CAT');
-	line2, = ax.plot(xpoints, series50, label='Lockserver 50%, without CAT');
-	line3, = ax.plot(xpoints, series100cat, label='Lockserver 100%, with CAT');
-	line4, = ax.plot(xpoints, series100, label='Lockserver 100%, without CAT');
-
-	ax.set_title("Time Taken for Lockserver to complete 300m Memory Accesses");
-	plt.legend([line1, line2, line3, line4],loc="upper center", bbox_to_anchor=(0.5,1.5));
-
-	plt.ylim(ymin=0);
-	fig.savefig('graph.png');
-
 def get_columns(comma_sep_line):
 	return comma_sep_line.split(',');
 
-def graph2(filename, scol, xcol, ycols, icols, title, ylabel, outfile):
+def graph(filename, scol, xcol, ycols, icols, title, ylabel, outfile):
 	# First sort into Y buckets
 	ydict = dict();
 
@@ -120,10 +78,27 @@ def graph2(filename, scol, xcol, ycols, icols, title, ylabel, outfile):
 		for ycol in ycols:
 			assert(scol_val in ydict[headers[ycol]]);
 			ydict[headers[ycol]][scol_val].append((cols[xcol], cols[ycol]));
-	for key, val in ydict.items():
-		print(key);
-		print(val);
-		print("");
+	#for key, val in ydict.items():
+	#	print(key);
+	#	print(val);
+	#	print("");
+# Scan through and figure out all non-ignored column values
+	extra_params = dict();
+	flagged_columns = list();
+	flagged_columns.append(xcol);
+	flagged_columns.append(scol);
+	flagged_columns = flagged_columns + ycols;
+	if(icols != None):
+			flagged_columns = flagged_columns + icols;
+	for line in lines:
+		cols = get_columns(line);
+		for idx in range(0, len(cols)):
+			if(idx not in flagged_columns):
+				if(headers[idx] not in extra_params):
+					extra_params[headers[idx]] = list();
+				if(cols[idx] not in extra_params[headers[idx]]):
+					extra_params[headers[idx]].append(cols[idx]);
+	print extra_params;
 	fig = plt.figure();
 	ax = fig.add_subplot(1,1,1);
 
@@ -143,6 +118,13 @@ def graph2(filename, scol, xcol, ycols, icols, title, ylabel, outfile):
 				line_label = ycol_header + ":" + headers[scol] + " = " + series_value;
 			line.append((ax.plot(xy[0], xy[1], label=line_label))[0]);
 	ax.set_title(title);
+	extra_param_summary = "";
+	for param, vals in extra_params.items():
+		extra_param_summary += param + ": ";
+		for val in vals:
+			extra_param_summary += val + " ";
+		extra_param_summary += "\n";
+	ax.text(0.05, 0.95, extra_param_summary, transform=ax.transAxes, fontsize=12, verticalalignment='top');
 	plt.legend(loc="upper center", bbox_to_anchor=(0.5,1.5));
 
 	plt.ylim(ymin=0);
@@ -151,8 +133,7 @@ def graph2(filename, scol, xcol, ycols, icols, title, ylabel, outfile):
 
 def main():
 	filename, scol, xcol, ycols, icols, title, ylabel, outfile = setup_optparse();
-	graph2(filename, scol, xcol, ycols, icols, title, ylabel, outfile);
-	#graph(filename);
+	graph(filename, scol, xcol, ycols, icols, title, ylabel, outfile);
 
 main();
 # Col 0 are the x points
