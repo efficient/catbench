@@ -8,17 +8,17 @@ mpl.use('Agg');
 import matplotlib.pyplot as plt;
 
 def setup_optparse():
-    parser = argparse.ArgumentParser();
+    parser = argparse.ArgumentParser(description='Example: ./graph-cat.py -i file.csv --series 0 --xdata 1 --ydata 2 3 --ignore 4 5 --title Graph --ylabel Execution time (s)');
     parser.add_argument('--input', '-i', dest='datafile',
                         help='input csv with header');
     parser.add_argument('--series', '-s', type=int, dest='series_columns',
-                        help='series column(s). Enter single number or range (-s n,m)');
+                        help='series column');
     parser.add_argument('--xdata', '-x', type=int, dest='x_column',
                         help='X axis coordinates, single column');
     parser.add_argument('--ydata', '-y', type=int, nargs='+', dest='y_columns',
-                        help='Y axis data columns. Enter single number or list (-s a,b,c)');
+                        help='Y axis data columns. Enter single number or list (-s 1 2 3)');
     parser.add_argument('--ignore', nargs='+', type=int, dest='ignore_columns',
-                        help='Ignore these columns when summarizing information');
+                        help='Ignore these columns when summarizing information. Enter list (--ignore 1 2 3');
     parser.add_argument('--title', '-t', dest='title',
                         help='Graph title');
     parser.add_argument('--ylabel', dest='ylabel',
