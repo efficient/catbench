@@ -15,12 +15,16 @@ logging_cleanup() {
 
 if [ $# -lt 1 ]
 then
-	cat <<-ohce
+	cat <<-tac
 		USAGE: $0 <command token>...
 
 		Prepend $0 to the full command-line invokation of another script
 		or program to log its environment, invocation, and interactions.
-	ohce
+
+		If shell actions are provided (in escaped form so your own shell
+		doesn't eat them, of course), they will be interpreted. To add
+		files to the archive, place them in the \\\$dir directory.
+	tac
 	exit 127
 fi
 
@@ -37,7 +41,7 @@ git submodule status
 git diff --ignore-submodules HEAD >"$dir/`git log --oneline --abbrev-commit --no-decorate -1 | cut -d" " -f1`.patch"
 
 echo "$ $@"
-"$@"
+eval "$@"
 status="$?"
 
 logging_cleanup
