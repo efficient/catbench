@@ -122,7 +122,9 @@ def graph(filename, scol, xcol, ycols, icols, title, ylabel, outfile):
 	for param, vals in extra_params.items():
 		extra_param_summary += param + ": ";
 		for val in vals:
-			extra_param_summary += val + " ";
+			extra_param_summary += val + ", ";
+# remove trailing ", "
+		extra_param_summary = extra_param_summary[:-2];
 		extra_param_summary += "\n";
 	ax.text(0.05, 0.95, extra_param_summary, transform=ax.transAxes, fontsize=12, verticalalignment='top');
 	plt.legend(loc="upper center", bbox_to_anchor=(0.5,1.5));
