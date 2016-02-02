@@ -32,6 +32,7 @@ dir="catbench-$1_`date +%F_%H-%M-%S_%z`"
 mkdir "$dir"
 
 logging_commence
+
 if ! git log --oneline --no-abbrev-commit --decorate -1
 then
 	exit 127
@@ -39,6 +40,9 @@ fi
 git status -uno
 git submodule status
 git diff --ignore-submodules HEAD >"$dir/`git log --oneline --abbrev-commit --no-decorate -1 | cut -d" " -f1`.patch"
+
+uname -a
+cp "/boot/config-`uname -r`" "$dir"
 
 echo "$ $@"
 eval "$@"
