@@ -1,0 +1,47 @@
+{
+    meta: {
+        <REPRODUCIBILITY STUFF>
+    }
+    legend: [
+        "args": [
+            {
+                "name": <program_name>,
+                [
+                    {
+                        "argument_name": <argument name>,
+                        "description": <human readable>,
+                        "argument_value": <val>
+                    }
+                ]
+            }
+        ]
+        samples: [
+            {
+                "name": <identifier from records>,
+                "description": <human readable name>,
+                "unit": <unit>
+            }
+        ]
+    ]
+    data: [
+        {
+            "name": <series label ie: lockserver>,
+            "description": <some human readable thing>
+            "type": <program_name> <--- this is used to look up under arguments in legend,
+            "args":
+                [
+                    {
+                        "name_of_arg": <NAME>
+                        "value": <value>
+                    }
+                ]
+            "samples": [
+                {
+                    "x0_name": x0, <--- These keys should have entries in the legend
+                    "y0_name": y0,
+                    "y1_name": y1
+                }
+            ]
+        }
+    ]
+}
