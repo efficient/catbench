@@ -1,0 +1,39 @@
+{
+	"meta": {
+		"command": "vi"
+	},
+	"legend": {
+		"args": {
+			"vi": {
+				"-b": {
+					"description": "binary",
+					"unit": "truths"
+				}
+			}
+		},
+		"samples": {
+			"successful": {
+				"description": "Whether it was successful",
+				"unit": "truths"
+			}
+		}
+	},
+	"data": [
+		{
+			"name": "editor",
+			"description": "Text editor",
+			"type": "vi",
+			"args": [
+				{
+					"name": "-b",
+					"value": true
+				}
+			],
+			"samples": [
+				{
+					"successful": false
+				}
+			]
+		}
+	]
+}
