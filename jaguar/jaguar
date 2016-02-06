@@ -1,0 +1,64 @@
+#!/usr/bin/python3
+
+from json import JSONDecodeError, load
+from re import match, split
+from sys import argv, exit, stderr
+
+def main():
+	if len(argv) < 3:
+		usage()
+
+	cmd = {
+		'get':  (get,   'r'),
+		'help': (usage, None),
+	}.get(argv[1], (usage, None));
+
+	try:
+		cmd[0](open(argv[2], cmd[1]) if cmd[1] else None, argv[3:])
+	except OSError:
+		print('Unable to open file \'{}\''.format(argv[2]), file = stderr)
+		exit(1)
+
+def get(file, args):
+	if len(args) != 1:
+		print('get expects exactly 1 argument', file = stderr)
+		file.close()
+		exit(1)
+
+	try:
+		structured = load(file)
+	except JSONDecodeError as ex:
+		print(ex, file = stderr)
+		file.close()
+		exit(1)
+	file.close()
+
+	print(pathlookup(structured, args[0]))
+
+def pathlookup(parsed, path):
+	ref = parsed
+
+	for key in split('\.|\[', path):
+		idx = match('(\d+)]', key)
+		if idx:
+			numb = idx.group(1)
+			try:
+				ref = ref[int(numb)]
+			except:
+				print('Bad list index: [{}]'.format(numb), file = stderr)
+				exit(1)
+		else:
+			try:
+				ref = ref[key]
+			except:
+				print('Expected [subscript], not \'{.}\''.format(key), file = stderr)
+				exit(1)
+
+	return ref
+
+def usage():
+	print('USAGE: {} <command> <filename> [argument]...'.format(argv[0]))
+	exit(1)
+
+if __name__ == '__main__':
+	main()
