@@ -10,7 +10,7 @@
                     {
                         "argument_name": <argument name>,
                         "description": <human readable>,
-                        "argument_value": <val>
+                        "unit": <unit>
                     }
                 ]
             }

@@ -135,8 +135,4 @@ done
 header="$header,hugepages,randomize,singlerng,log_performance_characteristics,profile_memory_accesses,daemonize"
 record="$record,$seen_hugepages,$seen_randomize,$seen_singlerng,$seen_logprfchr,$seen_profmemac,$seen_daemonize"
 
-if [ -n "$METADATA" ]
-then
-	METADATA="$METADATA\n"
-fi
-echo "$METADATA==\n$header\n$record" | sed 's/,//'
+echo "$header\n$record" | sed 's/,//'
