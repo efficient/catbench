@@ -51,7 +51,7 @@ def pathlookup(parsed, path):
 			try:
 				ref = ref[key]
 			except:
-				print('Expected [subscript], not \'{.}\''.format(key), file = stderr)
+				print('Expected [subscript], not \'{}\''.format(key), file = stderr)
 				exit(1)
 
 	return ref
