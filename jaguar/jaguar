@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from collections import namedtuple
-from json import JSONDecodeError, load
+from json import dump, JSONDecodeError, load
 from re import match, split
 from sys import argv, exit, stderr
 
@@ -9,11 +9,13 @@ def main():
 	if len(argv) < 2:
 		usage()
 
-	Action = namedtuple("Action", "cmd nargs")
+	Action = namedtuple("Action", "cmd nargs reads writes")
 	act = {
-		'get':  Action(get, 1),
-		'help': Action(usage, 0),
-	}.get(argv[1], Action(usage, 0));
+		'get':  Action(get,   1, True,  False),
+		'help': Action(usage, 0, False, False),
+		'init': Action(init,  0, False, True),
+		'set':  Action(set,   2, True,  False),
+	}.get(argv[1], Action(usage, 0, False, False));
 
 	if act.cmd != usage:
 		if len(argv) < 3:
@@ -24,19 +26,31 @@ def main():
 			print('Action \'{}\' expects exactly {} arguments after filename'.format(argv[1], act.nargs), file = stderr)
 			usage()
 
-		try:
-			file = open(argv[2], 'r')
-			structured = load(file)
-		except OSError:
-			print('Unable to open file \'{}\''.format(argv[2]), file = stderr)
-			exit(1)
-		except JSONDecodeError as ex:
-			print(ex, file = stderr)
+		structured = None
+		if act.reads:
+			try:
+				file = open(argv[2], 'r')
+				structured = load(file)
+			except OSError:
+				print('Unable to open file \'{}\''.format(argv[2]), file = stderr)
+				exit(1)
+			except JSONDecodeError as ex:
+				print(ex, file = stderr)
+				file.close()
+				exit(1)
 			file.close()
+
+	save = act.cmd(structured, argv[3:])
+
+	if act.writes:
+		try:
+			file = open(argv[2], 'w')
+			dump(save, file)
+		except OSError:
+			print('Unable to open file \'{}\' for writing'.format(argv[2]), file = stderr)
 			exit(1)
 		file.close()
 
-	act.cmd(structured, argv[3:])
 
 def get(parsed, args):
 	print(pathlookup(parsed, args[0]))
