@@ -1,39 +1,45 @@
 #!/usr/bin/python3
 
+from collections import namedtuple
 from json import JSONDecodeError, load
 from re import match, split
 from sys import argv, exit, stderr
 
 def main():
-	if len(argv) < 3:
+	if len(argv) < 2:
 		usage()
 
-	cmd = {
-		'get':  (get,   'r'),
-		'help': (usage, None),
-	}.get(argv[1], (usage, None));
+	Action = namedtuple("Action", "cmd nargs")
+	act = {
+		'get':  Action(get, 1),
+		'help': Action(usage, 0),
+	}.get(argv[1], Action(usage, 0));
 
-	try:
-		cmd[0](open(argv[2], cmd[1]) if cmd[1] else None, argv[3:])
-	except OSError:
-		print('Unable to open file \'{}\''.format(argv[2]), file = stderr)
-		exit(1)
+	if act.cmd != usage:
+		if len(argv) < 3:
+			print('You must specify a filename.', file = stderr)
+			usage()
 
-def get(file, args):
-	if len(args) != 1:
-		print('get expects exactly 1 argument', file = stderr)
+		if len(argv) - 3 != act.nargs:
+			print('Action \'{}\' expects exactly {} arguments after filename'.format(argv[1], act.nargs), file = stderr)
+			usage()
+
+		try:
+			file = open(argv[2], 'r')
+			structured = load(file)
+		except OSError:
+			print('Unable to open file \'{}\''.format(argv[2]), file = stderr)
+			exit(1)
+		except JSONDecodeError as ex:
+			print(ex, file = stderr)
+			file.close()
+			exit(1)
 		file.close()
-		exit(1)
 
-	try:
-		structured = load(file)
-	except JSONDecodeError as ex:
-		print(ex, file = stderr)
-		file.close()
-		exit(1)
-	file.close()
+	act.cmd(structured, argv[3:])
 
-	print(pathlookup(structured, args[0]))
+def get(parsed, args):
+	print(pathlookup(parsed, args[0]))
 
 def pathlookup(parsed, path):
 	ref = parsed
