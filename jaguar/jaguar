@@ -51,6 +51,12 @@ def main():
 			exit(1)
 		file.close()
 
+def init(parsed, args):
+	root = {}
+	root['meta'] = {}
+	root['legend'] = {'args': {}, 'samples': {}}
+	root['data'] = []
+	return root
 
 def get(parsed, args):
 	print(pathlookup(parsed, args[0]))
