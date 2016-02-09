@@ -66,7 +66,7 @@ echo $$ > $cgroup_path/trash/tasks
 
 # This is the lockserver
 clients/square_evictions -n 10000 -p 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" -v > "$logfile_name" &
-rawpid=`while ! (ps | grep square); do true; done`
+rawpid=`while ! (ps | grep square); do :; done`
 pid=`echo $rawpid | cut -d " " -f1`
 
 if "$enable_cat"
@@ -93,6 +93,7 @@ sleep 2
 
 # CLEANUP
 killall square_evictions
+while (ps | grep square >/dev/null 2>&1); do :; done
 cgdelete intel_rdt:trash
 if "$enable_cat"
 then
