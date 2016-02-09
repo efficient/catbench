@@ -18,6 +18,6 @@ do
 		echo "Lockserver%: $lockserver_percent, Trash%: $trash_percent, Trash: $num_trash"
 		sudo ./lockserver-driver -o no-cat.dat -l "$lockserver_percent" -t "$trash_percent" -s "$traverse" -i "$iters"
 		sudo ./lockserver-driver -c -o with-cat.dat -l "$lockserver_percent" -t "$trash_percent" -s "$traverse" -i "$iters"
-		printf "%d,%d,%f,%f\n" "$trash_percent" "$lockserver_percent" "`./avg_data.pl with-cat.dat`" "`./avg_data.pl no-cat.dat`" >>"$logfilename"
+		printf "%d,%d,%f,%f\n" "$trash_percent" "$lockserver_percent" "`./avg_data.pl with-cat.dat $((100 / lockserver_percent))`" "`./avg_data.pl no-cat.dat $((100 / lockserver_percent))`" >>"$logfilename"
 	done
 done

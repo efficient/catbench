@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# TODO: calculate average time per memory access?
 open($infile, "<", "$ARGV[0]");
 
 @data_arr;
@@ -14,6 +15,11 @@ foreach(@data_arr) {
 	$sum += $_;
 }
 
-print($sum / @data_arr);
+$multiplier = 1;
+if($ARGV[1] ne "") {
+	$multiplier = $ARGV[1];
+}
+
+print($sum / @data_arr * $multiplier);
 print("\n");
 
