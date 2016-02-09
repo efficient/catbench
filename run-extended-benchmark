@@ -2,14 +2,22 @@ logfilename="lockserver_tuning_`date +%F_%T`.csv"
 
 echo "trash_percent,lockserver_percent,with_cat,no_cat" >"$logfilename"
 
+traverse=0
+iters=1
+if [ $# -eq 2 ]
+then
+	traverse="$1"
+	iters="$2"
+fi
+
 num_trash=8
 for trash_percent in 50 100 200 400 800
 do
 	for lockserver_percent in 50 100
 	do
 		echo "Lockserver%: $lockserver_percent, Trash%: $trash_percent, Trash: $num_trash"
-		sudo ./lockserver-driver -o no-cat.dat -l "$lockserver_percent" -t "$trash_percent"
-		sudo ./lockserver-driver -c -o with-cat.dat -l "$lockserver_percent" -t "$trash_percent"
+		sudo ./lockserver-driver -o no-cat.dat -l "$lockserver_percent" -t "$trash_percent" -s "$traverse" -i "$iters"
+		sudo ./lockserver-driver -c -o with-cat.dat -l "$lockserver_percent" -t "$trash_percent" -s "$traverse" -i "$iters"
 		printf "%d,%d,%f,%f\n" "$trash_percent" "$lockserver_percent" "`./avg_data.pl with-cat.dat`" "`./avg_data.pl no-cat.dat`" >>"$logfilename"
 	done
 done

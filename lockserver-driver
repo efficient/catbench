@@ -6,7 +6,10 @@ logfile_name="lockserver_log"
 lockserver_alloc_percent=100
 trash_alloc_percent=100
 
+traverse_subset=0
+
 num_trash=8
+signal_iters=1
 
 while [ $# -ge 1 ]
 do
@@ -26,8 +29,16 @@ do
 		trash_alloc_percent="$2"
 		shift
 		;;
+	"-s")
+		traverse_subset="$2"
+		shift
+		;;
 	"-n")
 		num_trash="$2"
+		shift
+		;;
+	"-i")
+		signal_iters="$2"
 		shift
 		;;
 	*)
@@ -54,7 +65,7 @@ echo $trash_mask > $cgroup_path/trash/intel_rdt.l3_cbm
 echo $$ > $cgroup_path/trash/tasks
 
 # This is the lockserver
-clients/square_evictions -n 10000 -p 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -r -i -h > "$logfile_name" &
+clients/square_evictions -n 10000 -p 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" > "$logfile_name" &
 rawpid=`while ! (ps | grep square); do true; done`
 pid=`echo $rawpid | cut -d " " -f1`
 
@@ -66,12 +77,16 @@ then
 fi
 
 
-for var in `seq 1 "$num_trash"`; do
+for var in `seq 1 "$signal_iters"`; do
 	clients/square_evictions -c "$trash_alloc_percent" -e "$trash_alloc_percent" -h > /dev/null &
 done
 sleep 10
 
-kill -s 10 $pid
+for var in `seq 1 1000`
+do
+	kill -s 10 $pid
+	usleep 100
+done
 
 # Sleep to allow our processes to actually run for a little while
 sleep 2
