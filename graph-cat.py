@@ -37,10 +37,9 @@ def get_tuples(filename, slabels, xlabel, ylabels):
         series_tuples[slabel] = dict();
         for ylabel in ylabels:
             series_tuples[slabel][(xlabel, ylabel)] = list();
-    for series in data.get("data"):
-        if(series.get("name") not in series_tuples):
+    for series_name, series in data.get("data").items():
+        if(series_name not in series_tuples):
             continue;
-        series_name = series.get("name");
         series_tuples[series_name]["description"] = series.get("description");
         for sample in series.get("samples"):
             for ylabel in ylabels:
@@ -54,7 +53,28 @@ def get_label(filename, labelname):
     label_entry = database.get("legend").get("samples").get(labelname);
     return str(label_entry.get("description")) + " (" + str(label_entry.get("unit")) + ")";
 
+def get_arg_label(filename, progname, labelname):
+    fd = open(filename, 'r');
+    database = json.load(fd);
+    return database.get("legend").get("args").get(progname).get(labelname).get("description");
 
+def get_arg_unit(filename, progname, labelname):
+    fd = open(filename, 'r');
+    database = json.load(fd);
+    return database.get("legend").get("args").get(progname).get(labelname).get("unit");
+
+def get_aux(filename, progname, name, value):
+    fd = open(filename, 'r');
+    database = json.load(fd);
+    return progname + ": " + str(get_arg_label(filename, progname, name)) + "=" + str(value) + " (" + str(get_arg_unit(filename, progname, name)) + ")";
+
+def get_series_aux(filename, seriesname):
+    fd = open(filename, 'r');
+    database = json.load(fd);
+    for arg in database.get("data").get(seriesname).get("args"):
+        return (database.get("data").get(seriesname).get("description") + ": " + \
+                get_aux(filename, database.get("data").get(seriesname).get("type"), \
+                arg.get("name"), arg.get("value")));
 def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
@@ -67,13 +87,19 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height * 0.7])
 
+    aux_text = "";
+    for slabel in slabels:
+        aux_text += get_series_aux(filename, slabel);
+        aux_text += "\n";
+
+    ax.text(0.05, 0.95, aux_text, verticalalignment='top', transform=ax.transAxes);
+
     for key, val in series_tuples.items():
         line = list();
         for key2, val2 in val.items():
             if(key2 == "description"):
                 continue;
             xy = map(list, zip(*val2));
-            print xy;
             line.append((ax.plot(xy[0], xy[1], label=val["description"]))[0]);
     ax.set_title(title);
     plt.legend(loc="upper center", bbox_to_anchor=(0.5,1.5));
