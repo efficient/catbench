@@ -141,6 +141,7 @@ static struct {
 	int capacity_expanded;
 	rng_t *randomize;
 	rng_t *cont_rand;
+	bool check_memrate;
 	perf_log_buffer_t **perflog;
 	int perfstride;
 	bool measure_all;
@@ -151,12 +152,12 @@ static void square_evictions_handler(int);
 static void term_handler(int);
 
 typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, rng_t *, rng_t *,
-		perf_log_buffer_t **, int, bool, int);
+		bool, perf_log_buffer_t **, int, bool, int);
 
 static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
-		rng_t *randomize, rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride,
-		bool measure_all, int max_accesses) {
+		rng_t *randomize, rng_t *cont_rand, bool check_memrate, perf_log_buffer_t **perflog,
+		int perfstride, bool measure_all, int max_accesses) {
 	square_evictions_saved.arr = arr;
 	square_evictions_saved.cache_line_size = cache_line_size;
 	square_evictions_saved.num_periods = num_periods;
@@ -165,6 +166,7 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 	square_evictions_saved.capacity_expanded = capacity_expanded;
 	square_evictions_saved.randomize = randomize;
 	square_evictions_saved.cont_rand = cont_rand;
+	square_evictions_saved.check_memrate = check_memrate;
 	square_evictions_saved.perflog = perflog;
 	square_evictions_saved.perfstride = perfstride;
 	square_evictions_saved.measure_all = measure_all;
@@ -184,8 +186,8 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 
 static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
-		rng_t *randomize, rng_t *cont_rand, perf_log_buffer_t **perflog, int perfstride,
-		bool measure_all, int max_accesses) {
+		rng_t *randomize, rng_t *cont_rand, bool check_memrate, perf_log_buffer_t **perflog,
+		int perfstride, bool measure_all, int max_accesses) {
 	assert(perflog);
 
 	if(cont_rand)
@@ -270,7 +272,8 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 					duration += clock() - startpass;
 					printf("Completed traversal in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 					fflush(stdout);
-					fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) accesses / duration * CLOCKS_PER_SEC);
+					if(check_memrate)
+						fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) accesses / duration * CLOCKS_PER_SEC);
 					goto breakoutermost;
 				}
 			}
@@ -281,7 +284,9 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 			clock_t duration = clock() - startpass;
 			printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 			fflush(stdout);
-			fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) siz / cache_line_size / duration * CLOCKS_PER_SEC);
+			if(check_memrate) {
+				fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) siz / cache_line_size / duration * CLOCKS_PER_SEC);
+			}
 		} else
 			duration += clock() - startpass;
 	}
@@ -303,6 +308,7 @@ static void square_evictions_handler(int sig) {
 			square_evictions_saved.capacity_expanded,
 			square_evictions_saved.randomize,
 			square_evictions_saved.cont_rand,
+			square_evictions_saved.check_memrate,
 			square_evictions_saved.perflog,
 			square_evictions_saved.perfstride,
 			square_evictions_saved.measure_all,
@@ -333,14 +339,15 @@ int main(int argc, char *argv[]) {
 	bool hugepages = false;
 	bool randomize = false;
 	bool secondrng = true;
-	bool sanitycheck = false;
+	bool sanitycheck_memory = false;
+	bool sanitycheck_clockspeed = false;
 	bool measure_all = false;
 	bool await_signal = false;
 
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:vj:ma:b:i")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::swvl:j:ma:b:i")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -381,6 +388,12 @@ int main(int argc, char *argv[]) {
 		case 's':
 			secondrng = false;
 			break;
+		case 'w':
+			sanitycheck_memory = true;
+			break;
+		case 'v':
+			sanitycheck_clockspeed = true;
+			break;
 		case 'l':
 			perflog = fopen(optarg, "w");
 			if(!perflog) {
@@ -388,9 +401,6 @@ int main(int argc, char *argv[]) {
 				ret = 1;
 				goto cleanup;
 			}
-			break;
-		case 'v':
-			sanitycheck = true;
 			break;
 		case 'j':
 			if(!parse_arg_arg(each_arg, &perfstride)) {
@@ -433,9 +443,10 @@ int main(int argc, char *argv[]) {
 					" -r [#]: Randomize ordering to fool prefetcher\n"
 					"         Optionally takes a custom rng increment\n"
 					" -s: Use only one rng (default 2 w/ different periods)\n"
+					" -w: Output sanity-check memory throughput on stderr\n"
+					" -v: Output sanity-check clock speed guess on stderr\n"
 					" -l @: Log performance data to specified filename\n"
 					"       Currently records: %s"
-					" -v: Output sanity-check clock speed guess on stderr\n"
 					" -j #: Logging recording stride (default once per pass)\n"
 					" -m: MEAsure all memory accesses using rdtscp\n"
 					" -a #: Limit accesses to a subset of this cardinality\n"
@@ -460,7 +471,7 @@ int main(int argc, char *argv[]) {
 		goto cleanup;
 	} else if(percent_contracted == percent_expanded)
 		secondrng = false;
-	if(perflog || sanitycheck) {
+	if(perflog || sanitycheck_clockspeed) {
 		perfbuf = mmap(0, PERF_LOG_BUFFER_INIT_SIZE, PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
 		if(perfbuf == MAP_FAILED) {
@@ -560,7 +571,8 @@ int main(int argc, char *argv[]) {
 		goto cleanup;
 	}
 	ret = call(large, cache_line_size, num_periods, passes_per_cycle, cap_contracted,
-			cap_expanded, random, randtv, &perfbuf, perfstride, measure_all, accesses);
+			cap_expanded, random, randtv, sanitycheck_memory, &perfbuf, perfstride,
+			measure_all, accesses);
 
 	if(perflog) {
 		assert(perfbuf);
@@ -571,7 +583,7 @@ int main(int argc, char *argv[]) {
 					entry->realtime, entry->cputime,
 					entry->instrs, entry->bandwidth);
 	}
-	if(sanitycheck) {
+	if(sanitycheck_clockspeed) {
 		assert(perfbuf);
 		uint64_t instrs = 0;
 		uint64_t cputime = 0;
