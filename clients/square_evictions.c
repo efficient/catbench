@@ -270,6 +270,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 					duration += clock() - startpass;
 					printf("Completed traversal in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 					fflush(stdout);
+					fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) accesses / duration * CLOCKS_PER_SEC);
 					goto breakoutermost;
 				}
 			}
@@ -280,6 +281,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 			clock_t duration = clock() - startpass;
 			printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 			fflush(stdout);
+			fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) siz / cache_line_size / duration * CLOCKS_PER_SEC);
 		} else
 			duration += clock() - startpass;
 	}
