@@ -285,6 +285,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 			printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 			fflush(stdout);
 			if(check_memrate) {
+				fprintf(stderr, "Accesses performed: %d\n", accesses);
 				fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) siz / cache_line_size / duration * CLOCKS_PER_SEC);
 			}
 		} else
@@ -592,6 +593,7 @@ int main(int argc, char *argv[]) {
 			instrs += entry->instrs;
 			cputime += entry->cputime;
 		}
+		fprintf(stderr, "Instructions executed: %" PRIu64 "\n", instrs);
 		fprintf(stderr, "Sanity check: %.6f Hz\n", (double) instrs / cputime * 1000000);
 	}
 
