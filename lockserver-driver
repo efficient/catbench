@@ -65,7 +65,7 @@ echo $trash_mask > $cgroup_path/trash/intel_rdt.l3_cbm
 echo $$ > $cgroup_path/trash/tasks
 
 # This is the lockserver
-clients/square_evictions -n 10000 -p 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" > "$logfile_name" &
+clients/square_evictions -n 10000 -p 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" -v > "$logfile_name" &
 rawpid=`while ! (ps | grep square); do true; done`
 pid=`echo $rawpid | cut -d " " -f1`
 

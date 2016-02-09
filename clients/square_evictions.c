@@ -322,13 +322,14 @@ int main(int argc, char *argv[]) {
 	bool hugepages = false;
 	bool randomize = false;
 	bool secondrng = true;
+	bool sanitycheck = false;
 	bool measure_all = false;
 	bool await_signal = false;
 
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:j:ma:b:i")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::sl:vj:ma:b:i")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -377,6 +378,9 @@ int main(int argc, char *argv[]) {
 				goto cleanup;
 			}
 			break;
+		case 'v':
+			sanitycheck = true;
+			break;
 		case 'j':
 			if(!parse_arg_arg(each_arg, &perfstride)) {
 				ret = 1;
@@ -420,6 +424,7 @@ int main(int argc, char *argv[]) {
 					" -s: Use only one rng (default 2 w/ different periods)\n"
 					" -l @: Log performance data to specified filename\n"
 					"       Currently records: %s"
+					" -v: Output sanity-check clock speed guess on stderr\n"
 					" -j #: Logging recording stride (default once per pass)\n"
 					" -m: MEAsure all memory accesses using rdtscp\n"
 					" -a #: Limit accesses to a subset of this cardinality\n"
@@ -444,7 +449,7 @@ int main(int argc, char *argv[]) {
 		goto cleanup;
 	} else if(percent_contracted == percent_expanded)
 		secondrng = false;
-	if(perflog) {
+	if(perflog || sanitycheck) {
 		perfbuf = mmap(0, PERF_LOG_BUFFER_INIT_SIZE, PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
 		if(perfbuf == MAP_FAILED) {
@@ -456,7 +461,7 @@ int main(int argc, char *argv[]) {
 		perfbuf->siz = PERF_LOG_BUFFER_INIT_SIZE;
 		perfbuf->occ = (uintptr_t) perfbuf->log - (uintptr_t) perfbuf;
 	} else if(perfstride != -1) {
-		fputs("-j only makes sense in concert with -l\n", stderr);
+		fputs("-j only makes sense in concert with -l or -v\n", stderr);
 		ret = 1;
 		goto cleanup;
 	}
@@ -554,6 +559,17 @@ int main(int argc, char *argv[]) {
 			fprintf(perflog, "%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 "\n",
 					entry->realtime, entry->cputime,
 					entry->instrs, entry->bandwidth);
+	}
+	if(sanitycheck) {
+		assert(perfbuf);
+		uint64_t instrs = 0;
+		uint64_t cputime = 0;
+		for(perf_log_buffer_entry_t *entry = perfbuf->log;
+				(uintptr_t) entry < (uintptr_t) perfbuf + perfbuf->occ; ++entry) {
+			instrs += entry->instrs;
+			cputime += entry->cputime;
+		}
+		fprintf(stderr, "Sanity check: %.6f Hz\n", (double) instrs / cputime * 1000000);
 	}
 
 cleanup:
