@@ -131,6 +131,7 @@ static bool parse_arg_arg(char flag, int *dest) {
 	return true;
 }
 
+static bool uninterrupted = true;
 static struct {
 	uint8_t *arr;
 	int cache_line_size;
@@ -147,6 +148,7 @@ static struct {
 } square_evictions_saved;
 
 static void square_evictions_handler(int);
+static void term_handler(int);
 
 typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, rng_t *, rng_t *,
 		perf_log_buffer_t **, int, bool, int);
@@ -169,12 +171,14 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 	square_evictions_saved.max_accesses = max_accesses;
 
 	struct sigaction signal_setup = {.sa_handler = square_evictions_handler};
-	if(sigaction(SIGUSR1, &signal_setup, NULL) != 0) {
+	struct sigaction term_setup = {.sa_handler = term_handler};
+	if(sigaction(SIGUSR1, &signal_setup, NULL) != 0 ||
+			sigaction(SIGTERM, &term_setup, NULL) != 0) {
 		perror("Setting up signal handler");
 		return 1;
 	}
 
-	while(true);
+	while(uninterrupted);
 	return 0;
 }
 
@@ -301,6 +305,11 @@ static void square_evictions_handler(int sig) {
 			square_evictions_saved.perfstride,
 			square_evictions_saved.measure_all,
 			square_evictions_saved.max_accesses);
+}
+
+static void term_handler(int sig) {
+	(void) sig;
+	uninterrupted = false;
 }
 
 int main(int argc, char *argv[]) {
