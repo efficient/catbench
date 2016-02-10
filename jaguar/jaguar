@@ -14,9 +14,10 @@ def main():
 		'get':  Action(get,   1, True,  False),
 		'help': Action(usage, 0, False, False),
 		'init': Action(init,  0, False, True),
-		'set':  Action(set,   2, True,  False),
+		'set':  Action(set,   2, True,  True),
 	}.get(argv[1], Action(usage, 0, False, False));
 
+	structured = None
 	if act.cmd != usage:
 		if len(argv) < 3:
 			print('You must specify a filename.', file = stderr)
@@ -26,7 +27,6 @@ def main():
 			print('Action \'{}\' expects exactly {} arguments after filename'.format(argv[1], act.nargs), file = stderr)
 			usage()
 
-		structured = None
 		if act.reads:
 			try:
 				file = open(argv[2], 'r')
@@ -46,6 +46,7 @@ def main():
 		try:
 			file = open(argv[2], 'w')
 			dump(save, file)
+			print('', file = file)
 		except OSError:
 			print('Unable to open file \'{}\' for writing'.format(argv[2]), file = stderr)
 			exit(1)
@@ -61,24 +62,51 @@ def init(parsed, args):
 def get(parsed, args):
 	print(pathlookup(parsed, args[0]))
 
-def pathlookup(parsed, path):
+def set(parsed, args):
+	pathlookup(parsed, args[0], args[1])
+	return parsed
+
+# Returns int if a (bracket-terminated) list subscript, str if a dict subscript, or throws an exn if invalid.
+def indexfromsubscript(token):
+	bracketterminated = match('(\d+)]', token)
+	if not bracketterminated:
+		return token
+	return int(bracketterminated.group(1))
+
+def pathlookup(parsed, path, replace = None):
 	ref = parsed
 
-	for key in split('\.|\[', path):
-		idx = match('(\d+)]', key)
-		if idx:
-			numb = idx.group(1)
+	parent = {}
+	levels = split('\.|\[', path)
+	for key in range(len(levels)):
+		try:
+			subscript = indexfromsubscript(levels[key])
 			try:
-				ref = ref[int(numb)]
-			except:
-				print('Bad list index: [{}]'.format(numb), file = stderr)
-				exit(1)
-		else:
-			try:
-				ref = ref[key]
-			except:
-				print('Expected [subscript], not \'{}\''.format(key), file = stderr)
-				exit(1)
+				ref = ref[subscript]
+			except: # This node doesn't exist... add it?
+				if replace == None:
+					print('Element \'subscript\' does not exist and not mutating file', file = stderr)
+					exit(1)
+
+				if isinstance(subscript, int): # Node index
+					# Expect list
+					if not isinstance(parent, list):
+						print('Attempted to use brackets on non-list node', file = stderr)
+						exit(1)
+				elif isinstance(subscript, str): # Node key
+					# Expect dict
+					if not isinstance(parent, list):
+						print('Attempted to use dot operator on non-map node', file = stderr)
+						exit(1)
+				else:
+					print('BUG!', file = stderr)
+					exit(1)
+
+				ref = ref[subscript] = replace
+			parent = ref
+		except: # Ill-formatted node name or index
+			print('Ill-formatted path token: \'{}\''.format(levels[key]), file = stderr)
+			exit(1)
 
 	return ref
 
