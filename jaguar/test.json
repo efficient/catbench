@@ -1,39 +1,73 @@
 {
-	"meta": {
-		"command": "vi"
-	},
-	"legend": {
-		"args": {
-			"vi": {
-				"-b": {
-					"description": "binary",
-					"unit": "truths"
-				}
-			}
-		},
-		"samples": {
-			"successful": {
-				"description": "Whether it was successful",
-				"unit": "truths"
-			}
-		}
-	},
-	"data": [
-		{
-			"name": "editor",
-			"description": "Text editor",
-			"type": "vi",
-			"args": [
-				{
-					"name": "-b",
-					"value": true
-				}
-			],
-			"samples": [
-				{
-					"successful": false
-				}
-			]
-		}
-	]
+    "meta": {
+        "command": "fruit-tree"
+    },
+        "legend": {
+            "args": {
+                "fruit-tree": {
+                    "--fruits": {
+                        "description": "Type of fruit",
+                        "unit": "fruit"
+                    }
+                }
+            },
+            "samples": {
+                "successful": {
+                    "description": "Whether it was successful",
+                    "unit": "truths"
+                },
+                "x0": {
+                    "description": "x0 value",
+                    "unit": "miles"
+                },
+                "y0": {
+                    "description": "y0 value",
+                    "unit": "cookies"
+                }
+            }
+        },
+        "data": {
+            "series1": {
+                "description": "apple series",
+                "type": "fruit-tree",
+                "args": [
+                    {
+                        "name": "--fruits",
+                        "value": "apple"
+                    }
+                ],
+                    "samples": [
+                    {
+                        "x0": "1",
+                        "y0": "10",
+                        "z0": "100"
+                    },
+                    {
+                        "x0": "2",
+                        "y0": "20"
+                    }
+                ]
+            },
+            "series2": {
+                "description": "orange series",
+                "type": "fruit-tree",
+                "args": [
+                    {
+                        "name": "--fruits",
+                        "value": "orange"
+                    }
+                ],
+                "samples": [
+                    {
+                        "x0": "1",
+                        "y0": "100"
+                    },
+                    {
+                        "x0": "2",
+                        "y0": "200"
+                    }
+                ]
+            }
+        }
 }
+
