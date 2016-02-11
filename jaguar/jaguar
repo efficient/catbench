@@ -76,7 +76,7 @@ def set(parsed, args):
 				'string': str,
 				'integer': int,
 				'fraction': float,
-				'boolean': lambda s: True if s.lower() == 'true' or s == '1' else False if s.lower() == 'false' or s == '0' else exec('raise ValueError(\'unable to parse bool\')'),
+				'boolean': filtered_type(False),
 			}[args[1]]
 		except:
 			print('Invalid type: must be one of: string, integer, fraction, boolean', file = stderr)
@@ -84,6 +84,11 @@ def set(parsed, args):
 
 	pathlookup(parsed, key, val, typ)
 	return parsed
+
+def filtered_type(obj):
+	return {
+		bool: lambda s: True if s.lower() == 'true' or s == '1' else False if s.lower() == 'false' or s == '0' else exec('raise ValueError(\'unable to parse bool\')'),
+	}.get(type(obj), type(obj))
 
 # Returns int if a (bracket-terminated) list subscript, str if a dict subscript, or throws an exn if invalid.
 def indexfromsubscript(token):
@@ -103,7 +108,7 @@ def pathlookup(parsed, path, replace = None, typ = None):
 			try:
 				if replace != None and key == len(levels) - 1:
 					if not typ:
-						typ = type(ref[subscript])
+						typ = filtered_type(ref[subscript])
 
 					try:
 						ref[subscript] = typ(replace)
