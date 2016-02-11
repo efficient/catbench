@@ -82,6 +82,8 @@ def pathlookup(parsed, path, replace = None):
 		try:
 			subscript = indexfromsubscript(levels[key])
 			try:
+				if replace != None and key == len(levels) - 1:
+					ref[subscript] = replace
 				ref = ref[subscript]
 			except: # This node doesn't exist... add it?
 				if replace == None:
