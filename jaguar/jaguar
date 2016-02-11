@@ -14,7 +14,7 @@ def main():
 		'get':  Action(get,   1, 1, True,  False),
 		'help': Action(usage, 0, 0, False, False),
 		'init': Action(init,  0, 0, False, True),
-		'set':  Action(set,   2, 2, True,  True),
+		'set':  Action(set,   2, 3, True,  True),
 	}.get(argv[1], Action(usage, 0, 0, False, False));
 
 	structured = None
@@ -66,7 +66,23 @@ def get(parsed, args):
 	print(pathlookup(parsed, args[0]))
 
 def set(parsed, args):
-	pathlookup(parsed, args[0], args[1])
+	key = args[0]
+	val = args[1]
+	typ = None
+	if len(args) == 3:
+		val = args[2]
+		try:
+			typ = {
+				'string': str,
+				'integer': int,
+				'fraction': float,
+				'boolean': lambda s: True if s.lower() == 'true' or s == '1' else False if s.lower() == 'false' or s == '0' else exec('raise ValueError(\'unable to parse bool\')'),
+			}[args[1]]
+		except:
+			print('Invalid type: must be one of: string, integer, fraction, boolean', file = stderr)
+			exit(1)
+
+	pathlookup(parsed, key, val, typ)
 	return parsed
 
 # Returns int if a (bracket-terminated) list subscript, str if a dict subscript, or throws an exn if invalid.
@@ -76,7 +92,7 @@ def indexfromsubscript(token):
 		return token
 	return int(bracketterminated.group(1))
 
-def pathlookup(parsed, path, replace = None):
+def pathlookup(parsed, path, replace = None, typ = None):
 	ref = parsed
 
 	parent = {}
@@ -86,7 +102,14 @@ def pathlookup(parsed, path, replace = None):
 			subscript = indexfromsubscript(levels[key])
 			try:
 				if replace != None and key == len(levels) - 1:
-					ref[subscript] = replace
+					if not typ:
+						typ = type(ref[subscript])
+
+					try:
+						ref[subscript] = typ(replace)
+					except:
+						print('Unable to convert supplied data (incorrect type specifier?)', file = stderr)
+						exit(1)
 				ref = ref[subscript]
 			except: # This node doesn't exist... add it?
 				if replace == None:
@@ -107,8 +130,16 @@ def pathlookup(parsed, path, replace = None):
 					print('BUG!', file = stderr)
 					exit(1)
 
-				ref[subscript] = replace
-				ref = ref[subscript]
+				if not typ:
+					print('Type must be specified when adding an altogether new entry', file = stderr)
+					exit(1)
+
+				try:
+					ref[subscript] = typ(replace)
+					ref = ref[subscript]
+				except:
+					print('Unable to add data to JSON structure (incorrect type specifier?)', file = stderr)
+					exit(1)
 			parent = ref
 		except: # Syntax error
 			print('Ill-formatted path token: \'{}\''.format(levels[key]), file = stderr)
