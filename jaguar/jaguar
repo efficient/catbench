@@ -95,16 +95,17 @@ def pathlookup(parsed, path, replace = None):
 						exit(1)
 				elif isinstance(subscript, str): # Node key
 					# Expect dict
-					if not isinstance(parent, list):
+					if not isinstance(parent, dict):
 						print('Attempted to use dot operator on non-map node', file = stderr)
 						exit(1)
 				else:
 					print('BUG!', file = stderr)
 					exit(1)
 
-				ref = ref[subscript] = replace
+				ref[subscript] = replace
+				ref = ref[subscript]
 			parent = ref
-		except: # Ill-formatted node name or index
+		except: # Syntax error
 			print('Ill-formatted path token: \'{}\''.format(levels[key]), file = stderr)
 			exit(1)
 
