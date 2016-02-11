@@ -45,7 +45,7 @@ def main():
 	if act.writes:
 		try:
 			file = open(argv[2], 'w')
-			dump(save, file)
+			dump(save, file, indent = '\t', sort_keys = True)
 			print('', file = file)
 		except OSError:
 			print('Unable to open file \'{}\' for writing'.format(argv[2]), file = stderr)
