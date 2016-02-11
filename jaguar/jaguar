@@ -9,13 +9,13 @@ def main():
 	if len(argv) < 2:
 		usage()
 
-	Action = namedtuple("Action", "cmd nargs reads writes")
+	Action = namedtuple("Action", "cmd minargs maxargs reads writes")
 	act = {
-		'get':  Action(get,   1, True,  False),
-		'help': Action(usage, 0, False, False),
-		'init': Action(init,  0, False, True),
-		'set':  Action(set,   2, True,  True),
-	}.get(argv[1], Action(usage, 0, False, False));
+		'get':  Action(get,   1, 1, True,  False),
+		'help': Action(usage, 0, 0, False, False),
+		'init': Action(init,  0, 0, False, True),
+		'set':  Action(set,   2, 2, True,  True),
+	}.get(argv[1], Action(usage, 0, 0, False, False));
 
 	structured = None
 	if act.cmd != usage:
@@ -23,8 +23,11 @@ def main():
 			print('You must specify a filename.', file = stderr)
 			usage()
 
-		if len(argv) - 3 != act.nargs:
-			print('Action \'{}\' expects exactly {} arguments after filename'.format(argv[1], act.nargs), file = stderr)
+		if len(argv) - 3 < act.minargs:
+			print('Action \'{}\' expects at least {} arguments after filename'.format(argv[1], act.minargs), file = stderr)
+			usage()
+		elif len(argv) - 3 > act.maxargs:
+			print('Action \'{}\' expects at most {} arguments after filename'.format(argv[1], act.maxargs), file = stderr)
 			usage()
 
 		if act.reads:
