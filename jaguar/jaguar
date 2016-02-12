@@ -115,6 +115,8 @@ def pathlookup(parsed, path, replace = None, typ = None):
 					except ValueError:
 						print('Unable to convert supplied data (incorrect type specifier?)', file = stderr)
 						exit(1)
+				elif not isinstance(ref[subscript], list) and not isinstance(ref[subscript], dict):
+					raise LookupError('TODO: Do this more cleanly.')
 				ref = ref[subscript]
 			except LookupError: # This node doesn't exist... add it?
 				if replace == None:
@@ -139,12 +141,25 @@ def pathlookup(parsed, path, replace = None, typ = None):
 					print('Type must be specified when adding an altogether new entry', file = stderr)
 					exit(1)
 
-				try:
-					ref[subscript] = typ(replace)
-					ref = ref[subscript]
-				except ValueError:
-					print('Unable to add data to JSON structure (incorrect type specifier?)', file = stderr)
-					exit(1)
+				if key != len(levels) - 1: # Adding an intermediate node
+					try:
+						next_t = type(indexfromsubscript(levels[key + 1]))
+					except ValueError:
+						print('Ill-formatted path token: \'{}\''.format(levels[key + 1]), file = stderr)
+						exit(1)
+					if next_t == int: # Node index
+						# Add a list
+						ref[subscript] = []
+					elif next_t == str: # Node key
+						# Add a dict
+						ref[subscript] = {}
+				else: # Adding the specifically requested key-value pair
+					try:
+						ref[subscript] = typ(replace)
+					except ValueError:
+						print('Unable to add data to JSON structure (incorrect type specifier?)', file = stderr)
+						exit(1)
+				ref = ref[subscript]
 			parent = ref
 		except ValueError: # Syntax error
 			print('Ill-formatted path token: \'{}\''.format(levels[key]), file = stderr)
