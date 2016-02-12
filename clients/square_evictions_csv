@@ -23,6 +23,12 @@ seen_logprfchr="false"
 seen_profmemac="false"
 seen_daemonize="false"
 
+jaguar_script="../jaguar/jaguar"
+outfile_json="$1"
+shift
+
+[ -e "$outfile_json" ] || "$jaguar_script" init "$outfile_json"
+
 while [ $# -gt 0 ]
 do
 	lastheader="$header"
@@ -33,21 +39,33 @@ do
 	case "$switch" in
 	-n*)
 		header="$header,passes_per_phase"
+		"$jaguar_script" set "$outfile_json" legend.args.-n.description string "passes per phase";
+		"$jaguar_script" set "$outfile_json" legend.args.-n.unit string "";
 		;;
 	-p*)
 		header="$header,phases_per_period"
+		"$jaguar_script" set "$outfile_json" legend.args.-p.description string "phases per period";
+		"$jaguar_script" set "$outfile_json" legend.args.-p.unit string "";
 		;;
 	-c*)
 		header="$header,contracted_way_percent"
+		"$jaguar_script" set "$outfile_json" legend.args.-c.description string "contracted percentage";
+		"$jaguar_script" set "$outfile_json" legend.args.-c.unit string "";
 		;;
 	-e*)
 		header="$header,expanded_allocation_way_percent"
+		"$jaguar_script" set "$outfile_json" legend.args.-e.description string "expanded percentage";
+		"$jaguar_script" set "$outfile_json" legend.args.-e.unit string "";
 		;;
 	-h*)
 		seen_hugepages="true"
+		"$jaguar_script" set "$outfile_json" legend.args.-h.description string "hugepages";
+		"$jaguar_script" set "$outfile_json" legend.args.-h.unit string "bool";
 		;;
 	-r*)
 		seen_randomize="true"
+		"$jaguar_script" set "$outfile_json" legend.args.-r.description string "randomized";
+		"$jaguar_script" set "$outfile_json" legend.args.-r.unit string "bool";
 
 		case "$1" in
 		-*)
@@ -60,9 +78,13 @@ do
 		;;
 	-s*)
 		seen_singlerng="true"
+		"$jaguar_script" set "$outfile_json" legend.args.-s.description string "single RNG";
+		"$jaguar_script" set "$outfile_json" legend.args.-s.unit string "";
 		;;
 	-l*)
 		seen_logprfchr="true"
+		"$jaguar_script" set "$outfile_json" legend.args.-l.description string "log perf characteristics";
+		"$jaguar_script" set "$outfile_json" legend.args.-l.unit string "";
 
 		case "$1" in
 		-*)
@@ -75,18 +97,28 @@ do
 		;;
 	-j*)
 		header="$header,log_entries_per_pass"
+		"$jaguar_script" set "$outfile_json" legend.args.-j.description string "perf logging frequency";
+		"$jaguar_script" set "$outfile_json" legend.args.-j.unit string "accesses";
 		;;
 	-m*)
 		seen_profmemac="true"
+		"$jaguar_script" set "$outfile_json" legend.args.-m.description string "Use rdtscp";
+		"$jaguar_script" set "$outfile_json" legend.args.-m.unit string "bool";
 		;;
 	-a*)
 		header="$header,accesses_per_activation"
+		"$jaguar_script" set "$outfile_json" legend.args.-a.description string "accesses per activation";
+		"$jaguar_script" set "$outfile_json" legend.args.-a.unit string "bool";
 		;;
 	-b*)
 		header="$header,rng_period_offset"
+		"$jaguar_script" set "$outfile_json" legend.args.-a.description string "accesses per activation";
+		"$jaguar_script" set "$outfile_json" legend.args.-a.unit string "bool";
 		;;
 	-i*)
 		seen_daemonize="true"
+		"$jaguar_script" set "$outfile_json" legend.args.-i.description string "daemonized";
+		"$jaguar_script" set "$outfile_json" legend.args.-i.unit string "bool";
 		;;
 	*)
 		if has_trailing_switches "$@"
