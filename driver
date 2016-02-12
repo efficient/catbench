@@ -1,16 +1,15 @@
 #!/bin/sh
 
 logging_commence() {
-	mkfifo "$dir/pipe.tmp"
-	tee "$dir/$0.log" <"$dir/pipe.tmp" &
+	mkfifo "$prefix.tmp"
+	tee "$prefix.log" <"$prefix.tmp" &
 	set -v
-	exec >"$dir/pipe.tmp" 2>&1
+	exec >"$prefix.tmp" 2>&1
 }
 
 logging_cleanup() {
 	set +v
-	rm "$dir/pipe.tmp"
-	tar cf "$dir.tar" --force-local "$dir" && rm -r "$dir"
+	rm "$prefix.tmp"
 }
 
 if [ $# -lt 1 ]
@@ -28,29 +27,31 @@ then
 	exit 127
 fi
 
-dir="catbench-`basename $1`_`date +%F_%H-%M-%S_%z`"
-mkdir "$dir"
+prefix="catbench-`basename $1`_`date +%F_%H-%M-%S_%z`"
+if [ -e "$prefix.json" ]
+then
+	echo "ERROR: Output JSON file already exists; aborting!" >&2
+	exit 127
+fi
 
 logging_commence
 
-if ! git log --oneline --no-abbrev-commit --decorate -1
-then
-	exit 127
-fi
-git status -uno
-git submodule status
-METADATA="`git log --oneline --abbrev-commit --no-decorate -1 | cut -d" " -f1`"
-git diff --ignore-submodules HEAD >"$dir/$METADATA.patch"
+cp jaguar/template.json "$prefix.json"
+jaguar/jaguar set "$prefix.json" meta.command "$*"
+jaguar/jaguar set "$prefix.json" meta.commit "`git log --oneline --abbrev-commit --no-decorate -1`"
+jaguar/jaguar set "$prefix.json" meta.date "`date "+%F %T %z"`"
+jaguar/jaguar set "$prefix.json" meta.message "`git log --no-abbrev-commit --decorate -1`"
+jaguar/jaguar set "$prefix.json" meta.patch "`git diff --ignore-submodules HEAD | base64`"
+jaguar/jaguar set "$prefix.json" meta.status "`git status -uno`"
+jaguar/jaguar set "$prefix.json" meta.submodule "`git submodule status`"
+jaguar/jaguar set "$prefix.json" meta.uname "`uname -a`"
 
-uname -a
-cp "/boot/config-`uname -r`" "$dir"
-
-METADATA="command:$*,,files:$dir,commit:$METADATA,patch:`md5sum "$dir/$METADATA.patch" | cut -d" " -f1`"
-export METADATA
 echo "$ $@"
 eval "$@"
 status="$?"
 
 logging_cleanup
+jaguar/jaguar set "$prefix.json" meta.log "`base64 "$prefix.log"`"
+rm "$prefix.log"
 
 exit "$status"
