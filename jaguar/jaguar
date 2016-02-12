@@ -111,7 +111,13 @@ def pathlookup(parsed, path, replace = None, typ = None):
 						typ = filtered_type(ref[subscript])
 
 					try:
-						ref[subscript] = typ(replace)
+						try:
+							ref[subscript] = typ(replace)
+						except IndexError:
+							if subscript > len(ref):
+								print('Index cannot be greater than array length of: {}'.format(len(ref)), file = stderr)
+								exit(1)
+							ref[subscript:subscript] = [typ(replace)]
 					except ValueError:
 						print('Unable to convert supplied data (incorrect type specifier?)', file = stderr)
 						exit(1)
