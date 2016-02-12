@@ -131,7 +131,7 @@ def subscriptsfrompath(pretty):
 
 # Returns int if a (bracket-terminated) list subscript, str if a dict subscript, or throws an exn if invalid.
 def indexfromsubscript(token):
-	bracketterminated = match('(-?\d+)]', token)
+	bracketterminated = match('(-?\d*)]', token)
 	if not bracketterminated:
 		return token
 	return int(bracketterminated.group(1))
