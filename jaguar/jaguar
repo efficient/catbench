@@ -112,11 +112,11 @@ def pathlookup(parsed, path, replace = None, typ = None):
 
 					try:
 						ref[subscript] = typ(replace)
-					except:
+					except ValueError:
 						print('Unable to convert supplied data (incorrect type specifier?)', file = stderr)
 						exit(1)
 				ref = ref[subscript]
-			except: # This node doesn't exist... add it?
+			except LookupError: # This node doesn't exist... add it?
 				if replace == None:
 					print('Element \'subscript\' does not exist and not mutating file', file = stderr)
 					exit(1)
@@ -142,11 +142,11 @@ def pathlookup(parsed, path, replace = None, typ = None):
 				try:
 					ref[subscript] = typ(replace)
 					ref = ref[subscript]
-				except:
+				except ValueError:
 					print('Unable to add data to JSON structure (incorrect type specifier?)', file = stderr)
 					exit(1)
 			parent = ref
-		except: # Syntax error
+		except ValueError: # Syntax error
 			print('Ill-formatted path token: \'{}\''.format(levels[key]), file = stderr)
 			exit(1)
 
