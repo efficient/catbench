@@ -153,7 +153,19 @@ def pathlookup(parsed, path, replace = None, typ = None, skiplast = 0):
 	levels = subscriptsfrompath(path)
 	for key in range(len(levels) - skiplast):
 		try:
-			subscript = indexfromsubscript(levels[key])
+			try:
+				subscript = indexfromsubscript(levels[key])
+			except ValueError as sad:
+				if replace == None or key != len(levels) - 1 or levels[key] != ']':
+					raise sad
+				oldlen = len(ref)
+				typ = filtered_type(ref)
+				if typ != arrayfromcsv:
+					print('Append syntax [] is only valid for existing array destinations', file = stderr)
+					exit(1)
+				ref.extend(typ(replace))
+				return ref[oldlen:]
+
 			try:
 				if replace != None:
 					if key == len(levels) - 1:
