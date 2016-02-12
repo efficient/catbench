@@ -72,17 +72,7 @@ def set(parsed, args):
 	typ = None
 	if len(args) == 3:
 		val = args[2]
-		try:
-			typ = {
-				'string': str,
-				'integer': int,
-				'fraction': float,
-				'boolean': filtered_type(False),
-				'array': arrayfromcsv,
-			}[args[1]]
-		except:
-			print('Invalid type: must be one of: string, integer, fraction, boolean, array', file = stderr)
-			exit(1)
+		typ = parse_type(args[1])
 
 	pathlookup(parsed, key, val, typ)
 	return parsed
@@ -110,8 +100,26 @@ def arrayfromcsv(fname):
 	if fd != stdin:
 		fd.close()
 
-	keys = lines[0].strip().split(',')
-	return [dict(zip(keys, line.strip().split(','))) for line in lines[1:]]
+	types = list(map(parse_type, lines[0].strip().split(',')))
+	if arrayfromcsv in types:
+		print('Arrays within arrays?! I\'m afraid I can\'t let you do that, Dave.', file = stderr)
+		exit(1)
+
+	keys = lines[1].strip().split(',')
+	return [dict(zip(keys, (lambda x: [types[idx](x[idx]) for idx in range(len(x))])(line.strip().split(',')))) for line in lines[2:]]
+
+def parse_type(string):
+	try:
+		return {
+			'string': str,
+			'integer': int,
+			'fraction': float,
+			'boolean': filtered_type(False),
+			'array': arrayfromcsv,
+		}[string]
+	except:
+		print('Invalid type: must be one of: string, integer, fraction, boolean, array', file = stderr)
+		exit(1)
 
 def filtered_type(obj):
 	return {
