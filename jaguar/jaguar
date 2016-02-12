@@ -136,14 +136,14 @@ def pathlookup(parsed, path, replace = None, typ = None, skiplast = 0):
 					try:
 						elementassignormaybeappend(ref, subscript, typ(replace))
 					except ValueError:
-						print('Unable to convert supplied data (incorrect type specifier?)', file = stderr)
+						print('Unable to convert supplied data (type mismatch for field?)', file = stderr)
 						exit(1)
 				elif not isinstance(ref[subscript], list) and not isinstance(ref[subscript], dict):
 					raise LookupError('TODO: Do this more cleanly.')
 				ref = ref[subscript]
 			except LookupError: # This node doesn't exist... add it?
 				if replace == None:
-					print('Element \'subscript\' does not exist and not mutating file', file = stderr)
+					print('Element \'{}\' does not exist and not mutating file'.format(subscript), file = stderr)
 					exit(1)
 
 				if isinstance(subscript, int): # Node index
