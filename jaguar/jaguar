@@ -129,18 +129,22 @@ def pathlookup(parsed, path, replace = None, typ = None, skiplast = 0):
 		try:
 			subscript = indexfromsubscript(levels[key])
 			try:
-				if replace != None and key == len(levels) - 1:
-					if not typ:
-						typ = filtered_type(ref[subscript])
+				if replace != None:
+					if key == len(levels) - 1:
+						if not typ:
+							typ = filtered_type(ref[subscript])
 
-					try:
-						elementassignormaybeappend(ref, subscript, typ(replace))
-					except ValueError:
-						print('Unable to convert supplied data (type mismatch for field?)', file = stderr)
-						exit(1)
-				elif not isinstance(ref[subscript], list) and not isinstance(ref[subscript], dict):
-					raise LookupError('TODO: Do this more cleanly.')
+						try:
+							elementassignormaybeappend(ref, subscript, typ(replace))
+						except ValueError:
+							print('Unable to convert supplied data (type mismatch for field?)', file = stderr)
+							exit(1)
+					elif not isinstance(ref[subscript], list) and not isinstance(ref[subscript], dict):
+						raise LookupError('TODO: Do this more cleanly.')
 				ref = ref[subscript]
+			except TypeError: # Tried to deref a scalar
+				print('How am I supposed to find the element \'{}\' in a *scalar*?!'.format(subscript), file = stderr)
+				exit(1)
 			except LookupError: # This node doesn't exist... add it?
 				if replace == None:
 					print('Element \'{}\' does not exist and not mutating file'.format(subscript), file = stderr)
