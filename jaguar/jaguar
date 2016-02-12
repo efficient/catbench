@@ -97,6 +97,15 @@ def indexfromsubscript(token):
 		return token
 	return int(bracketterminated.group(1))
 
+def elementassignormaybeappend(cont, spot, elem):
+	try:
+		cont[spot] = elem
+	except IndexError:
+		if spot > len(cont):
+			print('Index cannot be greater than array length of: {}'.format(len(cont)), file = stderr)
+			exit(1)
+		cont[spot:spot] = [elem]
+
 def pathlookup(parsed, path, replace = None, typ = None):
 	ref = parsed
 
@@ -111,13 +120,7 @@ def pathlookup(parsed, path, replace = None, typ = None):
 						typ = filtered_type(ref[subscript])
 
 					try:
-						try:
-							ref[subscript] = typ(replace)
-						except IndexError:
-							if subscript > len(ref):
-								print('Index cannot be greater than array length of: {}'.format(len(ref)), file = stderr)
-								exit(1)
-							ref[subscript:subscript] = [typ(replace)]
+						elementassignormaybeappend(ref, subscript, typ(replace))
 					except ValueError:
 						print('Unable to convert supplied data (incorrect type specifier?)', file = stderr)
 						exit(1)
@@ -155,10 +158,10 @@ def pathlookup(parsed, path, replace = None, typ = None):
 						exit(1)
 					if next_t == int: # Node index
 						# Add a list
-						ref[subscript] = []
+						elementassignormaybeappend(ref, subscript, [])
 					elif next_t == str: # Node key
 						# Add a dict
-						ref[subscript] = {}
+						elementassignormaybeappend(ref, subscript, {})
 				else: # Adding the specifically requested key-value pair
 					try:
 						ref[subscript] = typ(replace)
