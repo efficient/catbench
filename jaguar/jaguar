@@ -115,7 +115,7 @@ def parse_type(string):
 			'integer': int,
 			'fraction': float,
 			'boolean': filtered_type(False),
-			'array': arrayfromcsv,
+			'array': filtered_type([]),
 		}[string]
 	except:
 		print('Invalid type: must be one of: string, integer, fraction, boolean, array', file = stderr)
@@ -124,6 +124,7 @@ def parse_type(string):
 def filtered_type(obj):
 	return {
 		bool: lambda s: True if s.lower() == 'true' or s == '1' else False if s.lower() == 'false' or s == '0' else exec('raise ValueError(\'unable to parse bool\')'),
+		list: arrayfromcsv,
 	}.get(type(obj), type(obj))
 
 def subscriptsfrompath(pretty):
