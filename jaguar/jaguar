@@ -3,7 +3,7 @@
 from collections import namedtuple
 from json import dump, JSONDecodeError, load
 from re import match, split
-from sys import argv, exit, stderr
+from sys import argv, exit, stderr, stdin
 
 def main():
 	if len(argv) < 2:
@@ -78,9 +78,10 @@ def set(parsed, args):
 				'integer': int,
 				'fraction': float,
 				'boolean': filtered_type(False),
+				'array': arrayfromcsv,
 			}[args[1]]
 		except:
-			print('Invalid type: must be one of: string, integer, fraction, boolean', file = stderr)
+			print('Invalid type: must be one of: string, integer, fraction, boolean, array', file = stderr)
 			exit(1)
 
 	pathlookup(parsed, key, val, typ)
@@ -95,6 +96,22 @@ def rem(parsed, args):
 	except ValueError:
 		print('Ill-formatted path basename', file = stderr)
 		exit(1)
+
+def arrayfromcsv(fname):
+	fd = stdin
+	if fname != '-':
+		try:
+			fd = open(fname)
+		except OSError:
+			print('Unable to open CSV file \'{}\''.format(fname), file = stderr)
+			exit(1)
+
+	lines = fd.readlines()
+	if fd != stdin:
+		fd.close()
+
+	keys = lines[0].strip().split(',')
+	return [dict(zip(keys, line.strip().split(','))) for line in lines[1:]]
 
 def filtered_type(obj):
 	return {
