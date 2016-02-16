@@ -112,8 +112,8 @@ do
 		;;
 	-b*)
 		header="$header,rng_period_offset"
-		"$jaguar_script" set "$outfile_json" legend.args.-a.description string "accesses per activation";
-		"$jaguar_script" set "$outfile_json" legend.args.-a.unit string "bool";
+		"$jaguar_script" set "$outfile_json" legend.args.-b.description string "initial random numbers to skip";
+		"$jaguar_script" set "$outfile_json" legend.args.-b.unit string "bool";
 		;;
 	-i*)
 		seen_daemonize="true"
