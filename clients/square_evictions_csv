@@ -13,8 +13,44 @@ has_trailing_switches() {
 	return "$found"
 }
 
+entry_already_exists() {
+	"$jaguar_script" get "$outfile_json" "$1" >/dev/null 2>&1
+}
+
+add_legend_entry() {
+	local switch="$1"
+	local terse="$2"
+	local description="$3"
+	local unit="$4"
+	if ! entry_already_exists "$legendpre.$switch"
+	then
+		"$jaguar_script" set "$outfile_json" "$legendpre.$switch.terse" string "$terse"
+		"$jaguar_script" set "$outfile_json" "$legendpre.$switch.description" string "$description"
+		"$jaguar_script" set "$outfile_json" "$legendpre.$switch.unit" string "$unit"
+	fi
+}
+
+jaguar_script="`dirname "$0"`/../jaguar/jaguar"
+if [ ! -e "$jaguar_script" ]
+then
+	echo "ERROR: Couldn't find jaguar script. You didn't pass me to a shell instead of executing me directly, did you?" >&2
+	exit 1
+fi
+if [ $# -lt 2 ]
+then
+	echo "USAGE: $0 <outfile> <dataseries> [arguments]..."
+	exit 1
+fi
+outfile_json="$1"
+series="$2"
+shift 2
+
+[ -e "$outfile_json" ] || "$jaguar_script" init "$outfile_json"
+
+legendpre="legend.args.square_evictions"
+datapre="data.$series.args"
+types="string,integer"
 header=""
-record=""
 
 seen_hugepages="false"
 seen_randomize="false"
@@ -23,11 +59,12 @@ seen_logprfchr="false"
 seen_profmemac="false"
 seen_daemonize="false"
 
-jaguar_script="../jaguar/jaguar"
-outfile_json="$1"
-shift
-
-[ -e "$outfile_json" ] || "$jaguar_script" init "$outfile_json"
+add_legend_entry -h "hugepages" "use hugepages"
+add_legend_entry -r "randomize" "random traversal order"
+add_legend_entry -s "single_rng" "use the same rng for all phases"
+add_legend_entry -l "perf" "record perf data"
+add_legend_entry -m "rdtscp" "profile memory accesses with rdtscp"
+add_legend_entry -i "daemonize" "perform traversals on signal"
 
 while [ $# -gt 0 ]
 do
@@ -38,34 +75,26 @@ do
 
 	case "$switch" in
 	-n*)
-		header="$header,passes_per_phase"
-		"$jaguar_script" set "$outfile_json" legend.args.-n.description string "passes per phase";
-		"$jaguar_script" set "$outfile_json" legend.args.-n.unit string "";
+		header="$header\n-n"
+		add_legend_entry -n "periods" "number of periods"
 		;;
 	-p*)
-		header="$header,phases_per_period"
-		"$jaguar_script" set "$outfile_json" legend.args.-p.description string "phases per period";
-		"$jaguar_script" set "$outfile_json" legend.args.-p.unit string "";
+		header="$header\n-p"
+		add_legend_entry -p "passes_per_phase" "passes" "per phase"
 		;;
 	-c*)
-		header="$header,contracted_way_percent"
-		"$jaguar_script" set "$outfile_json" legend.args.-c.description string "contracted percentage";
-		"$jaguar_script" set "$outfile_json" legend.args.-c.unit string "";
+		header="$header\n-c"
+		add_legend_entry -c "contracted_percent" "small traversal subset" "% of a cache way"
 		;;
 	-e*)
-		header="$header,expanded_allocation_way_percent"
-		"$jaguar_script" set "$outfile_json" legend.args.-e.description string "expanded percentage";
-		"$jaguar_script" set "$outfile_json" legend.args.-e.unit string "";
+		header="$header\n-e"
+		add_legend_entry -e "expanded_percent" "large traversal/allocation" "% of a cache way"
 		;;
 	-h*)
 		seen_hugepages="true"
-		"$jaguar_script" set "$outfile_json" legend.args.-h.description string "hugepages";
-		"$jaguar_script" set "$outfile_json" legend.args.-h.unit string "bool";
 		;;
 	-r*)
 		seen_randomize="true"
-		"$jaguar_script" set "$outfile_json" legend.args.-r.description string "randomized";
-		"$jaguar_script" set "$outfile_json" legend.args.-r.unit string "bool";
 
 		case "$1" in
 		-*)
@@ -78,13 +107,9 @@ do
 		;;
 	-s*)
 		seen_singlerng="true"
-		"$jaguar_script" set "$outfile_json" legend.args.-s.description string "single RNG";
-		"$jaguar_script" set "$outfile_json" legend.args.-s.unit string "";
 		;;
 	-l*)
 		seen_logprfchr="true"
-		"$jaguar_script" set "$outfile_json" legend.args.-l.description string "log perf characteristics";
-		"$jaguar_script" set "$outfile_json" legend.args.-l.unit string "";
 
 		case "$1" in
 		-*)
@@ -96,29 +121,22 @@ do
 		continue
 		;;
 	-j*)
-		header="$header,log_entries_per_pass"
-		"$jaguar_script" set "$outfile_json" legend.args.-j.description string "perf logging frequency";
-		"$jaguar_script" set "$outfile_json" legend.args.-j.unit string "accesses";
+		header="$header\n-j"
+		add_legend_entry -j "perf_stride" "perf logging frequency"
 		;;
 	-m*)
 		seen_profmemac="true"
-		"$jaguar_script" set "$outfile_json" legend.args.-m.description string "Use rdtscp";
-		"$jaguar_script" set "$outfile_json" legend.args.-m.unit string "bool";
 		;;
 	-a*)
-		header="$header,accesses_per_activation"
-		"$jaguar_script" set "$outfile_json" legend.args.-a.description string "accesses per activation";
-		"$jaguar_script" set "$outfile_json" legend.args.-a.unit string "bool";
+		header="$header\n-a"
+		add_legend_entry -a "accesses_per_activation" "accesses per activation"
 		;;
 	-b*)
-		header="$header,rng_period_offset"
-		"$jaguar_script" set "$outfile_json" legend.args.-b.description string "initial random numbers to skip";
-		"$jaguar_script" set "$outfile_json" legend.args.-b.unit string "bool";
+		header="$header\n-b"
+		add_legend_entry -b "rng_skip" "initial random numbers to skip"
 		;;
 	-i*)
 		seen_daemonize="true"
-		"$jaguar_script" set "$outfile_json" legend.args.-i.description string "daemonized";
-		"$jaguar_script" set "$outfile_json" legend.args.-i.unit string "bool";
 		;;
 	*)
 		if has_trailing_switches "$@"
@@ -155,16 +173,17 @@ do
 
 		if [ -n "$suffix" ]
 		then
-			record="$record,$suffix"
+			header="$header,$suffix"
 		else
-			record="$record,$1"
+			header="$header,$1"
 			shift
 		fi
 		;;
 	esac
 done
 
-header="$header,hugepages,randomize,singlerng,log_performance_characteristics,profile_memory_accesses,daemonize"
-record="$record,$seen_hugepages,$seen_randomize,$seen_singlerng,$seen_logprfchr,$seen_profmemac,$seen_daemonize"
-
-echo "$header\n$record" | sed 's/,//'
+echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre" array -
+if [ -n "$header" ]
+then
+	echo "$types\nname,value$header" | sed 's/^,//' | "$jaguar_script" set "$outfile_json" "$datapre[]" -
+fi
