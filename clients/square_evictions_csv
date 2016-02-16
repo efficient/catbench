@@ -1,18 +1,5 @@
 #!/bin/sh
 
-has_trailing_switches() {
-	local found=1
-	for trailing in "$@"
-	do
-		case "$trailing" in
-		-*)
-			found=0
-			;;
-		esac
-	done
-	return "$found"
-}
-
 entry_already_exists() {
 	"$jaguar_script" get "$outfile_json" "$1" >/dev/null 2>&1
 }
@@ -139,24 +126,8 @@ do
 		seen_daemonize="true"
 		;;
 	*)
-		if has_trailing_switches "$@"
-		then
-			echo "Unexpected switch: $switch" >&2
-			exit 1
-		fi
-
-		for pair in "$switch" "$@"
-		do
-			if ! ( echo "$pair" | grep : >/dev/null )
-			then
-				echo "Expected a pair instead of: $pair" >&2
-				exit 1
-			fi
-
-			header="$header,`echo -n "$pair" | rev | cut -d: -f2- | rev`"
-			record="$record,`echo -n "$pair" | rev | cut -d: -f1 | rev`"
-		done
-		break
+		echo "Unexpected switch: $switch"
+		exit 1
 		;;
 	esac
 
