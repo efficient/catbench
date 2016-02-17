@@ -35,7 +35,7 @@ shift 2
 [ -e "$outfile_json" ] || "$jaguar_script" init "$outfile_json"
 
 legendpre="legend.args.square_evictions"
-datapre="data.$series.args"
+datapre="data.$series"
 types="string,integer"
 header=""
 
@@ -153,8 +153,9 @@ do
 	esac
 done
 
-echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre" array -
+"$jaguar_script" set "$outfile_json" "$datapre.type" string square_evictions
+echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre.args" array -
 if [ -n "$header" ]
 then
-	echo "$types\nname,value$header" | sed 's/^,//' | "$jaguar_script" set "$outfile_json" "$datapre[]" -
+	echo "$types\nname,value$header" | sed 's/^,//' | "$jaguar_script" set "$outfile_json" "$datapre.args[]" -
 fi
