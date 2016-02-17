@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ -n "$CATBENCH_JAGFILE" ]
+then
+	if ! "`dirname "$0"`/square_evictions_csv" "$CATBENCH_JAGFILE" "$@"
+	then
+		echo "ERROR: Failed to record argument data!" >&2
+		exit 1
+	fi
+	shift
+else
+	echo "WARN: Log filename did not reach target wrapper!" >&2
+	exit 1
+fi
+"`dirname "$0"`/square_evictions" "$@"
