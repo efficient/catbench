@@ -83,6 +83,10 @@ def rem(parsed, args):
 		print('Ill-formatted path basename', file = stderr)
 		exit(1)
 
+def usage(parsed = None, args = None):
+	print('USAGE: {} <command> <filename> [argument]...'.format(argv[0]))
+	exit(1)
+
 def arrayfromcsv(fname):
 	fd = stdin
 	if fname != '-':
@@ -227,10 +231,6 @@ def pathlookup(parsed, path, replace = None, typ = None, skiplast = 0):
 			exit(1)
 
 	return ref
-
-def usage():
-	print('USAGE: {} <command> <filename> [argument]...'.format(argv[0]))
-	exit(1)
 
 if __name__ == '__main__':
 	main()
