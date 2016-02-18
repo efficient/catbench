@@ -4,11 +4,12 @@ logging_commence() {
 	mkfifo "$prefix.tmp"
 	tee "$prefix.log" <"$prefix.tmp" &
 	set -v
-	exec >"$prefix.tmp" 2>&1
+	exec >"$prefix.tmp" 2>&1 3>&1 4>&2
 }
 
 logging_cleanup() {
 	set +v
+	exec >&3 2>&4
 	rm "$prefix.tmp"
 }
 
