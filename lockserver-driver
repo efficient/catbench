@@ -2,6 +2,7 @@
 
 enable_cat=false
 logfile_name="lockserver_log"
+dataseries="lockserver"
 
 lockserver_alloc_percent=100
 trash_alloc_percent=100
@@ -19,6 +20,10 @@ do
 		;;
 	"-o")
 		logfile_name="$2"
+		shift
+		;;
+	"-d")
+		dataseries="$2"
 		shift
 		;;
 	"-l")
