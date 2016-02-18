@@ -65,8 +65,8 @@ echo $trash_mask > $cgroup_path/trash/intel_rdt.l3_cbm
 echo $$ > $cgroup_path/trash/tasks
 
 # This is the lockserver, which performs 327.62M memory accesses and then exits
-clients/square_evictions_wrapper lockserver -n $((10000 * 100 / lockserver_alloc_percent)) -p 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" > "$logfile_name" &
-rawpid="`while ! (ps -eo pid,args | sed 's/^ +//' | cut -d" " -f1-2 | grep square_evictions); do :; done`"
+clients/square_evictions_wrapper "$dataseries" -n $((10000 * 100 / lockserver_alloc_percent)) -p 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" > "$logfile_name" &
+rawpid="`while ! (ps -eo pid,args | sed 's/^ \+//' | cut -d" " -f1-2 | grep -w clients/square_evictions); do :; done`"
 pid="`echo "$rawpid" | cut -d" " -f1`"
 
 if "$enable_cat"
@@ -93,7 +93,7 @@ sleep 2
 
 # CLEANUP
 killall square_evictions
-while (ps -eo pid,args | sed 's/^ +//' | cut -d" " -f2 | grep square_evictions >/dev/null 2>&1); do :; done
+while (ps -eo args | cut -d" " -f1 | grep -x clients/square_evictions >/dev/null 2>&1); do :; done
 cgdelete intel_rdt:trash
 if "$enable_cat"
 then
