@@ -45,36 +45,64 @@ def get_tuples(filename, slabels, xlabel, ylabels):
             for ylabel in ylabels:
 #TODO what if there is no entry for a particular ylabel?
                 series_tuples[series_name][(xlabel, ylabel)].append((sample.get(xlabel), sample.get(ylabel)));
+    fd.close();
     return series_tuples;
+
+def get_sample_description(filename, samplename):
+    fd = open(filename, 'r');
+    database = json.load(fd);
+    label_entry = database.get("legend").get("samples").get(labelname);
+    fd.close();
+    return str(label_entry.get("description"));
 
 def get_label(filename, labelname):
     fd = open(filename, 'r');
     database = json.load(fd);
     label_entry = database.get("legend").get("samples").get(labelname);
-    return str(label_entry.get("description")) + " (" + str(label_entry.get("unit")) + ")";
+    #if(label_entry == None):
+    #    return labelname;
+    ret = label_entry.get("description");
+    ret = ret + " (";
+    ret = ret + label_entry.get("unit");
+    ret = ret + ")";
+    return ret;
 
 def get_arg_label(filename, progname, labelname):
     fd = open(filename, 'r');
     database = json.load(fd);
+    fd.close();
     return database.get("legend").get("args").get(progname).get(labelname).get("description");
 
 def get_arg_unit(filename, progname, labelname):
     fd = open(filename, 'r');
     database = json.load(fd);
+    fd.close();
     return database.get("legend").get("args").get(progname).get(labelname).get("unit");
 
 def get_aux(filename, progname, name, value):
     fd = open(filename, 'r');
     database = json.load(fd);
-    return progname + ": " + str(get_arg_label(filename, progname, name)) + "=" + str(value) + " (" + str(get_arg_unit(filename, progname, name)) + ")";
+    fd.close();
+    ret = progname + ": " + str(get_arg_label(filename, progname, name)) + "=" + str(value);
+    if(get_arg_unit(filename, progname, name) != ""):
+        ret = ret + " (" + str(get_arg_unit(filename, progname, name)) + ")";
+    return ret;
 
-def get_series_aux(filename, seriesname):
+
+def get_series_aux(filename, seriesname, ilist):
     fd = open(filename, 'r');
     database = json.load(fd);
+    ret = "";
     for arg in database.get("data").get(seriesname).get("args"):
-        return (database.get("data").get(seriesname).get("description") + ": " + \
+#TODO Issue parsing "-." as a param
+        if(ilist != None and str(arg.get("name")[1:]) in ilist):
+            continue;
+        ret = ret + str(database.get("data").get(seriesname).get("description") + ": " + \
                 get_aux(filename, database.get("data").get(seriesname).get("type"), \
                 arg.get("name"), arg.get("value")));
+        ret = ret + "\n";
+    fd.close();
+    return ret;
 def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
@@ -89,7 +117,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
 
     aux_text = "";
     for slabel in slabels:
-        aux_text += get_series_aux(filename, slabel);
+        aux_text += get_series_aux(filename, slabel, ilabels);
         aux_text += "\n";
 
     ax.text(0.05, 0.95, aux_text, verticalalignment='top', transform=ax.transAxes);
@@ -100,11 +128,11 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
             if(key2 == "description"):
                 continue;
             xy = map(list, zip(*val2));
-            line.append((ax.plot(xy[0], xy[1], label=val["description"]))[0]);
+            line.append((ax.plot(xy[0], xy[1], label=val["description"] + str(key2[1])))[0]);
     ax.set_title(title);
     plt.legend(loc="upper center", bbox_to_anchor=(0.5,1.5));
 
-    plt.ylim(ymin=0);
+    plt.ylim(ymin=0, ymax=0.0005);
     fig.savefig(outfile);
 
 
