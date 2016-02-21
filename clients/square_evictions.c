@@ -286,7 +286,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 			fflush(stdout);
 			if(check_memrate) {
 				fprintf(stderr, "Accesses performed: %d\n", accesses);
-				fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) siz / cache_line_size / duration * CLOCKS_PER_SEC);
+				fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) accesses / duration * CLOCKS_PER_SEC);
 			}
 		} else
 			duration += clock() - startpass;

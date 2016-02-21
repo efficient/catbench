@@ -67,7 +67,7 @@ do
 		;;
 	-p*)
 		header="$header\n-p"
-		add_legend_entry -p "passes_per_phase" "passes" "per phase"
+		add_legend_entry -p "passes_per_phase" "passes per phase"
 		;;
 	-c*)
 		header="$header\n-c"
