@@ -27,7 +27,7 @@ do
 		echo "Lockserver%: $lockserver_percent, Trash%: $trash_percent, Trash: $num_trash"
 		sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -o no-cat.dat -l "$lockserver_percent" -d "l$lockserver_percent" -t "$trash_percent" -s "$traverse" -i "$iters"
 		sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -c -o with-cat.dat -l "$lockserver_percent" -d "l$lockserver_percent" -t "$trash_percent" -s "$traverse" -i "$iters"
-		lines="$lines\n$(printf "%d,%f,%f\n" "$trash_percent" "`./avg_data.pl with-cat.dat $((100 / lockserver_percent))`" "`./avg_data.pl no-cat.dat $((100 / lockserver_percent))`")"
+		lines="$lines\n$(printf "%d,%f,%f\n" "$trash_percent" "`./avg_data.pl with-cat.dat`" "`./avg_data.pl no-cat.dat`")"
 	done
 	echo "$lines" | jaguar/jaguar set "$logfilename" "data.l$lockserver_percent.samples" array -
 done
