@@ -18,6 +18,13 @@ then
 	iters="$2"
 fi
 
+jaguar/jaguar set "$logfilename" legend.samples.trash_percent.description string "Working set size of non-lockserver processes"
+jaguar/jaguar set "$logfilename" legend.samples.trash_percent.unit string "% of 1MB"
+jaguar/jaguar set "$logfilename" legend.samples.no_cat.description string "Time elapsed to access memory"
+jaguar/jaguar set "$logfilename" legend.samples.no_cat.units string "s"
+jaguar/jaguar set "$logfilename" legend.samples.with_cat.description string "Time elapsed to access memory"
+jaguar/jaguar set "$logfilename" legend.samples.with_cat.units string "s"
+
 lockserver_mask="0x003"
 trash_mask="0xffc"
 
