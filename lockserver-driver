@@ -18,6 +18,14 @@ do
 	"-c")
 		enable_cat=true
 		;;
+	"-m")
+		lockserver_mask="$2"
+		shift
+		;;
+	"-n")
+		trash_mask="$2"
+		shift
+		;;
 	"-o")
 		logfile_name="$2"
 		shift
@@ -55,13 +63,19 @@ done
 
 cgroup_path="/sys/fs/cgroup/intel_rdt"
 
-# Default value should be the OR of trash_mask and lockserver_mask if $enable_cat is true
-trash_mask=0xfff
-lockserver_mask=0x001
-
 if "$enable_cat"
 then
-	trash_mask=0xffe
+	if [ -n "$lockserver_mask" -a -n "$trash_mask" ]
+	then
+		lockserver_mask=0x003
+		trash_mask=0xffc
+	else
+		echo "WOAH: You passed in -c, so I also require an explicit -m (lockserver mask) and -n (get trashed)" >&2
+		exit 1
+	fi
+else
+	# Default value should be the OR of trash_mask and lockserver_mask if $enable_cat is true
+	trash_mask=0xfff
 fi
 
 mkdir $cgroup_path/trash
