@@ -42,6 +42,8 @@ header=""
 seen_hugepages="false"
 seen_randomize="false"
 seen_singlerng="false"
+seen_memcheck="false"
+seen_cpucheck="false"
 seen_logprfchr="false"
 seen_profmemac="false"
 seen_daemonize="false"
@@ -49,6 +51,8 @@ seen_daemonize="false"
 add_legend_entry -h "hugepages" "use hugepages"
 add_legend_entry -r "randomize" "random traversal order"
 add_legend_entry -s "single_rng" "use the same rng for all phases"
+add_legend_entry -r "memcheck" "sanity-check memory throughput"
+add_legend_entry -r "cpucheck" "sanity-check guess clock speed"
 add_legend_entry -l "perf" "record perf data"
 add_legend_entry -m "rdtscp" "profile memory accesses with rdtscp"
 add_legend_entry -i "daemonize" "perform traversals on signal"
@@ -94,6 +98,12 @@ do
 		;;
 	-s*)
 		seen_singlerng="true"
+		;;
+	-w*)
+		seen_memcheck="true"
+		;;
+	-v*)
+		seen_cpucheck="true"
 		;;
 	-l*)
 		seen_logprfchr="true"
@@ -154,7 +164,7 @@ do
 done
 
 "$jaguar_script" set "$outfile_json" "$datapre.type" string square_evictions
-echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre.args" array -
+echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-w,$seen_memcheck\n-v,$seen_cpucheck\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre.args" array -
 if [ -n "$header" ]
 then
 	echo "$types\nname,value$header" | sed 's/^,//' | "$jaguar_script" set "$outfile_json" "$datapre.args[]" -
