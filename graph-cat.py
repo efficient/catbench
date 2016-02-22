@@ -132,7 +132,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
     ax.set_title(title);
     plt.legend(loc="upper center", bbox_to_anchor=(0.5,1.5));
 
-    plt.ylim(ymin=0, ymax=0.0005);
+    plt.ylim(ymin=0);
     fig.savefig(outfile);
 
 
