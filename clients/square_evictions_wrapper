@@ -10,6 +10,5 @@ then
 	shift
 else
 	echo "WARN: Log filename did not reach target wrapper!" >&2
-	exit 1
 fi
 "`dirname "$0"`/square_evictions" "$@"
