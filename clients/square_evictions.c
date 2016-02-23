@@ -142,6 +142,7 @@ static struct {
 	int capacity_expanded;
 	rng_t *randomize;
 	rng_t *cont_rand;
+	bool no_randspin;
 	bool check_memrate;
 	perf_log_buffer_t **perflog;
 	int perfstride;
@@ -152,13 +153,13 @@ static struct {
 static void square_evictions_handler(int);
 static void term_handler(int);
 
-typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, rng_t *, rng_t *,
-		bool, perf_log_buffer_t **, int, bool, int);
+typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, rng_t *, rng_t *, bool, bool,
+		perf_log_buffer_t **, int, bool, int);
 
 static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
-		rng_t *randomize, rng_t *cont_rand, bool check_memrate, perf_log_buffer_t **perflog,
-		int perfstride, bool measure_all, int max_accesses) {
+		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
+		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses) {
 	square_evictions_saved.arr = arr;
 	square_evictions_saved.cache_line_size = cache_line_size;
 	square_evictions_saved.num_periods = num_periods;
@@ -167,6 +168,7 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 	square_evictions_saved.capacity_expanded = capacity_expanded;
 	square_evictions_saved.randomize = randomize;
 	square_evictions_saved.cont_rand = cont_rand;
+	square_evictions_saved.no_randspin = no_randspin;
 	square_evictions_saved.check_memrate = check_memrate;
 	square_evictions_saved.perflog = perflog;
 	square_evictions_saved.perfstride = perfstride;
@@ -187,8 +189,8 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 
 static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
-		rng_t *randomize, rng_t *cont_rand, bool check_memrate, perf_log_buffer_t **perflog,
-		int perfstride, bool measure_all, int max_accesses) {
+		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
+		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses) {
 	assert(perflog);
 
 	if(cont_rand)
@@ -240,12 +242,19 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 			bool seen_initial = false;
 			for(int offset = 0; offset < siz; offset += cache_line_size) {
 				unsigned ix;
+				int tries = 0;
 				do {
 					ix = randomize ? rng_lcfc(randomizer) * cache_line_size :
 							(unsigned) offset;
+					++tries;
 				} while(ix >= (unsigned) siz);
 				if(!ix)
 					seen_initial = true;
+				if(no_randspin && tries > 1) {
+					fprintf(stderr, "ERROR: Took %d tries before we got an in-range random!\n", tries);
+					return 1;
+				}
+
 				if(measure_all)
 					time = rdtscp();
 				arr[ix] ^= val;
@@ -310,6 +319,7 @@ static void square_evictions_handler(int sig) {
 			square_evictions_saved.capacity_expanded,
 			square_evictions_saved.randomize,
 			square_evictions_saved.cont_rand,
+			square_evictions_saved.no_randspin,
 			square_evictions_saved.check_memrate,
 			square_evictions_saved.perflog,
 			square_evictions_saved.perfstride,
@@ -343,6 +353,7 @@ int main(int argc, char *argv[]) {
 	bool hugepages = false;
 	bool randomize = false;
 	bool secondrng = true;
+	bool norngspin = false;
 	bool sanitycheck_memory = false;
 	bool sanitycheck_clockspeed = false;
 	bool measure_all = false;
@@ -351,7 +362,7 @@ int main(int argc, char *argv[]) {
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::f:swvl:j:ma:b:i")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::qf:swvl:j:ma:b:i")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -388,6 +399,9 @@ int main(int argc, char *argv[]) {
 					goto cleanup;
 				}
 			}
+			break;
+		case 'q':
+			norngspin = true;
 			break;
 		case 'f': {
 			char *factors = optarg;
@@ -466,6 +480,7 @@ int main(int argc, char *argv[]) {
 					" -h: Allocate using huge pages for contiguous memory\n"
 					" -r [#]: Randomize ordering to fool prefetcher\n"
 					"         Optionally takes a custom rng increment\n"
+					" -q: Do not spin to handle out-of-bounds rng results\n"
 					" -f ,,: List prime factors of expanded cache line count\n"
 					" -s: Use only one rng (default 2 w/ different periods)\n"
 					" -w: Output sanity-check memory throughput on stderr\n"
@@ -614,8 +629,8 @@ int main(int argc, char *argv[]) {
 		goto cleanup;
 	}
 	ret = call(large, cache_line_size, num_periods, passes_per_cycle, cap_contracted,
-			cap_expanded, random, randtv, sanitycheck_memory, &perfbuf, perfstride,
-			measure_all, accesses);
+			cap_expanded, random, randtv, norngspin, sanitycheck_memory, &perfbuf,
+			perfstride, measure_all, accesses);
 
 	if(perflog) {
 		assert(perfbuf);
