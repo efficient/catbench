@@ -42,6 +42,7 @@ header=""
 seen_hugepages="false"
 seen_randomize="false"
 seen_singlerng="false"
+seen_norngspin="false"
 seen_memcheck="false"
 seen_cpucheck="false"
 seen_logprfchr="false"
@@ -95,6 +96,9 @@ do
 			;;
 		esac
 		continue
+		;;
+	-q*)
+		seen_norngspin="true"
 		;;
 	-s*)
 		seen_singlerng="true"
@@ -164,7 +168,7 @@ do
 done
 
 "$jaguar_script" set "$outfile_json" "$datapre.type" string square_evictions
-echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-w,$seen_memcheck\n-v,$seen_cpucheck\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre.args" array -
+echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-q,$seen_norngspin\n-w,$seen_memcheck\n-v,$seen_cpucheck\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre.args" array -
 if [ -n "$header" ]
 then
 	echo "$types\nname,value$header" | sed 's/^,//' | "$jaguar_script" set "$outfile_json" "$datapre.args[]" -
