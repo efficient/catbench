@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -325,10 +326,12 @@ int main(int argc, char *argv[]) {
 	int ret = 0;
 
 	uint8_t *large = NULL;
+	int *rng_factors = NULL;
 	rng_t *random = NULL;
 	rng_t *randtv = NULL;
 	FILE *perflog = NULL;
 	perf_log_buffer_t *perfbuf = NULL;
+	size_t nrng_factors = 0;
 	int num_periods = DEFAULT_NUM_PERIODS;
 	int passes_per_cycle = DEFAULT_PASSES_PER_CYCLE;
 	int percent_contracted = DEFAULT_PERCENT_CONTRACTED;
@@ -348,7 +351,7 @@ int main(int argc, char *argv[]) {
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::swvl:j:ma:b:i")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::f:swvl:j:ma:b:i")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -386,6 +389,26 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			break;
+		case 'f': {
+			char *factors = optarg;
+			nrng_factors = 1;
+			for(char *chr = factors; *chr; ++chr)
+				if(*chr == ',')
+					++nrng_factors;
+
+			rng_factors = malloc(nrng_factors * sizeof *rng_factors);
+			int *dest = rng_factors;
+			while(sscanf(factors, "%d,", dest++)) {
+				char *repl = strchr(factors, ',');
+				if(repl)
+					factors = repl + 1;
+				else {
+					sscanf(factors, "%d", dest - 1);
+					break;
+				}
+			}
+			break;
+		}
 		case 's':
 			secondrng = false;
 			break;
@@ -443,6 +466,7 @@ int main(int argc, char *argv[]) {
 					" -h: Allocate using huge pages for contiguous memory\n"
 					" -r [#]: Randomize ordering to fool prefetcher\n"
 					"         Optionally takes a custom rng increment\n"
+					" -f ,,: List prime factors of expanded cache line count\n"
 					" -s: Use only one rng (default 2 w/ different periods)\n"
 					" -w: Output sanity-check memory throughput on stderr\n"
 					" -v: Output sanity-check clock speed guess on stderr\n"
@@ -460,8 +484,8 @@ int main(int argc, char *argv[]) {
 			goto cleanup;
 		}
 	}
-	if(!secondrng && !randomize) {
-		fputs("-s only makes sense in concert with -r\n", stderr);
+	if((!secondrng || rng_factors) && !randomize) {
+		fputs("-f and -s only makes sense in concert with -r\n", stderr);
 		ret = 1;
 		goto cleanup;
 	}
@@ -506,7 +530,6 @@ int main(int argc, char *argv[]) {
 	int lines_contracted = cache_num_sets * percent_contracted / 100.0;
 	int lines_expanded = cache_num_sets * percent_expanded / 100.0;
 
-	const int TWO = 2;
 	if(randomize) {
 		if(!pow_of_two(cache_num_sets)) {
 			fprintf(stderr, "Number of cache sets (%d) is not a power of two\n",
@@ -515,41 +538,60 @@ int main(int argc, char *argv[]) {
 			goto cleanup;
 		}
 
-		unsigned siz = cache_num_sets;
-		while(siz >> 1 >= (unsigned) lines_expanded && siz >> 1 >= MINIMUM_GENERATOR_PERIOD)
-			siz >>= 1;
-		while(siz << 1 <= (unsigned) lines_expanded)
-			siz <<= 1;
+		unsigned siz_reduced = cache_num_sets;
+		while(siz_reduced >> 1 >= (unsigned) lines_contracted &&
+				siz_reduced >> 1 >= MINIMUM_GENERATOR_PERIOD)
+			siz_reduced >>= 1;
 
-		unsigned siz_reduced = siz;
-		if(secondrng)
-			while(siz_reduced >> 1 >= (unsigned) lines_contracted &&
-					siz_reduced >> 1 >= MINIMUM_GENERATOR_PERIOD)
-				siz_reduced >>= 1;
+		const int TWO = 2;
+		size_t nfactors;
+		const int *factors = NULL;
+		unsigned siz;
+		if(rng_factors) {
+			nfactors = nrng_factors;
+			factors = rng_factors;
+			siz = lines_expanded;
+
+			int check = 1;
+			for(const int *factor = factors; factor < factors + nfactors; ++factor)
+				check *= *factor;
+			if(lines_expanded % check) {
+				fprintf(stderr, "Provided factorization is not correct for %d\n", lines_expanded);
+				ret = 1;
+				goto cleanup;
+			}
+		} else {
+			nfactors = 1;
+			factors = &TWO;
+			siz = cache_num_sets;
+			while(siz >> 1 >= (unsigned) lines_expanded && siz >> 1 >= MINIMUM_GENERATOR_PERIOD)
+				siz >>= 1;
+			while(siz << 1 <= (unsigned) lines_expanded)
+				siz <<= 1;
+		}
 
 		if(custom_increment) {
-			random = rng_lcfc_init_incr(siz, 1, &TWO, custom_increment);
+			random = rng_lcfc_init_incr(siz, nfactors, factors, custom_increment);
 			if(!random) {
 				fprintf(stderr, "Provided rng increment (%d) not coprime with %d\n",
 						custom_increment, cache_num_sets);
 				ret = 1;
 				goto cleanup;
 			}
-			if(secondrng) {
-				randtv = rng_lcfc_init_incr(siz_reduced, 1, &TWO, custom_increment);
-				assert(randtv);
-			}
 		} else {
-			random = rng_lcfc_init(siz, 1, &TWO);
+			random = rng_lcfc_init(siz, nfactors, factors);
 			if(!random) {
 				perror("Allocating random number generator");
 				ret = 1;
 				goto cleanup;
 			}
-			if(secondrng) {
+		}
+		if(secondrng) {
+			if(custom_increment)
+				randtv = rng_lcfc_init_incr(siz_reduced, 1, &TWO, custom_increment);
+			else
 				randtv = rng_lcfc_init(siz_reduced, 1, &TWO);
-				assert(randtv);
-			}
+			assert(randtv);
 		}
 
 		for(int wasted = 0; wasted < baserandom; ++wasted) {
@@ -600,6 +642,8 @@ int main(int argc, char *argv[]) {
 cleanup:
 	if(large)
 		dealloc(cap_expanded, large, hugepages);
+	if(rng_factors)
+		free(rng_factors);
 	if(random)
 		rng_lcfc_clean(random);
 	if(randtv)
