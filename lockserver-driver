@@ -22,7 +22,7 @@ do
 		lockserver_mask="$2"
 		shift
 		;;
-	"-n")
+	"-p")
 		trash_mask="$2"
 		shift
 		;;
