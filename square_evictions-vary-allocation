@@ -1,0 +1,33 @@
+#!/bin/sh
+
+if [ -z "$CATBENCH_JAGFILE" ]
+then
+	echo "$0: should be invoked via driver" >&2
+	exit 1
+fi
+
+if [ $# -ne 1 ]
+then
+	echo "USAGE: $0 0x<way mask>"
+	exit 1
+fi
+mask="$1"
+
+jaguar/jaguar set "$CATBENCH_JAGFILE" legend.samples.alloc.description string "Allocation size"
+jaguar/jaguar set "$CATBENCH_JAGFILE" legend.samples.alloc.unit string        "KB"
+jaguar/jaguar set "$CATBENCH_JAGFILE" legend.samples.time.description string  "Time per access"
+jaguar/jaguar set "$CATBENCH_JAGFILE" legend.samples.time.unit string         "s"
+
+jaguar/jaguar set "$CATBENCH_JAGFILE" data.vary-allocation.description string "Allocation size vs. access rate"
+
+cache_way_size="$((`cat /sys/devices/system/cpu/cpu0/cache/index3/number_of_sets /sys/devices/system/cpu/cpu0/cache/index3/coherency_line_size | paste -sd* | bc` / 1024))"
+
+entries="integer,fraction\nalloc,time"
+for alloc in 25 50 100 200
+do
+	echo "alloc: $alloc"
+	kb=$((cache_way_size * alloc / 100))
+	entries="$entries\n$kb,`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -o /dev/null -d vary-allocation -n 0 -l "$alloc" -c -m "$mask" -p 0xfff -a -w 2>&1 >/dev/null | grep "accesses/s" | cut -d: -f2 | cut -d" " -f2 | tr "\n" " " | sed 's:\([^ ]\+\) \([^ ]\+\):1.0 / ( ( \1 + \2 ) / 2.0 )\n:' | bc -l`"
+done
+
+echo "$entries" | jaguar/jaguar set "$CATBENCH_JAGFILE" data.vary-allocation.samples array -
