@@ -39,10 +39,12 @@ datapre="data.$series"
 types="string,integer"
 header=""
 
+# TODO: custfacts should be saved as a string, but we currently only do ints
 seen_hugepages="false"
 seen_randomize="false"
 seen_singlerng="false"
 seen_norngspin="false"
+seen_custfacts="false"
 seen_memcheck="false"
 seen_cpucheck="false"
 seen_logprfchr="false"
@@ -99,6 +101,18 @@ do
 		;;
 	-q*)
 		seen_norngspin="true"
+		;;
+	-f*)
+		seen_custfacts="true"
+
+		case "$1" in
+		-*)
+			;;
+		*)
+			shift
+			;;
+		esac
+		continue
 		;;
 	-s*)
 		seen_singlerng="true"
@@ -168,7 +182,7 @@ do
 done
 
 "$jaguar_script" set "$outfile_json" "$datapre.type" string square_evictions
-echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-q,$seen_norngspin\n-w,$seen_memcheck\n-v,$seen_cpucheck\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre.args" array -
+echo "string,boolean\nname,value\n-h,$seen_hugepages\n-r,$seen_randomize\n-s,$seen_singlerng\n-q,$seen_norngspin\n-f,$seen_custfacts\n-w,$seen_memcheck\n-v,$seen_cpucheck\n-l,$seen_logprfchr\n-m,$seen_profmemac\n-i,$seen_daemonize" | "$jaguar_script" set "$outfile_json" "$datapre.args" array -
 if [ -n "$header" ]
 then
 	echo "$types\nname,value$header" | sed 's/^,//' | "$jaguar_script" set "$outfile_json" "$datapre.args[]" -
