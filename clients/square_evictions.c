@@ -578,10 +578,8 @@ int main(int argc, char *argv[]) {
 		} else {
 			nfactors = 1;
 			factors = &TWO;
-			siz = cache_num_sets;
-			while(siz >> 1 >= (unsigned) lines_expanded && siz >> 1 >= MINIMUM_GENERATOR_PERIOD)
-				siz >>= 1;
-			while(siz << 1 <= (unsigned) lines_expanded)
+			siz = siz_reduced;
+			while(siz < (unsigned) lines_expanded)
 				siz <<= 1;
 		}
 
