@@ -20,14 +20,26 @@ jaguar/jaguar set "$CATBENCH_JAGFILE" legend.samples.time.unit string         "s
 
 jaguar/jaguar set "$CATBENCH_JAGFILE" data.vary-allocation.description string "Allocation size vs. access rate"
 
+prime_factors_5="-f 3,7,13"
+prime_factors_10="-f 2,3,7,13"
+prime_factors_15="$prime_factors_5"
+prime_factors_20="$prime_factors_10"
+prime_factors_30="-f 5,983"
+prime_factors_40="-f 6553"
+prime_factors_60="-f 2,5,983"
+prime_factors_70="-f 11468"
+prime_factors_80="-f 3,17,257"
+prime_factors_90="-f 3,5,983"
+
 cache_way_size="$((`cat /sys/devices/system/cpu/cpu0/cache/index3/number_of_sets /sys/devices/system/cpu/cpu0/cache/index3/coherency_line_size | paste -sd* | bc` / 1024))"
 
 entries="integer,fraction\nalloc,time"
-for alloc in 25 50 100 200
+for alloc in 5 10 15 20 25 30 40 50 60 70 80 90 100 200 400 800 1600
 do
 	echo "alloc: $alloc"
 	kb=$((cache_way_size * alloc / 100))
-	entries="$entries\n$kb,`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -o /dev/null -d vary-allocation -n 0 -l "$alloc" -c -m "$mask" -p 0xfff -a -w 2>&1 >/dev/null | grep "accesses/s" | cut -d: -f2 | cut -d" " -f2 | tr "\n" " " | sed 's:\([^ ]\+\) \([^ ]\+\):1.0 / ( ( \1 + \2 ) / 2.0 )\n:' | bc -l`"
+	eval myfactors="\$prime_factors_$alloc"
+	entries="$entries\n$kb,`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -o /dev/null -d vary-allocation -n 0 -l "$alloc" -c -m "$mask" -p 0xfff -a "-wq $myfactors" 2>&1 >/dev/null | grep "accesses/s" | cut -d: -f2 | cut -d" " -f2 | tr "\n" " " | sed 's:\([^ ]\+\) \([^ ]\+\):1.0 / ( ( \1 + \2 ) / 2.0 )\n:' | bc -l`"
 done
 
 echo "$entries" | jaguar/jaguar set "$CATBENCH_JAGFILE" data.vary-allocation.samples array -
