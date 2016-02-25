@@ -54,6 +54,10 @@ do
 		signal_iters="$2"
 		shift
 		;;
+	"-a")
+		extra_args="$2"
+		shift
+		;;
 	*)
 		echo "Invalid argument"
 		exit 1
@@ -81,7 +85,7 @@ echo $trash_mask > $cgroup_path/trash/intel_rdt.l3_cbm
 echo $$ > $cgroup_path/trash/tasks
 
 # This is the lockserver, which performs 327.62M memory accesses and then exits
-clients/square_evictions_wrapper "$dataseries" -p $((10000 * 100 / lockserver_alloc_percent)) -n 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" > "$logfile_name" &
+clients/square_evictions_wrapper "$dataseries" -p $((10000 * 100 / lockserver_alloc_percent)) -n 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" $extra_args > "$logfile_name" &
 rawpid="`while ! (ps -eo pid,args | sed 's/^ \+//' | cut -d" " -f1-2 | grep -w clients/square_evictions); do :; done`"
 pid="`echo "$rawpid" | cut -d" " -f1`"
 
