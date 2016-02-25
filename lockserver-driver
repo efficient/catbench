@@ -65,12 +65,9 @@ cgroup_path="/sys/fs/cgroup/intel_rdt"
 
 if "$enable_cat"
 then
-	if [ -n "$lockserver_mask" -a -n "$trash_mask" ]
+	if [ -z "$lockserver_mask" -o -z "$trash_mask" ]
 	then
-		lockserver_mask=0x003
-		trash_mask=0xffc
-	else
-		echo "WOAH: You passed in -c, so I also require an explicit -m (lockserver mask) and -n (get trashed)" >&2
+		echo "WOAH: You passed in -c, so I also require an explicit -m (lockserver mask) and -p (get trashed)" >&2
 		exit 1
 	fi
 else
