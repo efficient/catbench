@@ -85,7 +85,7 @@ echo $trash_mask > $cgroup_path/trash/intel_rdt.l3_cbm
 echo $$ > $cgroup_path/trash/tasks
 
 # This is the lockserver, which performs 327.62M memory accesses and then exits
-clients/square_evictions_wrapper "$dataseries" -p $((10000 * 100 / lockserver_alloc_percent)) -n 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" $extra_args > "$logfile_name" &
+clients/square_evictions_wrapper "$dataseries" -p $((10000 * 100 / lockserver_alloc_percent)) -n 1 -c "$lockserver_alloc_percent" -e "$lockserver_alloc_percent" -hr -ia "$traverse_subset" -w $extra_args >"$logfile_name" 2>"$logfile_name.err" &
 rawpid="`while ! (ps -eo pid,args | sed 's/^ \+//' | cut -d" " -f1-2 | grep -w clients/square_evictions); do :; done`"
 pid="`echo "$rawpid" | cut -d" " -f1`"
 
@@ -124,3 +124,14 @@ if "$enable_cat"
 then
 	cgdelete intel_rdt:lockserver
 fi
+
+normalized="$(echo "`./avg_data.pl "$logfile_name"` / 163840000" | bc -l)"
+santycheck="$(echo "1 / `./avg_data.pl "$logfile_name.err" accesses/s`" | bc -l)"
+
+#if [ "`echo -e "define abs(n) { if(n >= 0) return(n) else return(-n) }\nabs($normalized - $santycheck) / $santycheck >= 0.5" | bc -l`" -ne 0 ]
+if [ "`printf 'define abs(n) { if(n >= 0) return(n) else return(-n) }\nabs(%s - %s) / %s >= 0.5\n' "$normalized" "$santycheck" "$santycheck" | bc -l`" -ne 0 ]
+then
+	echo "WARN: Normalized result (`echo "$normalized" | head -n1`) at least 5% off from sanity check (`echo "$santycheck"`)!" >&2
+	exit 1
+fi
+echo "$normalized"
