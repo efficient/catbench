@@ -3,9 +3,14 @@
 # TODO: calculate average time per memory access?
 open($infile, "<", "$ARGV[0]");
 
+$unit = "seconds";
+if($ARGV[1] ne "") {
+	$unit = $ARGV[1];
+}
+
 @data_arr;
 while(my $line = <$infile>) {
-	if($line =~ /([\d\.]+)\s*seconds/) {
+	if($line =~ /([\d\.]+)\s*$unit/) {
 		push(@data_arr, $1);
 	}
 }
@@ -15,11 +20,6 @@ foreach(@data_arr) {
 	$sum += $_;
 }
 
-$multiplier = 1;
-if($ARGV[1] ne "") {
-	$multiplier = $ARGV[1];
-}
-
-print($sum / @data_arr * $multiplier);
+print($sum / @data_arr);
 print("\n");
 
