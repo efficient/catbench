@@ -53,14 +53,16 @@ def get_sample_description(filename, samplename):
     database = json.load(fd);
     label_entry = database.get("legend").get("samples").get(labelname);
     fd.close();
+    if(label_entry == None):
+    	return "";
     return str(label_entry.get("description"));
 
 def get_label(filename, labelname):
     fd = open(filename, 'r');
     database = json.load(fd);
     label_entry = database.get("legend").get("samples").get(labelname);
-    #if(label_entry == None):
-    #    return labelname;
+    if(label_entry == None):
+        return labelname;
     ret = label_entry.get("description");
     ret = ret + " (";
     ret = ret + label_entry.get("unit");
@@ -71,13 +73,21 @@ def get_arg_label(filename, progname, labelname):
     fd = open(filename, 'r');
     database = json.load(fd);
     fd.close();
-    return database.get("legend").get("args").get(progname).get(labelname).get("description");
+    try:
+        return database.get("legend").get("args").get(progname).get(labelname).get("description");
+    except:
+    	print("Missing entry " + progname + "." + labelname + "." + "description");
+        return "";
 
 def get_arg_unit(filename, progname, labelname):
     fd = open(filename, 'r');
     database = json.load(fd);
     fd.close();
-    return database.get("legend").get("args").get(progname).get(labelname).get("unit");
+    try:
+        return database.get("legend").get("args").get(progname).get(labelname).get("unit");
+    except:
+        print("Missing entry " "legend" + "." + "args" + "." + progname + "." + labelname + "." + "unit";
+        return "";
 
 def get_aux(filename, progname, name, value):
     fd = open(filename, 'r');
@@ -142,9 +152,6 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
 def main():
     filename, slabels, xlabel, ylabels, ilabels, title, outfile = setup_optparse();
     graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile);
-    #graph2(filename, scol, xcol, ycols, icols, title, ylabel, outfile);
-    #get_tuples(filename, scol, xcol, ycols, icols);
-    #graph(filename);
 
 main();
 # Col 0 are the x points
