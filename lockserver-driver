@@ -98,7 +98,7 @@ fi
 
 
 for var in `seq 1 "$num_trash"`; do
-	clients/square_evictions -c "$trash_alloc_percent" -e "$trash_alloc_percent" -h > /dev/null &
+	clients/square_evictions -c "$trash_alloc_percent" -e "$trash_alloc_percent" -hr > /dev/null &
 done
 sleep 10
 
