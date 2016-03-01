@@ -18,12 +18,10 @@ then
 	iters="$2"
 fi
 
-jaguar/jaguar set "$logfilename" legend.samples.trash_percent.description string "Allocation size of non-lockserver processes"
-jaguar/jaguar set "$logfilename" legend.samples.trash_percent.unit string "KB"
-jaguar/jaguar set "$logfilename" legend.samples.no_cat.description string "Time per memory access"
-jaguar/jaguar set "$logfilename" legend.samples.no_cat.unit string "s"
-jaguar/jaguar set "$logfilename" legend.samples.with_cat.description string "Time per memory access"
-jaguar/jaguar set "$logfilename" legend.samples.with_cat.unit string "s"
+jaguar/jaguar set "$logfilename" legend.samples.trash_alloc.description string "Allocation size of non-lockserver processes"
+jaguar/jaguar set "$logfilename" legend.samples.trash_alloc.unit string "KB"
+jaguar/jaguar set "$logfilename" legend.samples.access_time.description string "Time per memory access"
+jaguar/jaguar set "$logfilename" legend.samples.access_time.unit string "s"
 
 lockserver_mask="0x003"
 trash_mask="0xffc"
