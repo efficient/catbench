@@ -24,10 +24,13 @@ def setup_optparse():
                         help='Graph title');
     parser.add_argument('--outfile', '-o', dest='outfile', default="graph.png",
                         help='Output filename');
+    parser.add_argument('--fit', '-f', dest='fit', default=False);
+    parser.add_argument('--ymin', dest='ymin', default=None);
+    parser.add_argument('--ymax', dest='ymax', default=None);
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.ignore_labels, args.title, args.outfile;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.ignore_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
     fd = open(filename, 'r');
@@ -113,7 +116,7 @@ def get_series_aux(filename, seriesname, ilist):
         ret = ret + "\n";
     fd.close();
     return ret;
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -145,13 +148,20 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile):
     ax.set_title(title);
     plt.legend(loc="upper center", bbox_to_anchor=(0.5,1.5));
     cur_max = cur_max * 1.75;
-    plt.ylim(ymin=0,ymax=cur_max);
+    if(user_ymin == None and fit == False and user_ymax == None):
+	    plt.ylim(ymin=0,ymax=cur_max);
+    elif(fit == False and user_ymin == None):
+            plt.ylim(ymin=0,ymax=user_ymax);
+    elif(user_ymax == None and fit == False):
+            plt.ylim(ymin=float(user_ymin), ymax=float(cur_max));
+    elif(fit == False):
+            plt.ylim(ymin=float(user_ymin), ymax=float(user_ymax));
     fig.savefig(outfile);
 
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile = setup_optparse();
-    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile);
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax = setup_optparse();
+    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax);
 
 main();
 # Col 0 are the x points
