@@ -86,7 +86,7 @@ def get_arg_unit(filename, progname, labelname):
     try:
         return database.get("legend").get("args").get(progname).get(labelname).get("unit");
     except:
-        print("Missing entry " "legend" + "." + "args" + "." + progname + "." + labelname + "." + "unit";
+        print("Missing entry " "legend" + "." + "args" + "." + progname + "." + labelname + "." + "unit");
         return "";
 
 def get_aux(filename, progname, name, value):
