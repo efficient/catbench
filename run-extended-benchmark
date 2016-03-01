@@ -36,7 +36,7 @@ do
 	header="integer,fraction\ntrash_alloc,access_time"
 	ctrlline="$header"
 	exptline="$header"
-	for trash_percent in 50 100 200 400 800
+	for trash_percent in 50 100 200 400 800 1600 3200 6400
 	do
 		echo "Lockserver%: $lockserver_percent, Trash%: $trash_percent, Trash: $num_trash"
 		trash_kb=$((cache_way_size * trash_percent / 100))
