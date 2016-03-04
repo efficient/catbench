@@ -11,6 +11,7 @@ traverse_subset=0
 
 num_trash=8
 signal_iters=1
+signal_pause=0
 
 while [ $# -ge 1 ]
 do
@@ -52,6 +53,12 @@ do
 		;;
 	"-i")
 		signal_iters="$2"
+		shift
+		;;
+	"-w")
+		# NB: Make certain this value (microseconds) is long enough to allow each -s-access
+		#     subset to complete; otherwise, some of the signals will be missed!
+		signal_pause="$2"
 		shift
 		;;
 	"-a")
@@ -105,7 +112,7 @@ sleep 10
 for var in `seq 1 "$signal_iters"`
 do
 	kill -s 10 $pid
-	usleep 100
+	usleep "$signal_pause"
 done
 
 # Sleep to allow our processes to actually run for a little while
