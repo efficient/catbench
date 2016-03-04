@@ -13,6 +13,8 @@ num_trash=8
 signal_iters=1
 signal_pause=0
 
+accesses_per_sample=163840000
+
 while [ $# -ge 1 ]
 do
 	case "$1" in
@@ -45,6 +47,7 @@ do
 		;;
 	"-s")
 		traverse_subset="$2"
+		accesses_per_sample="$2"
 		shift
 		;;
 	"-n")
@@ -132,7 +135,7 @@ then
 	cgdelete intel_rdt:lockserver
 fi
 
-normalized="$(echo "`./avg_data.pl "$logfile_name"` / 163840000" | bc -l)"
+normalized="$(echo "`./avg_data.pl "$logfile_name"` / $accesses_per_sample" | bc -l)"
 santycheck="$(echo "1 / `./avg_data.pl "$logfile_name.err" accesses/s`" | bc -l)"
 
 #if [ "`echo -e "define abs(n) { if(n >= 0) return(n) else return(-n) }\nabs($normalized - $santycheck) / $santycheck >= 0.5" | bc -l`" -ne 0 ]
