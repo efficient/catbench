@@ -132,6 +132,5 @@ santycheck="$(echo "1 / `./avg_data.pl "$logfile_name.err" accesses/s`" | bc -l)
 if [ "`printf 'define abs(n) { if(n >= 0) return(n) else return(-n) }\nabs(%s - %s) / %s >= 0.5\n' "$normalized" "$santycheck" "$santycheck" | bc -l`" -ne 0 ]
 then
 	echo "WARN: Normalized result (`echo "$normalized" | head -n1`) at least 5% off from sanity check (`echo "$santycheck"`)!" >&2
-	exit 1
 fi
 echo "$normalized"
