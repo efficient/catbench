@@ -29,7 +29,9 @@ jaguar/jaguar set "$logfilename" legend.samples.access_time.unit string "s"
 lockserver_mask="0x003"
 trash_mask="0xffc"
 
-cache_way_size="$((`cat /sys/devices/system/cpu/cpu0/cache/index3/number_of_sets /sys/devices/system/cpu/cpu0/cache/index3/coherency_line_size | paste -sd* | bc` / 1024))"
+cache_num_sets="$(cat /sys/devices/system/cpu/cpu0/cache/index3/number_of_sets)"
+cache_line_size="$(cat /sys/devices/system/cpu/cpu0/cache/index3/coherency_line_size)"
+cache_way_size="$((cache_num_sets * cache_line_size / 1024))"
 
 for lockserver_percent in 50 100
 do
@@ -43,8 +45,7 @@ do
 	do
 		echo "Lockserver%: $lockserver_percent, Trash%: $trash_percent, Trash: $num_trash"
 		trash_kb=$((cache_way_size * trash_percent / 100))
-		# TODO: HW-dependent!
-		traverse_accs=$((traverse * cache_way_size * 1024 * lockserver_percent / 100 / 64))
+		traverse_accs=$((traverse * cache_num_sets * lockserver_percent / 100))
 		sleep 10
 		control="`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -o no-cat.dat -l "$lockserver_percent" -d "l${lock_kb}k_nocat" -t "$trash_percent" -s "$traverse_accs" -i "$iters" -w "$traverse_pause"`"
 		sleep 10
