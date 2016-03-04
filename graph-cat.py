@@ -57,7 +57,7 @@ def get_sample_description(filename, samplename):
     label_entry = database.get("legend").get("samples").get(labelname);
     fd.close();
     if(label_entry == None):
-    	return "";
+        return "";
     return str(label_entry.get("description"));
 
 def get_label(filename, labelname):
@@ -79,7 +79,7 @@ def get_arg_label(filename, progname, labelname):
     try:
         return database.get("legend").get("args").get(progname).get(labelname).get("description");
     except:
-    	print("Missing entry " + progname + "." + labelname + "." + "description");
+        print("Missing entry " + progname + "." + labelname + "." + "description");
         return "";
 
 def get_arg_unit(filename, progname, labelname):
@@ -143,13 +143,15 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                 continue;
             xy = map(list, zip(*val2));
             line.append((ax.plot(xy[0], xy[1], label=val["description"] + str(key2[1])))[0]);
-	    if(max(xy[1]) > cur_max):
-	    	cur_max = max(xy[1]);
+            plt.xticks(xy[0]);
+            ax.scatter(xy[0], xy[1]);
+        if(max(xy[1]) > cur_max):
+            cur_max = max(xy[1]);
     ax.set_title(title);
     plt.legend(loc="upper center", bbox_to_anchor=(0.5,1.5));
     cur_max = cur_max * 1.75;
     if(user_ymin == None and fit == False and user_ymax == None):
-	    plt.ylim(ymin=0,ymax=cur_max);
+        plt.ylim(ymin=0,ymax=cur_max);
     elif(fit == False and user_ymin == None):
             plt.ylim(ymin=0,ymax=user_ymax);
     elif(user_ymax == None and fit == False):
