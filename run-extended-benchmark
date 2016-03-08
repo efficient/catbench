@@ -47,9 +47,9 @@ do
 		trash_kb=$((cache_way_size * trash_percent / 100))
 		traverse_accs=$((traverse * cache_num_sets * lockserver_percent / 100))
 		sleep 10
-		control="`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -o no-cat.dat -l "$lockserver_percent" -d "l${lock_kb}k_nocat" -t "$trash_percent" -s "$traverse_accs" -i "$iters" -w "$traverse_pause"`"
+		control="`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -o no-cat.dat -l "$lockserver_percent" -d "l${lock_kb}k_nocat" -t "$trash_percent" -u 8 -s "$traverse_accs" -i "$iters" -w "$traverse_pause"`"
 		sleep 10
-		experimental="`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -c -m "$lockserver_mask" -p "$trash_mask" -o with-cat.dat -l "$lockserver_percent" -d "l${lock_kb}k_withcat" -t "$trash_percent" -s "$traverse_accs" -i "$iters" -w "$traverse_pause"`"
+		experimental="`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver -c -m "$lockserver_mask" -p "$trash_mask" -o with-cat.dat -l "$lockserver_percent" -u 8 -d "l${lock_kb}k_withcat" -t "$trash_percent" -s "$traverse_accs" -i "$iters" -w "$traverse_pause"`"
 		ctrlline="$ctrlline\n`printf "%d,%s\n" "$trash_kb" "$control"`"
 		exptline="$exptline\n`printf "%d,%s\n" "$trash_kb" "$experimental"`"
 	done
