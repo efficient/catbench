@@ -20,6 +20,8 @@
 #define DEFAULT_PERCENT_CONTRACTED 80
 #define DEFAULT_PERCENT_EXPANDED   220
 
+#define MAX_TRUE_UNROLL            8
+
 #define MAX_MEMREF_CYCLES_POW	17
 #define LOWER(x) (1 << x)
 #define UPPER(x) (1 << (x+1))
@@ -140,6 +142,7 @@ static struct {
 	int passes_per_cycle;
 	int capacity_contracted;
 	int capacity_expanded;
+	int unroll;
 	rng_t *randomize;
 	rng_t *cont_rand;
 	bool no_randspin;
@@ -153,11 +156,11 @@ static struct {
 static void square_evictions_handler(int);
 static void term_handler(int);
 
-typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, rng_t *, rng_t *, bool, bool,
-		perf_log_buffer_t **, int, bool, int);
+typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, int, rng_t *, rng_t *, bool,
+		bool, perf_log_buffer_t **, int, bool, int);
 
 static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_periods,
-		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
+		int passes_per_cycle, int capacity_contracted, int capacity_expanded, int unroll,
 		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
 		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses) {
 	square_evictions_saved.arr = arr;
@@ -166,6 +169,7 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 	square_evictions_saved.passes_per_cycle = passes_per_cycle;
 	square_evictions_saved.capacity_contracted = capacity_contracted;
 	square_evictions_saved.capacity_expanded = capacity_expanded;
+	square_evictions_saved.unroll = unroll;
 	square_evictions_saved.randomize = randomize;
 	square_evictions_saved.cont_rand = cont_rand;
 	square_evictions_saved.no_randspin = no_randspin;
@@ -188,7 +192,7 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 }
 
 static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
-		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
+		int passes_per_cycle, int capacity_contracted, int capacity_expanded, int unroll,
 		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
 		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses) {
 	assert(perflog);
@@ -223,7 +227,10 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		int accesses = 0;
 		uint64_t time = 0;
 		uint64_t max_time = 0;
-		uint8_t val = rand();
+		uint8_t val[unroll];
+
+		for(int idx = 0; idx < unroll; ++idx)
+			val[idx] = rand();
 
 		if(cycle % 2) {
 			siz = capacity_expanded;
@@ -241,28 +248,105 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		for(int pass = 0; pass < passes_per_cycle; ++pass) {
 			bool seen_initial = false;
 			for(int offset = 0; offset < siz; offset += cache_line_size) {
-				unsigned ix;
-				int tries = 0;
-				do {
-					ix = randomize ? rng_lcfc(randomizer) * cache_line_size :
-							(unsigned) offset;
-					++tries;
-				} while(ix >= (unsigned) siz);
-				if(!ix)
-					seen_initial = true;
-				if(no_randspin && tries > 1) {
-					fprintf(stderr, "ERROR: Took %d tries before we got an in-range random!\n", tries);
-					return 1;
+				int subaccesses = (siz - offset) / cache_line_size;
+				if(subaccesses > unroll)
+					subaccesses = unroll;
+				if(max_accesses && accesses + subaccesses > max_accesses)
+					subaccesses = max_accesses - accesses;
+
+				unsigned ix[subaccesses];
+				for(int idx = 0; idx < subaccesses; ++idx) {
+					int tries = 0;
+					unsigned thisix;
+					do {
+						thisix = randomize ? rng_lcfc(randomizer) * cache_line_size :
+								(unsigned) offset + idx * cache_line_size;
+						++tries;
+					} while(thisix >= (unsigned) siz);
+					if(!thisix)
+						seen_initial = true;
+					if(no_randspin && tries > 1) {
+						fprintf(stderr, "ERROR: Took %d tries before we got an in-range random!\n", tries);
+						return 1;
+					}
+
+					ix[idx] = thisix;
 				}
 
 				if(measure_all)
 					time = rdtscp();
-				arr[ix] ^= val;
-				val ^= arr[ix];
-				arr[ix] ^= val;
+
+				int subaccess = 0;
+				switch(subaccesses) {
+				default:
+					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
+						arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 8:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 7:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 6:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 5:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 4:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 3:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 2:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 1:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				};
+
+				subaccess = 0;
+				switch(subaccesses) {
+				default:
+					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
+						val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 8:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 7:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 6:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 5:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 4:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 3:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 2:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 1:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				};
+
+				subaccess = 0;
+				switch(subaccesses) {
+				default:
+					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
+						arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 8:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 7:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 6:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 5:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 4:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 3:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 2:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 1:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				};
 
 				if(measure_all) {
-					time = rdtscp() - time;
+					time = (rdtscp() - time) / subaccesses;
 					if(time > max_time) {
 						max_time = time;
 						printf("Current max cycles for a memory access %lu\n", max_time);
@@ -277,7 +361,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 					if(!bufappend(perflog, perfd, startperf))
 						return 1;
 
-				++accesses;
+				accesses += subaccesses;
 				if(accesses == max_accesses) {
 					duration += clock() - startpass;
 					printf("Completed traversal in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
@@ -286,6 +370,8 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 						fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) accesses / duration * CLOCKS_PER_SEC);
 					goto breakoutermost;
 				}
+
+				offset += (subaccesses - 1) * cache_line_size;
 			}
 			assert(!siz || seen_initial);
 		}
@@ -317,6 +403,7 @@ static void square_evictions_handler(int sig) {
 			square_evictions_saved.passes_per_cycle,
 			square_evictions_saved.capacity_contracted,
 			square_evictions_saved.capacity_expanded,
+			square_evictions_saved.unroll,
 			square_evictions_saved.randomize,
 			square_evictions_saved.cont_rand,
 			square_evictions_saved.no_randspin,
@@ -346,6 +433,7 @@ int main(int argc, char *argv[]) {
 	int passes_per_cycle = DEFAULT_PASSES_PER_CYCLE;
 	int percent_contracted = DEFAULT_PERCENT_CONTRACTED;
 	int percent_expanded = DEFAULT_PERCENT_EXPANDED;
+	int unroll = 1;
 	int custom_increment = 0;
 	int perfstride = -1;
 	int accesses = 0;
@@ -362,7 +450,7 @@ int main(int argc, char *argv[]) {
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hr::qf:swvl:j:ma:b:i")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:hu:r::qf:swvl:j:ma:b:i")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -390,6 +478,12 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'h':
 			hugepages = true;
+			break;
+		case 'u':
+			if(!parse_arg_arg(each_arg, &unroll)) {
+				ret = 1;
+				goto cleanup;
+			}
 			break;
 		case 'r':
 			randomize = true;
@@ -470,7 +564,7 @@ int main(int argc, char *argv[]) {
 			await_signal = true;
 			break;
 		default:
-			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-h] [-r [#]] [-q] [-f ,,] [-s] [-w] [-v] [-l @] [-j #] [-m] [-a #] [-b #] [-i]\n",
+			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-h] [-u] [-r [#]] [-q] [-f ,,] [-s] [-w] [-v] [-l @] [-j #] [-m] [-a #] [-b #] [-i]\n",
 					invoc);
 			printf(
 					" -n #: Number of PERIODS (default %d)\n"
@@ -478,6 +572,7 @@ int main(int argc, char *argv[]) {
 					" -c %%: Percent cache CONTRACTED 1/2-period (default %d)\n"
 					" -e %%: Percent cache EXPANDED 1/2-period (default %d)\n"
 					" -h: Allocate using huge pages for contiguous memory\n"
+					" -u #: Unroll loop given number of times\n"
 					" -r [#]: Randomize ordering to fool prefetcher\n"
 					"         Optionally takes a custom rng increment\n"
 					" -q: Do not spin to handle out-of-bounds rng results\n"
@@ -532,6 +627,11 @@ int main(int argc, char *argv[]) {
 		ret = 1;
 		goto cleanup;
 	}
+	if(unroll > MAX_TRUE_UNROLL)
+		fprintf(stderr, "WARN: You requested unrolling groups of %d accesses, but I can "
+				"only *really* do this up to %d at a time. I'll still group your "
+				"accesses for you, but the excess ones might be a bit slower.\n",
+				unroll, MAX_TRUE_UNROLL);
 
 	llc_init();
 	int cache_line_size = llc_line_size();
@@ -627,8 +727,8 @@ int main(int argc, char *argv[]) {
 		goto cleanup;
 	}
 	ret = call(large, cache_line_size, num_periods, passes_per_cycle, cap_contracted,
-			cap_expanded, random, randtv, norngspin, sanitycheck_memory, &perfbuf,
-			perfstride, measure_all, accesses);
+			cap_expanded, unroll, random, randtv, norngspin, sanitycheck_memory,
+			&perfbuf, perfstride, measure_all, accesses);
 
 	if(perflog) {
 		assert(perfbuf);
