@@ -470,7 +470,7 @@ int main(int argc, char *argv[]) {
 			await_signal = true;
 			break;
 		default:
-			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-r [#]] [-s] [-l @] [-m] [-a #] [-b #]\n",
+			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-h] [-r [#]] [-q] [-f ,,] [-s] [-w] [-v] [-l @] [-j #] [-m] [-a #] [-b #] [-i]\n",
 					invoc);
 			printf(
 					" -n #: Number of PERIODS (default %d)\n"
