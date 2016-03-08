@@ -57,7 +57,7 @@ jaguar/jaguar set "$CATBENCH_JAGFILE" meta.submodule "`git submodule status`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.uname "`uname -a`"
 
 echo "$ $@"
-eval "$@"
+"$@"
 status="$?"
 
 logging_cleanup

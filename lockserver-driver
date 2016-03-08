@@ -129,7 +129,7 @@ sleep 2
 # Don't kill the contending processes until the lockserver has gracefully exited.
 # Without this, the teardown interval will creep into our results!
 kill "$pid"
-while (ps -eo pid | grep "$pid" >/dev/null 2>&1); do :; done
+while (ps -eo pid | grep -x "$pid" >/dev/null 2>&1); do :; done
 
 # CLEANUP
 killall square_evictions
