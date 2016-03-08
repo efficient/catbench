@@ -20,7 +20,7 @@
 #define DEFAULT_PERCENT_CONTRACTED 80
 #define DEFAULT_PERCENT_EXPANDED   220
 
-#define MAX_TRUE_UNROLL            8
+#define MAX_TRUE_UNROLL            16
 
 #define MAX_MEMREF_CYCLES_POW	17
 #define LOWER(x) (1 << x)
@@ -281,6 +281,22 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 				default:
 					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
 						arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 16:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 15:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 14:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 13:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 12:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 11:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 10:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 9:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
 				case 8:
 					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
 				case 7:
@@ -304,6 +320,22 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 				default:
 					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
 						val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 16:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 15:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 14:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 13:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 12:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 11:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 10:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+				case 9:
+					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
 				case 8:
 					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
 				case 7:
@@ -327,6 +359,22 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 				default:
 					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
 						arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 16:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 15:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 14:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 13:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 12:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 11:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 10:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+				case 9:
+					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
 				case 8:
 					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
 				case 7:
