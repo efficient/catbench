@@ -89,6 +89,10 @@ do
 	-h*)
 		seen_hugepages="true"
 		;;
+	-u*)
+		header="$header\n-u"
+		add_legend_entry -u "unroll" "unroll loop" "accesses per iteration"
+		;;
 	-r*)
 		seen_randomize="true"
 
