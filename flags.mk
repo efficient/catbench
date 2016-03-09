@@ -1,6 +1,6 @@
 CPPFLAGS_global := \
 	-Wundef \
-	$(foreach subdir,$(shell $(dir $(lastword $(MAKEFILE_LIST)))external/ls-subdirs dpdk/lib),-isystem $(dir $(lastword $(MAKEFILE_LIST)))external/dpdk/lib/$(subdir)) \
+	-isystem $(dir $(lastword $(MAKEFILE_LIST)))external/dpdk/build/include \
 	-isystem $(dir $(lastword $(MAKEFILE_LIST)))external/pqos/lib \
 
 CFLAGS_global := \
