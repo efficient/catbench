@@ -1,0 +1,11 @@
+diff --git i/build/lib/Makefile w/build/lib/Makefile
+new file mode 100644
+index 0000000..8932e07
+--- /dev/null
++++ w/build/lib/Makefile
+@@ -0,0 +1,5 @@
++../.config:
++	$(MAKE) -C ../.. config T=x86_64-native-linuxapp-gcc
++
++%.a: ../.config
++	$(MAKE) -C ../..
