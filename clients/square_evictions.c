@@ -276,121 +276,118 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 				if(measure_all)
 					time = rdtscp();
 
-				int subaccess = 0;
 				switch(subaccesses) {
 				default:
-					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
-						arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					for(int extra = subaccesses - 1; extra >= MAX_TRUE_UNROLL; --extra)
+						arr[ix[extra]] ^= val[extra];
 				case 16:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[15]] ^= val[15];
 				case 15:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[14]] ^= val[14];
 				case 14:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[13]] ^= val[13];
 				case 13:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[12]] ^= val[12];
 				case 12:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[11]] ^= val[11];
 				case 11:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[10]] ^= val[10];
 				case 10:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[9]] ^= val[9];
 				case 9:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[8]] ^= val[8];
 				case 8:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[7]] ^= val[7];
 				case 7:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[6]] ^= val[6];
 				case 6:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[5]] ^= val[5];
 				case 5:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[4]] ^= val[4];
 				case 4:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[3]] ^= val[3];
 				case 3:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[2]] ^= val[2];
 				case 2:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[1]] ^= val[1];
 				case 1:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[0]] ^= val[0];
 				};
 
-				subaccess = 0;
 				switch(subaccesses) {
 				default:
-					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
-						val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					for(int extra = subaccesses - 1; extra >= MAX_TRUE_UNROLL; --extra)
+						val[extra] ^= arr[ix[extra]];
 				case 16:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[15] ^= arr[ix[15]];
 				case 15:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[14] ^= arr[ix[14]];
 				case 14:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[13] ^= arr[ix[13]];
 				case 13:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[12] ^= arr[ix[12]];
 				case 12:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[11] ^= arr[ix[11]];
 				case 11:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[10] ^= arr[ix[10]];
 				case 10:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[9] ^= arr[ix[9]];
 				case 9:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[8] ^= arr[ix[8]];
 				case 8:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[7] ^= arr[ix[7]];
 				case 7:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[6] ^= arr[ix[6]];
 				case 6:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[5] ^= arr[ix[5]];
 				case 5:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[4] ^= arr[ix[4]];
 				case 4:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[3] ^= arr[ix[3]];
 				case 3:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[2] ^= arr[ix[2]];
 				case 2:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[1] ^= arr[ix[1]];
 				case 1:
-					val[subaccess] ^= arr[ix[subaccess]], ++subaccess;
+					val[0] ^= arr[ix[0]];
 				};
 
-				subaccess = 0;
 				switch(subaccesses) {
 				default:
-					while(subaccesses - subaccess > MAX_TRUE_UNROLL)
-						arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					for(int extra = subaccesses - 1; extra >= MAX_TRUE_UNROLL; --extra)
+						arr[ix[extra]] ^= val[extra];
 				case 16:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[15]] ^= val[15];
 				case 15:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[14]] ^= val[14];
 				case 14:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[13]] ^= val[13];
 				case 13:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[12]] ^= val[12];
 				case 12:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[11]] ^= val[11];
 				case 11:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[10]] ^= val[10];
 				case 10:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[9]] ^= val[9];
 				case 9:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[8]] ^= val[8];
 				case 8:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[7]] ^= val[7];
 				case 7:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[6]] ^= val[6];
 				case 6:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[5]] ^= val[5];
 				case 5:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[4]] ^= val[4];
 				case 4:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[3]] ^= val[3];
 				case 3:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[2]] ^= val[2];
 				case 2:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[1]] ^= val[1];
 				case 1:
-					arr[ix[subaccess]] ^= val[subaccess], ++subaccess;
+					arr[ix[0]] ^= val[0];
 				};
 
 				if(measure_all) {
