@@ -1,0 +1,58 @@
+#!/bin/sh
+
+logfilename="$CATBENCH_JAGFILE"
+if [ -z "$logfilename" ]
+then
+	cat >&2 <<-tac
+		$0: should be invoked via driver
+	tac
+	exit 1
+fi
+
+traverse=0
+traverse_pause=0
+iters=1
+if [ $# -eq 3 ]
+then
+	echo "I hear you like choppier lockservers, bro. Here comes one!"
+	traverse="$1"
+	# TODO: Must be big enough that signals don't cancel out!
+	traverse_pause="$2"
+	iters="$3"
+fi
+
+jaguar/jaguar set "$logfilename" legend.samples.trash_alloc.description string "Allocation size of non-lockserver processes"
+jaguar/jaguar set "$logfilename" legend.samples.trash_alloc.unit string "KB"
+jaguar/jaguar set "$logfilename" legend.samples.throughput.description string "Reads per second"
+jaguar/jaguar set "$logfilename" legend.samples.throughput.unit string "reads/s"
+
+lockserver_mask="0x003"
+trash_mask="0xffc"
+
+cache_num_sets="$(cat /sys/devices/system/cpu/cpu0/cache/index3/number_of_sets)"
+cache_line_size="$(cat /sys/devices/system/cpu/cpu0/cache/index3/coherency_line_size)"
+cache_way_size="$((cache_num_sets * cache_line_size / 1024))"
+
+for lockserver_percent in 50 100
+do
+	lock_kb=$((cache_way_size * lockserver_percent / 100))
+	jaguar/jaguar set "$logfilename" "data.l${lock_kb}k_nocat.description" string "Lockserver ${lock_kb}k, no CAT"
+	jaguar/jaguar set "$logfilename" "data.l${lock_kb}k_withcat.description" string "Lockserver ${lock_kb}k, CAT $lockserver_mask"
+	header="integer,fraction\ntrash_alloc,access_time"
+	ctrlline="$header"
+	exptline="$header"
+	for trash_percent in 50 100 200 400 800 1600 3200
+	do
+		echo "Lockserver%: $lockserver_percent, Trash%: $trash_percent, Trash: $num_trash"
+		trash_kb=$((cache_way_size * trash_percent / 100))
+		traverse_accs=$((traverse * cache_num_sets * lockserver_percent / 100))
+		sleep 10
+		control="`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver-throughput -o no-cat.dat -l "$lockserver_percent" -d "l${lock_kb}k_nocat" -t "$trash_percent" -u 8 -s "$traverse_accs" -i "$iters" -w "$traverse_pause"`"
+		sleep 10
+		experimental="`sudo CATBENCH_JAGFILE="$CATBENCH_JAGFILE" ./lockserver-driver-throughput -c -m "$lockserver_mask" -p "$trash_mask" -o with-cat.dat -l "$lockserver_percent" -u 8 -d "l${lock_kb}k_withcat" -t "$trash_percent" -s "$traverse_accs" -i "$iters" -w "$traverse_pause"`"
+		ctrlline="$ctrlline\n`printf "%d,%s\n" "$trash_kb" "$control"`"
+		exptline="$exptline\n`printf "%d,%s\n" "$trash_kb" "$experimental"`"
+	done
+	echo "$ctrlline" | jaguar/jaguar set "$logfilename" "data.l${lock_kb}k_nocat.samples" array -
+	echo "$exptline" | jaguar/jaguar set "$logfilename" "data.l${lock_kb}k_withcat.samples" array -
+done
