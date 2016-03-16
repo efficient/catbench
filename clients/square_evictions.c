@@ -191,6 +191,9 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 	return 0;
 }
 
+static bool nope;
+static void nop(int o) { (void) o; nope = false; }
+
 static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded, int unroll,
 		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
@@ -220,7 +223,6 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 	}
 		
 	clock_t duration = 0;
-	volatile int count = 0;
 	for(int cycle = 0; cycle < 2 * num_periods; ++cycle) {
 		const char *desc = "";
 		rng_t *randomizer = randomize;
@@ -277,6 +279,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 				if(measure_all)
 					time = rdtscp();
 
+				int count = 0;
 				switch(subaccesses) {
 				default:
 					for(int extra = subaccesses - 1; extra >= MAX_TRUE_UNROLL; --extra)
@@ -314,6 +317,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 				case 1:
 					count += arr[ix[0]];
 				};
+				if(nope) nop(count);
 
 				if(measure_all) {
 					time = (rdtscp() - time) / subaccesses;
