@@ -18,8 +18,8 @@ def setup_optparse():
                         help='X axis label');
     parser.add_argument('--ydata', '-y', nargs='+', dest='y_labels',
                         help='Y axis data labels. Single label or space separated list');
-    parser.add_argument('--ignore', nargs='+', dest='ignore_labels',
-                        help='Ignore these labels when summarizing information');
+    parser.add_argument('--include', nargs='+', dest='include_labels',
+                        help='Include these labels when summarizing information');
     parser.add_argument('--title', '-t', dest='title',
                         help='Graph title');
     parser.add_argument('--outfile', '-o', dest='outfile', default="graph.png",
@@ -30,7 +30,7 @@ def setup_optparse():
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.ignore_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
     fd = open(filename, 'r');
@@ -102,13 +102,18 @@ def get_aux(filename, progname, name, value):
     return ret;
 
 
+def get_commit(filename):
+    fd = open(filename, 'r');
+    database = json.load(fd);
+    ret = database.get("meta").get("commit") + "\n";
+    return ret;
 def get_series_aux(filename, seriesname, ilist):
     fd = open(filename, 'r');
     database = json.load(fd);
     ret = "";
     for arg in database.get("data").get(seriesname).get("args"):
 #TODO Issue parsing "-." as a param
-        if(ilist != None and str(arg.get("name")[1:]) in ilist):
+        if(ilist == None or str(arg.get("name")[1:]) not in ilist):
             continue;
         ret = ret + str(database.get("data").get(seriesname).get("description") + ": " + \
                 get_aux(filename, database.get("data").get(seriesname).get("type"), \
@@ -129,6 +134,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     ax.set_position([box.x0, box.y0, box.width, box.height * 0.7])
 
     aux_text = "";
+    aux_text += get_commit(filename);
     for slabel in slabels:
         aux_text += get_series_aux(filename, slabel, ilabels);
         aux_text += "\n";
