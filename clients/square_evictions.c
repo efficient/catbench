@@ -230,10 +230,6 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		int accesses = 0;
 		uint64_t time = 0;
 		uint64_t max_time = 0;
-		uint8_t val[unroll];
-
-		for(int idx = 0; idx < unroll; ++idx)
-			val[idx] = rand();
 
 		if(cycle % 2) {
 			siz = capacity_expanded;
@@ -283,7 +279,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 				switch(subaccesses) {
 				default:
 					for(int extra = subaccesses - 1; extra >= MAX_TRUE_UNROLL; --extra)
-						arr[ix[extra]] ^= val[extra];
+						count += arr[ix[extra]];
 				case 16:
 					count += arr[ix[15]];
 				case 15:
