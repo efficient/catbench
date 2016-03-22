@@ -19,7 +19,7 @@ def setup_optparse():
     parser.add_argument('--ydata', '-y', nargs='+', dest='y_labels',
                         help='Y axis data labels. Single label or space separated list');
     parser.add_argument('--include', nargs='+', dest='include_labels',
-                        help='Ignore these labels when summarizing information');
+                        help='Include these labels when summarizing information');
     parser.add_argument('--title', '-t', dest='title',
                         help='Graph title');
     parser.add_argument('--outfile', '-o', dest='outfile', default="graph.png",
