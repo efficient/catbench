@@ -12,6 +12,10 @@ all: square_evictions
 
 include ../external/modules.mk
 
+basicfwd: CFLAGS += -std=gnu99 -Wno-inline
+basicfwd: CPPFLAGS += -include rte_config.h
+basicfwd: LDLIBS += -ldl -lpthread
+basicfwd: ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
 rng_test: rng.o
 square_evictions: llc.o movnt.o perf_poll.o rng.o
 
