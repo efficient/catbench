@@ -128,7 +128,7 @@ while (ps -eo pid | grep -x "$pid" >/dev/null 2>&1); do :; done
 
 # CLEANUP
 killall square_evictions
-while (ps -eo args | cut -d" " -f1 | grep -x clients/square_evictions >/dev/null 2>&1); do :; done
+[ "$num_trash" -ne 0 ] && while (ps -eo args | cut -d" " -f1 | grep -x clients/square_evictions >/dev/null 2>&1); do :; done
 cgdelete intel_rdt:trash
 if "$enable_cat"
 then
