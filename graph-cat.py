@@ -64,6 +64,7 @@ def get_label(filename, labelname):
     fd = open(filename, 'r');
     database = json.load(fd);
     label_entry = database.get("legend").get("samples").get(labelname);
+    return labelname;
     if(label_entry == None):
         return labelname;
     ret = label_entry.get("description");
@@ -141,30 +142,60 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 
     ax.text(0.05, 0.95, aux_text, verticalalignment='top', transform=ax.transAxes);
 
-    cur_max=0;
+    cur_ymax=0;
+    cur_xmax=0;
+    x_copy=None;
     for key, val in series_tuples.items():
         line = list();
         for key2, val2 in val.items():
             if(key2 == "description"):
                 continue;
             xy = map(list, zip(*val2));
-            line.append((ax.plot(xy[0], xy[1], label=val["description"] + str(key2[1])))[0]);
-            plt.xticks(xy[0]);
+            line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+            #plt.xticks(xy[0]);
             ax.scatter(xy[0], xy[1]);
-        if(max(xy[1]) > cur_max):
-            cur_max = max(xy[1]);
+	if(max(xy[0]) > cur_xmax):
+	    cur_xmax = max(xy[0]);
+	    x_copy = xy[0];
+        if(max(xy[1]) > cur_ymax):
+            cur_ymax = max(xy[1]);
+    min_dist = cur_xmax / 16;
+    idx = 0;
+    if(x_copy[0] > 0):
+        x_copy.insert(0, 0);
+    while(idx + 1 < len(x_copy)):
+        if(x_copy[idx] + min_dist > x_copy[idx+1]):
+	    x_copy.pop(idx+1);
+	    continue;
+	idx += 1;
+    plt.xticks(x_copy);
     ax.set_title(title);
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5,1.5));
-    cur_max = cur_max * 1.75;
+    lgd = plt.legend(loc="center right", bbox_to_anchor=(1.7,0.5));
+
+    handles, labels = ax.get_legend_handles_labels()
+
+    # or sort them by labels
+    import operator
+    hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
+    handles2, labels2 = zip(*hl)
+    print labels2;
+    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.7, 0.5));
+    #lgd = plt.legend(loc="center right", bbox_to_anchor=(1.7,0.5));
+
+    cur_ymax = cur_ymax * 1.75;
+    plt.xlim(xmin=0);
+    plt.setp(ax.get_xticklabels(), fontsize=10, rotation=30)
+
+
     if(user_ymin == None and fit == False and user_ymax == None):
-        plt.ylim(ymin=0,ymax=cur_max);
+        plt.ylim(ymin=0,ymax=cur_ymax);
     elif(fit == False and user_ymin == None):
             plt.ylim(ymin=0,ymax=user_ymax);
     elif(user_ymax == None and fit == False):
-            plt.ylim(ymin=float(user_ymin), ymax=float(cur_max));
+            plt.ylim(ymin=float(user_ymin), ymax=float(cur_ymax));
     elif(fit == False):
             plt.ylim(ymin=float(user_ymin), ymax=float(user_ymax));
-    fig.savefig(outfile);
+    fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 
 def main():
