@@ -19,9 +19,9 @@ basicfwd: CFLAGS += -std=gnu99 -Wno-inline
 basicfwd: CPPFLAGS += -include rte_config.h
 basicfwd: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lm -lpthread -lrt
 basicfwd: ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
-lockclient: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread
+lockclient: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread -lrt
 lockclient: lockclient.o dpdk_wrapper.o ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
-lockserver-ng: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread
+lockserver-ng: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread -lrt
 lockserver-ng: lockserver-ng.o dpdk_wrapper.o ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
 rng_test: rng.o
 square_evictions: llc.o movnt.o perf_poll.o rng.o
