@@ -11,8 +11,6 @@
 
 #include "dpdk_wrapper.h"
 
-#define DEFAULT_LEN 1
-
 typedef struct {
 	int len;
 } args_t;

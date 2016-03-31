@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#define DEFAULT_LEN 1
+
 #define PORT 0
 
 static inline void perr(const char *s, int no) {
@@ -15,6 +17,6 @@ static inline void perror_rte(const char *s) {
 	perr(s, rte_errno);
 }
 
-bool dpdk_start(int argc, char**argv);
+struct rte_mempool *dpdk_start(int argc, char**argv);
 
 #endif

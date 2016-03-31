@@ -15,7 +15,7 @@ static const char *DEFAULT_EAL_ARGS[] = {
 };
 #define DEFAULT_EAL_NARGS (sizeof DEFAULT_EAL_ARGS / sizeof *DEFAULT_EAL_ARGS)
 
-bool dpdk_start(int argc, char **argv) {
+struct rte_mempool *dpdk_start(int argc, char **argv) {
 	int leftoverc = 1 + argc - optind + DEFAULT_EAL_NARGS;
 	printf("%d\n", leftoverc);
 	const char *leftoverv[leftoverc];
@@ -25,40 +25,40 @@ bool dpdk_start(int argc, char **argv) {
 
 	if(rte_eal_init(leftoverc, (char **) leftoverv) < 0) {
 		perror_rte("Initializing EAL");
-		return false;
+		return NULL;
 	}
 
 	if(!rte_eth_dev_count()) {
 		fputs("Error: number of ports must be nonzero\n", stderr);
-		return false;
+		return NULL;
 	}
 
 	if(rte_eth_dev_configure(PORT, 1, 1, &PORT_CONF)) {
 		perror_rte("Configuring Ethernet device");
-		return false;
+		return NULL;
 	}
 
 	struct rte_mempool *pool = rte_pktmbuf_pool_create("", NUM_MBUFS, MBUF_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
 	if(!pool) {
 		perror_rte("Allocating mbuf pool");
-		return false;
+		return NULL;
 	}
 
 	int errcode;
 	if((errcode = rte_eth_rx_queue_setup(PORT, 0, RX_RING_SIZE, rte_eth_dev_socket_id(PORT), NULL, pool))) {
 		perr("Setting up RX queue", -errcode);
-		return false;
+		return NULL;
 	}
 
 	if((errcode = rte_eth_tx_queue_setup(PORT, 0, TX_RING_SIZE, rte_eth_dev_socket_id(PORT), NULL))) {
 		perr("Setting up TX queue", -errcode);
-		return false;
+		return NULL;
 	}
 
 	if((errcode = rte_eth_dev_start(PORT))) {
 		perr("Starting Ethernet device", -errcode);
-		return false;
+		return NULL;
 	}
 
-	return true;
+	return pool;
 }
