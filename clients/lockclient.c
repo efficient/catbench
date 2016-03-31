@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
 	while((each_arg = getopt(argc, argv, "m:")) != -1)
 		switch(each_arg) {
 		case 'm':
-			if(sscanf(optarg, SCNx8 ":" SCNx8 ":" SCNx8 ":" SCNx8 ":" SCNx8 ":" SCNx8, args.mac.addr_bytes, args.mac.addr_bytes + 1,
+			if(sscanf(optarg, "%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8, args.mac.addr_bytes, args.mac.addr_bytes + 1,
 					args.mac.addr_bytes + 2, args.mac.addr_bytes + 3, args.mac.addr_bytes + 4, args.mac.addr_bytes + 5) != 6) {
 				perror("Parsing provided MAC");
 				return 127;
