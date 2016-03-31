@@ -19,6 +19,10 @@ basicfwd: CFLAGS += -std=gnu99 -Wno-inline
 basicfwd: CPPFLAGS += -include rte_config.h
 basicfwd: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lm -lpthread -lrt
 basicfwd: ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
+lockserver-ng: CFLAGS += -std=gnu99 -Wno-cast-qual
+lockserver-ng: CPPFLAGS += -include rte_config.h
+lockserver-ng: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread
+lockserver-ng: ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
 rng_test: rng.o
 square_evictions: llc.o movnt.o perf_poll.o rng.o
 
