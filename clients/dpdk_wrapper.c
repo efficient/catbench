@@ -17,7 +17,6 @@ static const char *DEFAULT_EAL_ARGS[] = {
 
 struct rte_mempool *dpdk_start(int argc, char **argv) {
 	int leftoverc = 1 + argc - optind + DEFAULT_EAL_NARGS;
-	printf("%d\n", leftoverc);
 	const char *leftoverv[leftoverc];
 	leftoverv[0] = argv[0];
 	memcpy(leftoverv + 1, argv + optind, (argc - optind) * sizeof *leftoverv);
