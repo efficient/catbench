@@ -19,21 +19,21 @@ static void ptrchase_setup(uintptr_t *arr, int len) {
 		return;
 	}
 
-	for(int idx = 0; idx < len; ++idx)
-		arr[idx] = 0x1;
-
 #ifndef NDEBUG
 	for(int idx = 0; idx < len; ++idx)
-		assert(arr[idx] == 0x1);
+		assert(!arr[idx]);
 #endif
 
 	srand(time(NULL));
-	for(int idx = 0; idx < len; ++idx) {
+	uintptr_t *curr = arr;
+	for(int count = 1; count < len; ++count) {
+		int idx = curr - arr;
 		int tgt;
-		while((tgt = rand() % len) == idx || !(arr[tgt] & 0x1));
-		arr[tgt] ^= 0x1;
-		arr[idx] |= (uintptr_t) (arr + tgt);
+		while((tgt = rand() % len) == idx || arr[tgt]);
+		*curr = (uintptr_t) (arr + tgt);
+		curr = arr + tgt;
 	}
+	*curr = (uintptr_t) arr;
 
 #ifndef NDEBUG
 	for(int idx = 0; idx < len; ++idx) {
