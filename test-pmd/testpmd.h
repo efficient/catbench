@@ -58,7 +58,7 @@
 #define RTE_MAX_SEGS_PER_PKT 255 /**< nb_segs is a 8-bit unsigned char. */
 
 #define MAX_PKT_BURST 512
-#define DEF_PKT_BURST 32
+#define DEF_PKT_BURST 1
 
 #define DEF_MBUF_CACHE 250
 
