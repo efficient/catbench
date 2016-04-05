@@ -10,7 +10,7 @@
 
 static const struct rte_eth_conf PORT_CONF;
 static const char *DEFAULT_EAL_ARGS[] = {
-	"-m8",
+	"-m32",
 	"--huge-unlink",
 };
 #define DEFAULT_EAL_NARGS (sizeof DEFAULT_EAL_ARGS / sizeof *DEFAULT_EAL_ARGS)
