@@ -82,7 +82,7 @@
 uint16_t verbose_level = 0; /**< Silent by default. */
 
 /* use master core for command line ? */
-uint8_t interactive = 0;
+uint8_t interactive = 1;
 uint8_t auto_start = 0;
 
 /*
