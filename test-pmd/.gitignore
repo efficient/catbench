@@ -1,0 +1,7 @@
+/build
+/testpmd
+/testpmd.map
+
+_*
+*.cmd
+*.d
