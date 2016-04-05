@@ -356,7 +356,7 @@ extern struct rte_fdir_conf fdir_conf;
 /*
  * Configuration of packet segments used by the "txonly" processing engine.
  */
-#define TXONLY_DEF_PACKET_LEN 64
+#define TXONLY_DEF_PACKET_LEN (sizeof(struct ether_hdr))
 extern uint16_t tx_pkt_length; /**< Length of TXONLY packet */
 extern uint16_t tx_pkt_seg_lengths[RTE_MAX_SEGS_PER_PKT]; /**< Seg. lengths */
 extern uint8_t  tx_pkt_nb_segs; /**< Number of segments in TX packets */

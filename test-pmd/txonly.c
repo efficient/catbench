@@ -83,8 +83,8 @@
 #define IP_HDRLEN  0x05 /* default IP header length == five 32-bits words. */
 #define IP_VHL_DEF (IP_VERSION | IP_HDRLEN)
 
-static struct ipv4_hdr  pkt_ip_hdr;  /**< IP header of transmitted packets. */
-static struct udp_hdr pkt_udp_hdr; /**< UDP header of transmitted packets. */
+//static struct ipv4_hdr  pkt_ip_hdr;  /**< IP header of transmitted packets. */
+//static struct udp_hdr pkt_udp_hdr; /**< UDP header of transmitted packets. */
 
 static inline struct rte_mbuf *
 tx_mbuf_alloc(struct rte_mempool *mp)
@@ -132,6 +132,7 @@ copy_buf_to_pkt(void* buf, unsigned len, struct rte_mbuf *pkt, unsigned offset)
 	copy_buf_to_pkt_segs(buf, len, pkt, offset);
 }
 
+#if 0
 static void
 setup_pkt_udp_ip_headers(struct ipv4_hdr *ip_hdr,
 			 struct udp_hdr *udp_hdr,
@@ -187,6 +188,7 @@ setup_pkt_udp_ip_headers(struct ipv4_hdr *ip_hdr,
 		ip_cksum = 0xFFFF;
 	ip_hdr->hdr_checksum = (uint16_t) ip_cksum;
 }
+#endif
 
 /*
  * Transmit a burst of multi-segments packets.
@@ -257,17 +259,18 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		 */
 		ether_addr_copy(&peer_eth_addrs[fs->peer_addr],&eth_hdr.d_addr);
 		ether_addr_copy(&ports[fs->tx_port].eth_addr, &eth_hdr.s_addr);
-		eth_hdr.ether_type = rte_cpu_to_be_16(ETHER_TYPE_IPv4);
+		//eth_hdr.ether_type = rte_cpu_to_be_16(ETHER_TYPE_IPv4);
+		eth_hdr.ether_type = 0;
 
 		/*
 		 * Copy headers in first packet segment(s).
 		 */
 		copy_buf_to_pkt(&eth_hdr, sizeof(eth_hdr), pkt, 0);
-		copy_buf_to_pkt(&pkt_ip_hdr, sizeof(pkt_ip_hdr), pkt,
+		/*copy_buf_to_pkt(&pkt_ip_hdr, sizeof(pkt_ip_hdr), pkt,
 				sizeof(struct ether_hdr));
 		copy_buf_to_pkt(&pkt_udp_hdr, sizeof(pkt_udp_hdr), pkt,
 				sizeof(struct ether_hdr) +
-				sizeof(struct ipv4_hdr));
+				sizeof(struct ipv4_hdr));*/
 
 		/*
 		 * Complete first mbuf of packet and append it to the
@@ -308,7 +311,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 #endif
 }
 
-static void
+/*static void
 tx_only_begin(__attribute__((unused)) portid_t pi)
 {
 	uint16_t pkt_data_len;
@@ -317,11 +320,11 @@ tx_only_begin(__attribute__((unused)) portid_t pi)
 						    sizeof(struct ipv4_hdr) +
 						    sizeof(struct udp_hdr)));
 	setup_pkt_udp_ip_headers(&pkt_ip_hdr, &pkt_udp_hdr, pkt_data_len);
-}
+}*/
 
 struct fwd_engine tx_only_engine = {
 	.fwd_mode_name  = "txonly",
-	.port_fwd_begin = tx_only_begin,
+	.port_fwd_begin = NULL, //tx_only_begin,
 	.port_fwd_end   = NULL,
 	.packet_fwd     = pkt_burst_transmit,
 };
