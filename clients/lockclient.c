@@ -14,13 +14,13 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		fputs("Couldn't allocate packet buffer\n", stderr);
 		return 1;
 	}
+	size_t pkt_size = sizeof(struct ether_hdr);
+	packet->data_len = pkt_size;
+	packet->pkt_len = pkt_size;
 
 	struct ether_hdr *frame = rte_pktmbuf_mtod(packet, struct ether_hdr *);
-	rte_pktmbuf_data_len(packet) = sizeof *frame;
+	rte_eth_macaddr_get(PORT, &frame->s_addr);
 	frame->d_addr = args->mac;
-	struct ether_addr mine;
-	rte_eth_macaddr_get(PORT, &mine);
-	frame->s_addr = mine;
 	frame->ether_type = 0;
 
 	puts("Sending activation packet!");
