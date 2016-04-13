@@ -23,12 +23,13 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 	frame->d_addr = args->mac;
 	frame->ether_type = 0;
 
-	puts("Sending activation packet!");
+	puts("About to send activation packet!");
 	if(!rte_eth_tx_burst(PORT, 0, &packet, 1)) {
 		fputs("Data wasn't actually transmitted\n", stderr);
 		ret = 2;
 		goto cleanup;
 	}
+	puts("Sent activation packet!");
 
 	while(!rte_eth_rx_burst(PORT, 0, &packet, 1));
 	puts("Received completion confirmation!");
