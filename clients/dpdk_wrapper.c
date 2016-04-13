@@ -59,5 +59,10 @@ struct rte_mempool *dpdk_start(int argc, char **argv) {
 		return NULL;
 	}
 
+	puts("About to wait for init to complete...");
+	struct rte_eth_link ign;
+	rte_eth_link_get(PORT, &ign);
+	puts("Initialization complete!");
+
 	return pool;
 }
