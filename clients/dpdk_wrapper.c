@@ -3,14 +3,14 @@
 #include <rte_ethdev.h>
 #include <unistd.h>
 
-#define MBUF_CACHE_SIZE 17
-#define NUM_MBUFS 255
-#define RX_RING_SIZE 32
-#define TX_RING_SIZE 64
+#define MBUF_CACHE_SIZE 250
+#define NUM_MBUFS 8191
+#define RX_RING_SIZE 128
+#define TX_RING_SIZE 512
 
 static const struct rte_eth_conf PORT_CONF;
 static const char *DEFAULT_EAL_ARGS[] = {
-	"-m32",
+	"-m64",
 	"--huge-unlink",
 };
 #define DEFAULT_EAL_NARGS (sizeof DEFAULT_EAL_ARGS / sizeof *DEFAULT_EAL_ARGS)
