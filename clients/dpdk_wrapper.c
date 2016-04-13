@@ -9,6 +9,13 @@
 #define TX_RING_SIZE 512
 
 static const struct rte_eth_conf PORT_CONF;
+static const struct rte_eth_rxconf RX_CONF;
+static const struct rte_eth_txconf TX_CONF = {
+	.tx_thresh = {
+		.wthresh = 1,
+	},
+	.tx_rs_thresh = 1,
+};
 static const char *DEFAULT_EAL_ARGS[] = {
 	"-m64",
 	"--huge-unlink",
@@ -44,12 +51,12 @@ struct rte_mempool *dpdk_start(int argc, char **argv) {
 	}
 
 	int errcode;
-	if((errcode = rte_eth_rx_queue_setup(PORT, 0, RX_RING_SIZE, rte_eth_dev_socket_id(PORT), NULL, pool))) {
+	if((errcode = rte_eth_rx_queue_setup(PORT, 0, RX_RING_SIZE, rte_eth_dev_socket_id(PORT), &RX_CONF, pool))) {
 		perr("Setting up RX queue", -errcode);
 		return NULL;
 	}
 
-	if((errcode = rte_eth_tx_queue_setup(PORT, 0, TX_RING_SIZE, rte_eth_dev_socket_id(PORT), NULL))) {
+	if((errcode = rte_eth_tx_queue_setup(PORT, 0, TX_RING_SIZE, rte_eth_dev_socket_id(PORT), &TX_CONF))) {
 		perr("Setting up TX queue", -errcode);
 		return NULL;
 	}
