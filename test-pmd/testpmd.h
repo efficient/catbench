@@ -420,7 +420,7 @@ mbuf_pool_find(unsigned int sock_id)
 	char pool_name[RTE_MEMPOOL_NAMESIZE];
 
 	mbuf_poolname_build(sock_id, pool_name, sizeof(pool_name));
-	return (rte_mempool_lookup((const char *)pool_name));
+	return rte_mempool_lookup((const char *)pool_name);
 }
 
 /**
@@ -462,6 +462,7 @@ unsigned int parse_item_list(char* str, const char* item_name,
 			unsigned int *parsed_items, int check_unique_values);
 void launch_args_parse(int argc, char** argv);
 void prompt(void);
+void prompt_exit(void);
 void nic_stats_display(portid_t port_id);
 void nic_stats_clear(portid_t port_id);
 void nic_xstats_display(portid_t port_id);
@@ -507,7 +508,8 @@ void rx_vlan_filter_set(portid_t port_id, int on);
 void rx_vlan_all_filter_set(portid_t port_id, int on);
 int rx_vft_set(portid_t port_id, uint16_t vlan_id, int on);
 void vlan_extend_set(portid_t port_id, int on);
-void vlan_tpid_set(portid_t port_id, uint16_t tp_id);
+void vlan_tpid_set(portid_t port_id, enum rte_vlan_type vlan_type,
+		   uint16_t tp_id);
 void tx_vlan_set(portid_t port_id, uint16_t vlan_id);
 void tx_qinq_set(portid_t port_id, uint16_t vlan_id, uint16_t vlan_id_outer);
 void tx_vlan_reset(portid_t port_id);

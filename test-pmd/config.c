@@ -750,7 +750,7 @@ ring_dma_zone_lookup(const char *ring_name, uint8_t port_id, uint16_t q_id)
 		printf("%s ring memory zoneof (port %d, queue %d) not"
 		       "found (zone name = %s\n",
 		       ring_name, port_id, q_id, mz_name);
-	return (mz);
+	return mz;
 }
 
 union igb_ring_dword {
@@ -1821,28 +1821,37 @@ rx_vlan_all_filter_set(portid_t port_id, int on)
 }
 
 void
-vlan_tpid_set(portid_t port_id, uint16_t tp_id)
+vlan_tpid_set(portid_t port_id, enum rte_vlan_type vlan_type, uint16_t tp_id)
 {
 	int diag;
+
 	if (port_id_is_invalid(port_id, ENABLED_WARN))
 		return;
 
-	diag = rte_eth_dev_set_vlan_ether_type(port_id, tp_id);
+	diag = rte_eth_dev_set_vlan_ether_type(port_id, vlan_type, tp_id);
 	if (diag == 0)
 		return;
 
-	printf("tx_vlan_tpid_set(port_pi=%d, tpid=%d) failed "
+	printf("tx_vlan_tpid_set(port_pi=%d, vlan_type=%d, tpid=%d) failed "
 	       "diag=%d\n",
-	       port_id, tp_id, diag);
+	       port_id, vlan_type, tp_id, diag);
 }
 
 void
 tx_vlan_set(portid_t port_id, uint16_t vlan_id)
 {
+	int vlan_offload;
 	if (port_id_is_invalid(port_id, ENABLED_WARN))
 		return;
 	if (vlan_id_is_invalid(vlan_id))
 		return;
+
+	vlan_offload = rte_eth_dev_get_vlan_offload(port_id);
+	if (vlan_offload & ETH_VLAN_EXTEND_OFFLOAD) {
+		printf("Error, as QinQ has been enabled.\n");
+		return;
+	}
+
 	tx_vlan_reset(port_id);
 	ports[port_id].tx_ol_flags |= TESTPMD_TX_OFFLOAD_INSERT_VLAN;
 	ports[port_id].tx_vlan_id = vlan_id;
@@ -1851,12 +1860,20 @@ tx_vlan_set(portid_t port_id, uint16_t vlan_id)
 void
 tx_qinq_set(portid_t port_id, uint16_t vlan_id, uint16_t vlan_id_outer)
 {
+	int vlan_offload;
 	if (port_id_is_invalid(port_id, ENABLED_WARN))
 		return;
 	if (vlan_id_is_invalid(vlan_id))
 		return;
 	if (vlan_id_is_invalid(vlan_id_outer))
 		return;
+
+	vlan_offload = rte_eth_dev_get_vlan_offload(port_id);
+	if (!(vlan_offload & ETH_VLAN_EXTEND_OFFLOAD)) {
+		printf("Error, as QinQ hasn't been enabled.\n");
+		return;
+	}
+
 	tx_vlan_reset(port_id);
 	ports[port_id].tx_ol_flags |= TESTPMD_TX_OFFLOAD_INSERT_QINQ;
 	ports[port_id].tx_vlan_id = vlan_id;
