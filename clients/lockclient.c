@@ -30,6 +30,7 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		ret = 3;
 	}
 
+	sleep(10);
 	puts("About to send activation packet!");
 	if(!rte_eth_tx_buffer(PORT, 0, buf, packet))
 		fputs("Data wasn't actually transmitted\n", stderr);
