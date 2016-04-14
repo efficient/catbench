@@ -10,12 +10,7 @@
 
 static const struct rte_eth_conf PORT_CONF;
 static const struct rte_eth_rxconf RX_CONF;
-static const struct rte_eth_txconf TX_CONF = {
-	.tx_thresh = {
-		.wthresh = 1,
-	},
-	.tx_rs_thresh = 1,
-};
+static const struct rte_eth_txconf TX_CONF;
 static const char *DEFAULT_EAL_ARGS[] = {
 	"-m64",
 	"--huge-unlink",
