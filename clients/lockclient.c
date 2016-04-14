@@ -1,4 +1,5 @@
 #include <rte_ethdev.h>
+#include <rte_malloc.h>
 #include <unistd.h>
 
 #include "dpdk_wrapper.h"
@@ -23,9 +24,17 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 	frame->d_addr = args->mac;
 	frame->ether_type = 0;
 
+	struct rte_eth_dev_tx_buffer *buf = rte_zmalloc_socket("", RTE_ETH_TX_BUFFER_SIZE(1), 0, rte_eth_dev_socket_id(PORT));
+	if(rte_eth_tx_buffer_init(buf, RTE_ETH_TX_BUFFER_SIZE(1))) {
+		fputs("Failed to allocate buffer\n", stderr);
+		ret = 3;
+	}
+
 	puts("About to send activation packet!");
-	if(!rte_eth_tx_burst(PORT, 0, &packet, 1)) {
+	if(!rte_eth_tx_buffer(PORT, 0, buf, packet))
 		fputs("Data wasn't actually transmitted\n", stderr);
+	if(!rte_eth_tx_buffer_flush(PORT, 0, buf)) {
+		fputs("Data was really not actually transmitted\n", stderr);
 		ret = 2;
 		goto cleanup;
 	}
