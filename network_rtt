@@ -48,8 +48,8 @@ setdefaultmask() {
 	groupmask="$2"
 
 	sudo mkdir "$CGROUP_PATH/$groupname"
-	sudo "sh -c 'echo $groupmask >$CGROUP_PATH/$groupname/intel_rdt.l3_cbm'"
-	sudo "sh -c 'echo $$ >$CGROUP_PATH/$groupname/tasks'"
+	sudo sh -c "echo '$groupmask' >'$CGROUP_PATH/$groupname/intel_rdt.l3_cbm'"
+	sudo sh -c "echo $$ >'$CGROUP_PATH/$groupname/tasks'"
 }
 
 unsetmask() {
