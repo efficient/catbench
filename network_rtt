@@ -1,5 +1,9 @@
 #!/bin/sh
 
+readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+readonly NUM_TRASH="7"
+readonly TRASH_ALLOC="800"
+
 if [ $# -ne 3 ]
 then
 	echo "USAGE: $0 <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>"
@@ -38,6 +42,19 @@ jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.description string "Round trip time from client perspective"
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.unit string "us"
 
+setdefaultmask() {
+	groupname="$1"
+	groupmask="$2"
+
+	sudo mkdir "$CGROUP_PATH/$groupname"
+	sudo "sh -c 'echo $groupmask >$CGROUP_PATH/$groupname/intel_rdt.l3_cbm'"
+	sudo "sh -c 'echo $$ >$CGROUP_PATH/$groupname/tasks'"
+}
+
+unsetmask() {
+	sudo "sh -c 'echo $$ >$CGROUP_PATH/tasks'"
+}
+
 waitforexit() {
 	arg0="$1"
 	while (ps -eo args | cut -d" " -f1 | grep -x "$arg0" >/dev/null 2>&1); do :; done
@@ -46,11 +63,60 @@ waitforexit() {
 runtrial() {
 	res=""
 	entries="$1"
+	contenders="0"
+	if [ -n "$2" ]
+	then
+		contenders="$2"
+	fi
+	mask="$3"
 
+	if [ "$contenders" -ne 0 -a -n "$mask" ]
+	then
+		invmask="`printf '%#x\n' $((0xff - mask))`"
+		echo "NETWORK_RTT: Setting mask to $invmask..."
+		setdefaultmask trash "$invmask"
+	fi
+	for contender in `seq "$contenders"`
+	do
+		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
+		clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -hr >/dev/null &
+	done
+
+	if [ -n "$mask" ]
+	then
+		echo "NETWORK_RTT: Setting mask to $mask..."
+		setdefaultmask lockserver "$mask"
+	fi
+	echo "NETWORK_RTT: Spawning server..."
 	sudo clients/lockserver-ng -l "$entries" &
+
+	if [ -n "$mask" ]
+	then
+		echo "NETWORK_RTT: Unsetting mask..."
+		unsetmask
+	fi
+	echo "NETWORK_RTT: Spawning client..."
 	res="`ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr'"`"
+
+	echo "NETWORK_RTT: Cleaning up..."
+	killall square_evictions
 	sudo killall lockserver-ng
 	waitforexit clients/lockserver-ng
+	if [ -n "$mask" ]
+	then
+		cgdelete intel_rdt:lockserver
+		cgdelete intel_rdt:trash
+	fi
+}
+
+recordtrial() {
+	var="$1"
+	shift
+
+	runtrial "$@" # populate res
+	echo "$res" | sed -e '/^EAL: /d' -e 's/^/remote: /'
+	num="`echo "$res" | grep "Average:" | cut -d" " -f2`"
+	eval $var="\$$var\\\\n\$table_entries,\$num"
 }
 
 echo -n "Remote sudo password? "
@@ -70,9 +136,6 @@ do
 		RUNNING ITERATION: $table_entries
 
 	tac
-	runtrial "$table_entries" # populates res
-	echo "$res" | sed -e '/^EAL: /d' -e 's/^/remote: /'
-	num="`echo "$res" | grep "Average:" | cut -d" " -f2`"
-	baseline="$baseline\n$table_entries,$num"
+	recordtrial baseline "$table_entries"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
