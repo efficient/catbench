@@ -53,7 +53,7 @@ setdefaultmask() {
 }
 
 unsetmask() {
-	sudo "sh -c 'echo $$ >$CGROUP_PATH/tasks'"
+	sudo sh -c "echo $$ >'$CGROUP_PATH/tasks'"
 }
 
 countfreepages() {
