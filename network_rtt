@@ -96,7 +96,10 @@ runtrial() {
 		unsetmask
 	fi
 	echo "NETWORK_RTT: Spawning client..."
+	echo "No need to enter your password at this prompt!"
 	res="`ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr'"`"
+	echo
+	echo "$res" | sed -e '/^EAL: /d' -e 's/^/remote: /'
 
 	echo "NETWORK_RTT: Cleaning up..."
 	killall square_evictions
@@ -114,7 +117,6 @@ recordtrial() {
 	shift
 
 	runtrial "$@" # populate res
-	echo "$res" | sed -e '/^EAL: /d' -e 's/^/remote: /'
 	num="`echo "$res" | grep "Average:" | cut -d" " -f2`"
 	eval $var="\$$var\\\\n\$table_entries,\$num"
 }
