@@ -70,6 +70,14 @@ runtrial() {
 	fi
 	mask="$3"
 
+	if [ -n "$mask" ]
+	then
+		echo "NETWORK_RTT: Setting mask to $mask..."
+		setdefaultmask lockserver "$mask"
+	fi
+	echo "NETWORK_RTT: Spawning server..."
+	sudo clients/lockserver-ng -l "$entries" &
+
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
 		invmask="`printf '%#x\n' $((0xff - mask))`"
@@ -81,14 +89,6 @@ runtrial() {
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
 		clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -hr >/dev/null &
 	done
-
-	if [ -n "$mask" ]
-	then
-		echo "NETWORK_RTT: Setting mask to $mask..."
-		setdefaultmask lockserver "$mask"
-	fi
-	echo "NETWORK_RTT: Spawning server..."
-	sudo clients/lockserver-ng -l "$entries" &
 
 	if [ -n "$mask" ]
 	then
