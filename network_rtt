@@ -33,12 +33,16 @@ runtrial() {
 	entries="$1"
 
 	sudo clients/lockserver-ng -l "$entries" &
-	stty -echo
-	res="`ssh "$foreign_client" sudo -S "$remote_path/clients/lockclient" -m "$local_macaddr"`"
-	stty echo
+	res="`ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr'"`"
 	sudo killall lockserver-ng
 	waitforexit clients/lockserver-ng
 }
+
+echo -n "Remote sudo password? "
+stty -echo
+read passwd
+stty echo
+echo
 
 header="integer,fraction\ntable_entries,trip_time"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
