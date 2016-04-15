@@ -145,7 +145,7 @@ read passwd
 stty echo
 echo
 
-header="integer,fraction\ntable_entries,trip_time"
+header="integer,fraction\ntable_entries,round_trip_time"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
 baseline="$header"
