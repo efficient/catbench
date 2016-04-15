@@ -126,8 +126,8 @@ runtrial() {
 	waitforexit clients/lockserver-ng
 	if [ -n "$mask" ]
 	then
-		cgdelete intel_rdt:lockserver
-		cgdelete intel_rdt:trash
+		sudo cgdelete intel_rdt:lockserver
+		sudo cgdelete intel_rdt:trash
 	fi
 }
 
