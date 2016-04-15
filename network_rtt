@@ -1,0 +1,59 @@
+#!/bin/sh
+
+if [ $# -ne 3 ]
+then
+	echo "USAGE: $0 <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>"
+	exit 1
+fi
+foreign_client="$1"
+remote_path="$2"
+local_macaddr="$3"
+
+logfilename="$CATBENCH_JAGFILE"
+if [ -z "$logfilename" ]
+then
+	cat >&2 <<-tac
+		$0: should be invoked via driver
+	tac
+	exit 1
+fi
+
+jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
+jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
+jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.description string "Round trip time from client perspective"
+jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.unit string "us"
+
+waitforexit() {
+	arg0="$1"
+	while (ps -eo args | cut -d" " -f1 | grep -x "$arg0" >/dev/null 2>&1); do :; done
+}
+
+runtrial() {
+	res=""
+	entries="$1"
+
+	sudo clients/lockserver-ng -l "$entries" &
+	stty -echo
+	res="`ssh "$foreign_client" sudo -S "$remote_path/clients/lockclient" -m "$local_macaddr"`"
+	stty echo
+	sudo killall lockserver-ng
+	waitforexit clients/lockserver-ng
+}
+
+header="integer,fraction\ntable_entries,trip_time"
+jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
+baseline="$header"
+sudo -l >/dev/null
+for table_entries in 1 10 100 1000 10000
+do
+	cat <<-tac
+
+		RUNNING ITERATION: $table_entries
+
+	tac
+	runtrial "$table_entries" # populates res
+	echo "$res" | sed -e '/^EAL: /d' -e 's/^/remote: /'
+	num="`echo "$res" | grep "Average:" | cut -d" " -f2`"
+	baseline="$baseline\n$table_entries,$num"
+done
+echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
