@@ -86,7 +86,7 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 			puts("Timed out; retrying...");
 			// But don't retry after the first trial!
 			if(subseq) {
-				fprintf("Timed out on %dth iteration\n", time);
+				fprintf(stderr, "Timed out on %dth iteration\n", times);
 				return 5;
 			}
 		}
