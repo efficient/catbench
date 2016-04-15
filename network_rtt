@@ -129,7 +129,9 @@ echo
 
 header="integer,fraction\ntable_entries,trip_time"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
+jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
 baseline="$header"
+contention="$header"
 sudo -l >/dev/null
 for table_entries in 1 10 100 1000 10000
 do
@@ -139,5 +141,7 @@ do
 
 	tac
 	recordtrial baseline "$table_entries"
+	recordtrial contention "$table_entries" "$NUM_TRASH"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
+echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
