@@ -55,6 +55,23 @@ unsetmask() {
 	sudo "sh -c 'echo $$ >$CGROUP_PATH/tasks'"
 }
 
+countfreepages() {
+	sed -n 's/HugePages_Free:[[:space:]]\+\([[:digit:]]\)/\1/p' /proc/meminfo
+}
+
+waitforalloc() {
+	# Wait for the number of free hugepages to drop.
+	orig="`countfreepages`"
+	while [ "`countfreepages`" -eq "$orig" ]; do :; done
+
+	# Now wait for it to stabilize!
+	while [ "`sed -n 's/HugePages_Free:[[:space:]]\+\([[:digit:]]\)/\1/p' /proc/meminfo`" -ne "$orig" ]
+	do
+		orig="`countfreepages`"
+		sleep 1
+	done
+}
+
 waitforexit() {
 	arg0="$1"
 	while (ps -eo args | cut -d" " -f1 | grep -x "$arg0" >/dev/null 2>&1); do :; done
@@ -77,6 +94,7 @@ runtrial() {
 	fi
 	echo "NETWORK_RTT: Spawning server..."
 	sudo clients/lockserver-ng -l "$entries" &
+	waitforalloc
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
