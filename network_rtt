@@ -1,6 +1,7 @@
 #!/bin/sh
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+readonly LOCKSERVER_MASK="0x003"
 readonly NUM_TRASH="7"
 readonly TRASH_ALLOC="800"
 
@@ -148,8 +149,10 @@ echo
 header="integer,fraction\ntable_entries,round_trip_time"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
+jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
 baseline="$header"
 contention="$header"
+allocation="$header"
 sudo -l >/dev/null
 for table_entries in 1 10 100 1000 10000
 do
@@ -160,6 +163,8 @@ do
 	tac
 	recordtrial baseline "$table_entries"
 	recordtrial contention "$table_entries" "$NUM_TRASH"
+	recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
+echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
