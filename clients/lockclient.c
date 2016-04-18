@@ -11,6 +11,7 @@
 
 typedef struct {
 	struct ether_addr mac;
+	unsigned sleep;
 } args_t;
 
 static bool timeout;
@@ -80,6 +81,9 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 
 				printf("Completed after: %ld us\n", duration);
 				subseq = true;
+
+				if(args->sleep)
+					sleep(args->sleep);
 				break;
 			}
 
@@ -99,10 +103,11 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 int main(int argc, char **argv) {
 	args_t args = {
 		.mac = {.addr_bytes = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}},
+		.sleep = 0,
 	};
 
 	int each_arg;
-	while((each_arg = getopt(argc, argv, "m:")) != -1)
+	while((each_arg = getopt(argc, argv, "m:s:")) != -1)
 		switch(each_arg) {
 		case 'm':
 			if(sscanf(optarg, "%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8, args.mac.addr_bytes, args.mac.addr_bytes + 1,
@@ -111,10 +116,17 @@ int main(int argc, char **argv) {
 				return 127;
 			}
 			break;
+		case 's':
+			if(sscanf(optarg, "%u", &args.sleep) != 1) {
+				perror("Parsing sleep seconds");
+				return 127;
+			}
+			break;
 		default:
-			printf("USAGE: %s [-m #] [-- <DPDK arguments>...]\n", argv[0]);
+			printf("USAGE: %s [-m #] [-s #] [-- <DPDK arguments>...]\n", argv[0]);
 			printf(
-					" -m #:destination MAC address\n"
+					" -m #: destination MAC address\n"
+					" -s #: seconds to sleep between successful requests\n"
 					);
 			return 127;
 		}
