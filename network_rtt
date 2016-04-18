@@ -1,6 +1,7 @@
 #!/bin/sh
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+readonly CLIENT_SLEEP="10"
 readonly LOCKSERVER_MASK="0x003"
 readonly NUM_TRASH="7"
 readonly TRASH_ALLOC="800"
@@ -116,7 +117,7 @@ runtrial() {
 	fi
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	res="`ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr'"`"
+	res="`ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$CLIENT_SLEEP'"`"
 	echo
 	echo "$res" | sed -e '/^EAL: /d' -e 's/^/remote: /'
 
