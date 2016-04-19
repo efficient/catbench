@@ -35,7 +35,6 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 	}
 
 	clock_t ave = 0;
-	bool subseq = false;
 	// Run one extra time and discard the results of the first trial.
 	for(int times = 0; times <= ITERATIONS; ++times) {
 		struct rte_mbuf *packet = rte_pktmbuf_alloc(pool);
@@ -76,12 +75,10 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 			while(!(got = rte_eth_rx_burst(PORT, 0, &packet, 1)) && !timeout);
 			if(got) {
 				clock_t duration = realtime() - time;
-				if(subseq)
+				if(times)
 					ave += duration;
 
 				printf("Completed after: %ld us\n", duration);
-				subseq = true;
-
 				if(args->sleep)
 					sleep(args->sleep);
 				break;
@@ -89,7 +86,7 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 
 			puts("Timed out; retrying...");
 			// But don't retry after the first trial!
-			if(subseq) {
+			if(times) {
 				fprintf(stderr, "Timed out on %dth iteration\n", times);
 				return 5;
 			}
