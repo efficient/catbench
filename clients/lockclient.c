@@ -34,7 +34,7 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		return 1;
 	}
 
-	clock_t ave = 0;
+	clock_t samples[ITERATIONS];
 	// Run one extra time and discard the results of the first trial.
 	for(int times = 0; times <= ITERATIONS; ++times) {
 		struct rte_mbuf *packet = rte_pktmbuf_alloc(pool);
@@ -76,7 +76,7 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 			if(got) {
 				clock_t duration = realtime() - time;
 				if(times)
-					ave += duration;
+					samples[times - 1] = duration;
 
 				printf("Completed after: %ld us\n", duration);
 				if(args->sleep)
@@ -93,7 +93,12 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		}
 	}
 
-	printf("Average: %f us\n", (double) ave / 10);
+	double ave = samples[ITERATIONS / 2];
+#if ITERATIONS > 2 && ITERATIONS % 2
+	ave += samples[ITERATIONS / 2 - 1];
+	ave /= 2;
+#endif
+	printf("Average: %f us\n", ave);
 	return 0;
 }
 
