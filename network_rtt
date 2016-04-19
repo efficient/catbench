@@ -1,7 +1,7 @@
 #!/bin/sh
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
-readonly CLIENT_SLEEP="10"
+readonly CLIENT_SLEEP="5"
 readonly LOCKSERVER_MASK="0x003"
 readonly NUM_TRASH="7"
 readonly TRASH_ALLOC="800"
@@ -155,7 +155,7 @@ baseline="$header"
 contention="$header"
 allocation="$header"
 sudo -l >/dev/null
-for table_entries in 1 10 100 1000 10000
+for table_entries in 1 10 100 1000 10000 100000
 do
 	cat <<-tac
 
