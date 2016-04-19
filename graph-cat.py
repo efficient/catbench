@@ -27,10 +27,15 @@ def setup_optparse():
     parser.add_argument('--fit', '-f', dest='fit', default=False);
     parser.add_argument('--ymin', dest='ymin', default=None);
     parser.add_argument('--ymax', dest='ymax', default=None);
+    parser.add_argument('--log', dest='log', action='store_true', default=False);
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax;
+    if(args.ymin != None):
+        args.ymin = int(args.yim)
+    if(args.ymax != None):
+        args.ymax = int(args.ymax)
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.log;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
     fd = open(filename, 'r');
@@ -125,7 +130,7 @@ def get_series_aux(filename, seriesname, ilist):
     except:
         fd.close();
         return ret;
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax):
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, plt_log):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -154,8 +159,10 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             if(key2 == "description"):
                 continue;
             xy = map(list, zip(*val2));
-            line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
-            #plt.xticks(xy[0]);
+	    if(plt_log == True):
+                line.append((ax.loglog(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+	    else:
+	        line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
             ax.scatter(xy[0], xy[1]);
 	if(max(xy[0]) > cur_xmax):
 	    cur_xmax = max(xy[0]);
@@ -202,8 +209,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax = setup_optparse();
-    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax);
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, log = setup_optparse();
+    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, log);
 
 main();
 # Col 0 are the x points
