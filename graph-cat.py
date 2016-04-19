@@ -112,16 +112,19 @@ def get_series_aux(filename, seriesname, ilist):
     fd = open(filename, 'r');
     database = json.load(fd);
     ret = "";
-    for arg in database.get("data").get(seriesname).get("args"):
-#TODO Issue parsing "-." as a param
-        if(ilist == None or str(arg.get("name")[1:]) not in ilist):
-            continue;
-        ret = ret + str(database.get("data").get(seriesname).get("description") + ": " + \
-                get_aux(filename, database.get("data").get(seriesname).get("type"), \
-                arg.get("name"), arg.get("value")));
-        ret = ret + "\n";
-    fd.close();
-    return ret;
+    try:
+	    for arg in database.get("data").get(seriesname).get("args"):
+		if(ilist == None or str(arg.get("name")[1:]) not in ilist):
+		    continue;
+		ret = ret + str(database.get("data").get(seriesname).get("description") + ": " + \
+			get_aux(filename, database.get("data").get(seriesname).get("type"), \
+			arg.get("name"), arg.get("value")));
+		ret = ret + "\n";
+	    fd.close();
+	    return ret;
+    except:
+        fd.close();
+        return ret;
 def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
