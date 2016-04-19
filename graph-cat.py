@@ -31,6 +31,10 @@ def setup_optparse():
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
+    if(args.ymin != None):
+        args.ymin = int(args.yim)
+    if(args.ymax != None):
+        args.ymax = int(args.ymax)
     return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.log;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
