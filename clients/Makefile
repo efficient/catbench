@@ -25,7 +25,7 @@ basicfwd: ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/libr
 lockclient: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread
 lockclient: lockclient.o dpdk_wrapper.o realtime.o ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
 lockserver-ng: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread
-lockserver-ng: lockserver-ng.o dpdk_wrapper.o ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
+lockserver-ng: lockserver-ng.o dpdk_wrapper.o realtime.o ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
 rng_test: rng.o
 square_evictions: llc.o movnt.o perf_poll.o realtime.o rng.o
 
@@ -40,7 +40,7 @@ lockclient.%: dpdk_wrapper.h realtime.h
 lockserver-ng.%: CFLAGS += -std=gnu99
 lockserver-ng.%: CPPFLAGS += -include rte_config.h
 lockserver-ng.%: ../external/dpdk/build/lib/libethdev.a
-lockserver-ng.%: dpdk_wrapper.h
+lockserver-ng.%: dpdk_wrapper.h realtime.h
 movnt.o: movnt.h
 perf_poll.o: perf_poll.h syscallers.h
 rng.o: rng.h

@@ -10,12 +10,30 @@
 #include <unistd.h>
 
 #include "dpdk_wrapper.h"
+#include "realtime.h"
+
+#define TIMING_BUFFER_LEN 100
 
 typedef struct {
 	int len;
 } args_t;
 
 static bool loop = true;
+static int iter = 0;
+static clock_t times[TIMING_BUFFER_LEN];
+
+static void sigterm_handler(int signal) {
+	(void) signal;
+	if(iter) {
+		double ave = times[iter / 2];
+		if(iter > 2 && iter % 2) {
+			ave += times[iter / 2 - 1];
+			ave /= 2;
+		}
+		printf("Average: %f us\n", ave);
+	}
+	exit(!iter);
+}
 
 static void sigint_handler(int signal) {
 	(void) signal;
@@ -77,8 +95,9 @@ static int experiment(args_t *args) {
 	puts("Setting up pointers for chasing...");
 	ptrchase_setup(arr, args->len);
 
+	struct sigaction sigterm = {.sa_handler = sigterm_handler};
 	struct sigaction sigint = {.sa_handler = sigint_handler};
-	if(sigaction(SIGINT, &sigint, NULL)) {
+	if(sigaction(SIGTERM, &sigterm, NULL) || sigaction(SIGINT, &sigint, NULL)) {
 		perror("Installing sigint handler");
 		ret = 1;
 		goto cleanup;
@@ -90,6 +109,8 @@ static int experiment(args_t *args) {
 	paddr(&laddr);
 
 	while(loop) {
+		clock_t thistime;
+
 		puts("Awaiting client request...");
 		struct rte_mbuf *packet = NULL;
 		while(true) {
@@ -101,6 +122,8 @@ static int experiment(args_t *args) {
 				bool addressed_to_me = false;
 #ifndef NDEBUG
 				addressed_to_me = is_same_ether_addr(&eth->d_addr, &laddr);
+				thistime = realtime();
+
 				printf("Received packet%s addressed to me\n", addressed_to_me ? "" : " not");
 				printf("\tDestination: ");
 				paddr(&eth->d_addr);
@@ -121,6 +144,11 @@ static int experiment(args_t *args) {
 		struct ether_hdr *eth = rte_pktmbuf_mtod(packet, struct ether_hdr *);
 		eth->d_addr = eth->s_addr;
 		eth->s_addr = laddr;
+
+		assert(iter < TIMING_BUFFER_LEN);
+		times[iter] = realtime() - thistime;
+		printf("Computed in: %ld us\n", times[iter++]);
+
 		if(!rte_eth_tx_burst(PORT, 0, &packet, 1)) {
 			fputs("Data wasn't actually transmitted\n", stderr);
 			ret = 2;
