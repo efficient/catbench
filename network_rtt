@@ -117,9 +117,7 @@ runtrial() {
 	fi
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	res="`ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$CLIENT_SLEEP'"`"
-	echo
-	echo "$res" | sed -e '/^EAL: /d' -e 's/^/remote: /'
+	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$CLIENT_SLEEP'" | sed -ue '/^EAL: /d' -e 's/^/remote: /' | tee rtt_client
 
 	echo "NETWORK_RTT: Cleaning up..."
 	killall square_evictions
@@ -137,7 +135,7 @@ recordtrial() {
 	shift
 
 	runtrial "$@" # populate res
-	num="`echo "$res" | grep "Average:" | cut -d" " -f2`"
+	num="`grep "Average:" rtt_client | cut -d" " -f3`"
 	eval $var="\$$var\\\\n\$table_entries,\$num"
 }
 
@@ -169,3 +167,4 @@ done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
 echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
+rm rtt_client
