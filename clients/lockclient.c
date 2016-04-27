@@ -6,7 +6,7 @@
 #include "dpdk_wrapper.h"
 #include "realtime.h"
 
-#define ITERATIONS 10
+#define ITERATIONS 20
 #define TIMEOUT_S  5
 
 typedef struct {
