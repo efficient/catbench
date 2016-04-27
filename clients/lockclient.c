@@ -1,10 +1,10 @@
 #include <rte_ethdev.h>
 #include <rte_malloc.h>
 #include <signal.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "dpdk_wrapper.h"
+#include "realtime.h"
 
 #define ITERATIONS 10
 #define TIMEOUT_S  5
@@ -19,12 +19,6 @@ static bool timeout;
 static void sigalrm_handler(int ign) {
 	(void) ign;
 	timeout = true;
-}
-
-static inline clock_t realtime(void) {
-	struct timespec ns;
-	clock_gettime(CLOCK_REALTIME, &ns);
-	return ns.tv_sec * 1000000 + ns.tv_nsec / 1000;
 }
 
 static int experiment(args_t *args, struct rte_mempool *pool) {

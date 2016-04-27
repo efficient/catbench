@@ -23,11 +23,11 @@ basicfwd: CPPFLAGS += -include rte_config.h
 basicfwd: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lm -lpthread
 basicfwd: ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
 lockclient: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread
-lockclient: lockclient.o dpdk_wrapper.o ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
+lockclient: lockclient.o dpdk_wrapper.o realtime.o ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
 lockserver-ng: LDLIBS += $(LINK_PMD_IXGBE) -ldl -lpthread
 lockserver-ng: lockserver-ng.o dpdk_wrapper.o ../external/dpdk/build/lib/libethdev.a ../external/dpdk/build/lib/librte_mbuf.a ../external/dpdk/build/lib/librte_eal.a ../external/dpdk/build/lib/librte_mempool.a ../external/dpdk/build/lib/librte_ring.a
 rng_test: rng.o
-square_evictions: llc.o movnt.o perf_poll.o rng.o
+square_evictions: llc.o movnt.o perf_poll.o realtime.o rng.o
 
 dpdk_wrapper.%: CFLAGS += -std=gnu99 -Wno-cast-qual
 dpdk_wrapper.%: CPPFLAGS += -include rte_config.h
@@ -36,7 +36,7 @@ dpdk_wrapper.%: dpdk_wrapper.h
 llc.o: llc.h
 lockclient.%: CFLAGS += -std=gnu99
 lockclient.%: CPPFLAGS += -include rte_config.h
-lockclient.%: dpdk_wrapper.h
+lockclient.%: dpdk_wrapper.h realtime.h
 lockserver-ng.%: CFLAGS += -std=gnu99
 lockserver-ng.%: CPPFLAGS += -include rte_config.h
 lockserver-ng.%: ../external/dpdk/build/lib/libethdev.a
@@ -44,6 +44,7 @@ lockserver-ng.%: dpdk_wrapper.h
 movnt.o: movnt.h
 perf_poll.o: perf_poll.h syscallers.h
 rng.o: rng.h
+square_evictions.o: movnt.h perf_poll.h realtime.h rng.h
 
 %.s: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -S $^ -o $@

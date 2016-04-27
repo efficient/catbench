@@ -7,12 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "movnt.h"
 #include "perf_poll.h"
 #include "../rdtscp.h"
+#include "realtime.h"
 #include "rng.h"
 
 #define DEFAULT_NUM_PERIODS        2
@@ -83,12 +83,6 @@ static inline void dealloc(size_t size, void *victim, bool contig) {
 		free(victim);
 }
 
-static inline clock_t realclock(void) {
-	struct timespec ns;
-	clock_gettime(CLOCK_REALTIME, &ns);
-	return ns.tv_sec * 1000000 + ns.tv_nsec / 1000;
-}
-
 static inline bool bufappend(perf_log_buffer_t **buf, int perfd, clock_t startperf) {
 	perf_read_format_t counters;
 	perf_poll_stop(perfd);
@@ -109,7 +103,7 @@ static inline bool bufappend(perf_log_buffer_t **buf, int perfd, clock_t startpe
 	assert(amt == sizeof counters);
 	assert(counters.nr == PERF_LOG_NUM_COUNTERS);
 
-	movntq4((uint64_t *) ((uintptr_t) *buf + (*buf)->occ), realclock(), clock() - startperf,
+	movntq4((uint64_t *) ((uintptr_t) *buf + (*buf)->occ), realtime(), clock() - startperf,
 			counters.instrs, counters.bandwidth);
 	(*buf)->occ += sizeof *(*buf)->log;
 
