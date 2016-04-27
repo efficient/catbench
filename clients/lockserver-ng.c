@@ -24,6 +24,7 @@ static clock_t times[TIMING_BUFFER_LEN];
 
 static void sigterm_handler(int signal) {
 	(void) signal;
+	--iter;
 	if(iter) {
 		double ave = times[iter / 2];
 		if(iter > 2 && iter % 2) {
@@ -145,9 +146,12 @@ static int experiment(args_t *args) {
 		eth->d_addr = eth->s_addr;
 		eth->s_addr = laddr;
 
-		assert(iter < TIMING_BUFFER_LEN);
-		times[iter] = realtime() - thistime;
-		printf("Computed in: %ld us\n", times[iter++]);
+		if(iter) {
+			assert(iter <= TIMING_BUFFER_LEN);
+			times[iter + 1] = realtime() - thistime;
+			printf("Computed in: %ld us\n", times[++iter]);
+		} else
+			++iter;
 
 		if(!rte_eth_tx_burst(PORT, 0, &packet, 1)) {
 			fputs("Data wasn't actually transmitted\n", stderr);
