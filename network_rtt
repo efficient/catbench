@@ -80,7 +80,6 @@ waitforexit() {
 }
 
 runtrial() {
-	res=""
 	entries="$1"
 	contenders="0"
 	if [ -n "$2" ]
@@ -134,7 +133,7 @@ recordtrial() {
 	var="$1"
 	shift
 
-	runtrial "$@" # populate res
+	runtrial "$@"
 	num="`grep "Average:" rtt_client | cut -d" " -f3`"
 	eval $var="\$$var\\\\n\$table_entries,\$num"
 }
