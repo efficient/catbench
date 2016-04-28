@@ -1,16 +1,54 @@
 #!/bin/sh
 
+readonly DEFAULT_CLIENT_SLEEP="2000000"
+readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
+readonly DEFAULT_TABLE_ENTRIES="10000"
+readonly DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
+
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
-readonly CLIENT_SLEEP="2000000"
 readonly LOCKSERVER_MASK="0x003"
 readonly OVERHEAD_EXPECTED="15"
 readonly OVERHEAD_MAXVARIANCE="5"
 readonly NUM_TRASH="7"
 readonly TRASH_ALLOC="800"
 
-if [ $# -ne 3 ]
+usage() {
+	cat <<-tac
+		USAGE: $0 <-s|-t> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
+
+		-s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
+		-t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
+	tac
+}
+
+client_sleep="$DEFAULT_CLIENT_SLEEP"
+table_entries="$DEFAULT_TABLE_ENTRIES"
+understood="true"
+while "$understood"
+do
+	case "$1"
+	in
+		-s)
+			independent="client_sleep"
+			iterator="$DEFAULT_CLIENT_SLEEP_LOOP"
+			;;
+		-t)
+			independent="table_entries"
+			iterator="$DEFAULT_TABLE_ENTRIES_LOOP"
+			;;
+		*)
+			understood="false"
+			;;
+	esac
+
+	if "$understood"
+	then
+		shift
+	fi
+done
+if [ -z "$independent" -o $# -ne 3 ]
 then
-	echo "USAGE: $0 <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>"
+	usage
 	exit 1
 fi
 foreign_client="$1"
@@ -41,8 +79,18 @@ then
 	exit 3
 fi
 
-jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
-jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
+if [ "$independent" = "client_sleep" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.description string "Delay between client requests"
+	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.unit string "us"
+elif [ "$independent" = "table_entries" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
+	jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
+else
+	echo "Internal ERROR" >&2
+	exit 4
+fi
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.description string "Round trip time from client perspective"
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.unit string "us"
 
@@ -122,7 +170,7 @@ runtrial() {
 	fi
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$CLIENT_SLEEP'" | sed -ue '/^EAL: /d' -e 's/^/remote: /' | tee rtt_client
+	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep'" | sed -ue '/^EAL: /d' -e 's/^/remote: /' | tee rtt_client
 
 	echo "NETWORK_RTT: Cleaning up..."
 	killall square_evictions
@@ -148,8 +196,8 @@ recordtrial() {
 		echo "RESULT DISCARDED: This trial's network overhead ($num_oh) was too different from our expectations ($OVERHEAD_EXPECTED)!" >&2
 		return 1
 	fi
-	eval $var="\$$var\\\\n\$table_entries,\$num"
-	eval ${var}_oh="\$${var}_oh\\\\n\$table_entries,\$num_oh"
+	eval $var="\$$var\\\\n\$$independent,\$num"
+	eval ${var}_oh="\$${var}_oh\\\\n\$$independent,\$num_oh"
 }
 
 echo -n "Remote sudo password? "
@@ -158,7 +206,7 @@ read passwd
 stty echo
 echo
 
-header="integer,fraction\ntable_entries,round_trip_time"
+header="integer,fraction\n$independent,round_trip_time"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.baseline_overhead.description string "Baseline network delay"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
@@ -172,11 +220,12 @@ contention_oh="$header"
 allocation="$header"
 allocation_oh="$header"
 sudo -l >/dev/null
-for table_entries in 1 10 100 1000 10000 100000
+for input in $iterator
 do
-	cat <<-tac
+	eval $independent=$input
+	eval cat <<-tac
 
-		RUNNING ITERATION: $table_entries
+		RUNNING ITERATION: $$independent
 
 	tac
 	while ! recordtrial baseline "$table_entries"; do :; done
