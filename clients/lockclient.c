@@ -87,6 +87,7 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		}
 	}
 
+	qsort(samples, ITERATIONS, sizeof *samples, comparetimes);
 	double ave = samples[ITERATIONS / 2];
 #if ITERATIONS > 2 && ITERATIONS % 2
 	ave += samples[ITERATIONS / 2 - 1];

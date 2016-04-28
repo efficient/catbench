@@ -26,6 +26,7 @@ static void sigterm_handler(int signal) {
 	(void) signal;
 	--iter;
 	if(iter) {
+		qsort(times, iter, sizeof *times, comparetimes);
 		double ave = times[iter / 2];
 		if(iter > 2 && iter % 2) {
 			ave += times[iter / 2 - 1];
