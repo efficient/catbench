@@ -6,8 +6,8 @@
 #include "dpdk_wrapper.h"
 #include "realtime.h"
 
-#define ITERATIONS 20
-#define TIMEOUT_S  5
+#define ITERATIONS 2000
+#define TIMEOUT_S  30
 
 typedef struct {
 	struct ether_addr mac;
