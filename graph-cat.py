@@ -7,6 +7,9 @@ import matplotlib as mpl;
 mpl.use('Agg');
 import matplotlib.pyplot as plt;
 import json;
+from matplotlib import ticker;
+import numpy as np
+
 
 def setup_optparse():
     parser = argparse.ArgumentParser();
@@ -28,6 +31,9 @@ def setup_optparse():
     parser.add_argument('--ymin', dest='ymin', default=None);
     parser.add_argument('--ymax', dest='ymax', default=None);
     parser.add_argument('--log', dest='log', action='store_true', default=False);
+    parser.add_argument('--no-commit', '-n', dest='no_commit_message', action='store_true', default=True);
+    parser.add_argument('--log-y', dest='logy', action='store_true', default=False);
+    parser.add_argument('--log-x', dest='logx', action='store_true', default=False);
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
@@ -35,7 +41,7 @@ def setup_optparse():
         args.ymin = int(args.yim)
     if(args.ymax != None):
         args.ymax = int(args.ymax)
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.log;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.log, args.no_commit_message, args.logx, args.logy;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
     fd = open(filename, 'r');
@@ -66,16 +72,17 @@ def get_sample_description(filename, samplename):
     return str(label_entry.get("description"));
 
 def get_label(filename, labelname):
+    print labelname;
     fd = open(filename, 'r');
     database = json.load(fd);
     label_entry = database.get("legend").get("samples").get(labelname);
-    return labelname;
     if(label_entry == None):
         return labelname;
     ret = label_entry.get("description");
-    ret = ret + " (";
-    ret = ret + label_entry.get("unit");
-    ret = ret + ")";
+    if(label_entry.get("unit") != ""):
+        ret = ret + " (";
+        ret = ret + label_entry.get("unit");
+        ret = ret + ")";
     return ret;
 
 def get_arg_label(filename, progname, labelname):
@@ -118,19 +125,20 @@ def get_series_aux(filename, seriesname, ilist):
     database = json.load(fd);
     ret = "";
     try:
-	    for arg in database.get("data").get(seriesname).get("args"):
-		if(ilist == None or str(arg.get("name")[1:]) not in ilist):
-		    continue;
-		ret = ret + str(database.get("data").get(seriesname).get("description") + ": " + \
-			get_aux(filename, database.get("data").get(seriesname).get("type"), \
-			arg.get("name"), arg.get("value")));
-		ret = ret + "\n";
-	    fd.close();
-	    return ret;
+        for arg in database.get("data").get(seriesname).get("args"):
+            if(ilist == None or str(arg.get("name")[1:]) not in ilist):
+                continue;
+            ret = ret + str(database.get("data").get(seriesname).get("description") + ": " + \
+                get_aux(filename, database.get("data").get(seriesname).get("type"), \
+                arg.get("name"), arg.get("value")));
+        ret = ret + "\n";
+        fd.close();
+        return ret;
     except:
         fd.close();
         return ret;
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, plt_log):
+
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, plt_log, no_commit_message, logx, logy):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -143,7 +151,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     ax.set_position([box.x0, box.y0, box.width, box.height * 0.7])
 
     aux_text = "";
-    aux_text += get_commit(filename);
+    if(no_commit_message == False):
+        aux_text += get_commit(filename);
     for slabel in slabels:
         aux_text += get_series_aux(filename, slabel, ilabels);
         aux_text += "\n";
@@ -159,27 +168,39 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             if(key2 == "description"):
                 continue;
             xy = map(list, zip(*val2));
-	    if(plt_log == True):
-                line.append((ax.loglog(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
-	    else:
-	        line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+	    line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+	    #if(logx == True and logy == True):
+            #    line.append((ax.loglog(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+            #elif(logx == True and logy == False):
+            #    line.append((ax.semilogx(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+            #elif(logx == False and logy == True):
+            #    line.append((ax.semilogy(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+        #else:
+	    #    line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
             ax.scatter(xy[0], xy[1]);
-	if(max(xy[0]) > cur_xmax):
-	    cur_xmax = max(xy[0]);
-	    x_copy = xy[0];
+        if(max(xy[0]) > cur_xmax):
+            cur_xmax = max(xy[0]);
+            x_copy = xy[0];
         if(max(xy[1]) > cur_ymax):
             cur_ymax = max(xy[1]);
+
+    if(logx):
+        ax.set_xscale('log');
+    if(logy):
+        ax.set_yscale('log');
     min_dist = cur_xmax / 16;
     idx = 0;
     if(x_copy[0] > 0):
         x_copy.insert(0, 0);
     while(idx + 1 < len(x_copy)):
         if(x_copy[idx] + min_dist > x_copy[idx+1]):
-	    x_copy.pop(idx+1);
-	    continue;
-	idx += 1;
-    plt.xticks(x_copy);
+            x_copy.pop(idx+1);
+            continue;
+        idx += 1;
+    if(plt_log == False or (logx == logy == False)):
+        plt.xticks(x_copy);
     ax.set_title(title);
+    ax.title.set_position((0.5, 1.08));
     lgd = plt.legend(loc="center right", bbox_to_anchor=(1.7,0.5));
 
     handles, labels = ax.get_legend_handles_labels()
@@ -188,29 +209,35 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     import operator
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
-    print labels2;
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.7, 0.5));
     #lgd = plt.legend(loc="center right", bbox_to_anchor=(1.7,0.5));
 
-    cur_ymax = cur_ymax * 1.75;
+#    cur_ymax = cur_ymax * 1.75;
     plt.xlim(xmin=0);
     plt.setp(ax.get_xticklabels(), fontsize=10, rotation=30)
-
-
-    if(user_ymin == None and fit == False and user_ymax == None):
-        plt.ylim(ymin=0,ymax=cur_ymax);
-    elif(fit == False and user_ymin == None):
+    if(logy == False and logx == False ):
+        if(user_ymin == None and fit == False and user_ymax == None):
+            plt.ylim(ymin=0,ymax=cur_ymax);
+        elif(fit == False and user_ymin == None):
             plt.ylim(ymin=0,ymax=user_ymax);
-    elif(user_ymax == None and fit == False):
+        elif(user_ymax == None and fit == False):
             plt.ylim(ymin=float(user_ymin), ymax=float(cur_ymax));
-    elif(fit == False):
+        elif(fit == False):
             plt.ylim(ymin=float(user_ymin), ymax=float(user_ymax));
+    else:
+        yticks = list();
+        cur_tick = 1;
+        while(cur_tick < cur_ymax * 10):
+            yticks.append(cur_tick);
+            cur_tick = cur_tick * 10;
+        print yticks;
+        plt.yticks(yticks);
+    #ax.axis("tight");
     fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
-
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, log = setup_optparse();
-    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, log);
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, log, no_commit_message, logx, logy = setup_optparse();
+    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, log, no_commit_message, logx, logy);
 
 main();
 # Col 0 are the x points
