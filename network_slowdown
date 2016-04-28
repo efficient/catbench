@@ -40,8 +40,10 @@ cp jaguar/template_postprocessed.json "$outfile"
 jaguar/jaguar set "$outfile" meta.origfile "`md5sum "$infile" | cut -d" " -f1`"
 reuse legend.samples.table_entries.description string
 reuse legend.samples.table_entries.unit string
-jaguar/jaguar set "$outfile" legend.samples.slowdown.description string "Resulting slowdown"
-jaguar/jaguar set "$outfile" legend.samples.slowdown.unit string "us"
+jaguar/jaguar set "$outfile" legend.samples.slowdown_factor.description string "Resulting slowdown factor"
+jaguar/jaguar set "$outfile" legend.samples.slowdown_factor.unit string ""
+jaguar/jaguar set "$outfile" data.introducing_contenders.description string "Adding contending processes without CAT"
+jaguar/jaguar set "$outfile" data.turning_off_cat.description string "Turning off CAT with contending processes"
 
 elem="0"
 while jaguar/jaguar get "$infile" data.baseline.samples[$elem] >/dev/null 2>&1
@@ -50,8 +52,8 @@ do
 	reuse data.baseline.samples[$elem].table_entries integer data.introducing_contenders.samples[$elem].table_entries
 	reuse data.baseline.samples[$elem].table_entries integer data.turning_off_cat.samples[$elem].table_entries
 	introducing_contenders="`echo "$(sample contention "$elem") / $(sample baseline "$elem")" | bc -l`"
-	jaguar/jaguar set "$outfile" data.introducing_contenders.samples[$elem].slowdown fraction "$introducing_contenders"
+	jaguar/jaguar set "$outfile" data.introducing_contenders.samples[$elem].slowdown_factor fraction "$introducing_contenders"
 	turning_off_cat="`echo "$(sample contention "$elem") / $(sample allocation "$elem")" | bc -l`"
-	jaguar/jaguar set "$outfile" data.turning_off_cat.samples[$elem].slowdown fraction "$turning_off_cat"
+	jaguar/jaguar set "$outfile" data.turning_off_cat.samples[$elem].slowdown_factor fraction "$turning_off_cat"
 	elem=$((elem + 1))
 done
