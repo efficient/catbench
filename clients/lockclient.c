@@ -11,7 +11,7 @@
 
 typedef struct {
 	struct ether_addr mac;
-	unsigned sleep;
+	useconds_t sleep;
 } args_t;
 
 static bool timeout;
@@ -74,7 +74,7 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 
 				printf("Completed after: %ld us\n", duration);
 				if(args->sleep)
-					sleep(args->sleep);
+					usleep(args->sleep);
 				break;
 			}
 
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
 			printf("USAGE: %s [-m #] [-s #] [-- <DPDK arguments>...]\n", argv[0]);
 			printf(
 					" -m #: destination MAC address\n"
-					" -s #: seconds to sleep between successful requests\n"
+					" -s #: microseconds to sleep between successful requests\n"
 					);
 			return 127;
 		}

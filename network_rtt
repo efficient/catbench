@@ -1,7 +1,7 @@
 #!/bin/sh
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
-readonly CLIENT_SLEEP="2"
+readonly CLIENT_SLEEP="2000000"
 readonly LOCKSERVER_MASK="0x003"
 readonly OVERHEAD_EXPECTED="15"
 readonly OVERHEAD_MAXVARIANCE="5"
