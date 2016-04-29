@@ -154,7 +154,7 @@ runtrial() {
 	for contender in `seq "$contenders"`
 	do
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -hr >/dev/null &
+		clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
 	done
 
 	if [ -n "$mask" ]
