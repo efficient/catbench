@@ -149,10 +149,11 @@ static int experiment(args_t *args) {
 		eth->d_addr = eth->s_addr;
 		eth->s_addr = laddr;
 
+		clock_t delta = realtime() - thistime;
+		printf("Computed in: %ld us\n", delta);
 		if(iter) {
 			assert(iter <= TIMING_BUFFER_LEN);
-			times[iter - 1] = realtime() - thistime;
-			printf("Computed in: %ld us\n", times[iter++ - 1]);
+			times[iter++ - 1] = delta;
 		} else
 			++iter;
 
