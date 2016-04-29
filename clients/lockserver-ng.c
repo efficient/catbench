@@ -151,8 +151,8 @@ static int experiment(args_t *args) {
 
 		if(iter) {
 			assert(iter <= TIMING_BUFFER_LEN);
-			times[iter + 1] = realtime() - thistime;
-			printf("Computed in: %ld us\n", times[++iter]);
+			times[iter - 1] = realtime() - thistime;
+			printf("Computed in: %ld us\n", times[iter++ - 1]);
 		} else
 			++iter;
 
