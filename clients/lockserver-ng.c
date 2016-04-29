@@ -12,7 +12,7 @@
 #include "dpdk_wrapper.h"
 #include "realtime.h"
 
-#define TIMING_BUFFER_LEN 100
+#define TIMING_BUFFER_LEN 5000
 
 typedef struct {
 	int len;
@@ -113,6 +113,8 @@ static int experiment(args_t *args) {
 	while(loop) {
 		clock_t thistime;
 
+		printf("This is trial %d\n", iter);
+		assert(iter <= TIMING_BUFFER_LEN + 1);
 		puts("Awaiting client request...");
 		struct rte_mbuf *packet = NULL;
 		while(true) {
