@@ -1,0 +1,96 @@
+#!/bin/sh
+
+readonly DATA_POINT_DELIM_REGEX='RUNNING [A-Z]\+:'
+readonly            FIELDS_LIST="table_entries round_trip_time"
+readonly    SAMPLE_REGEX_CLIENT='.*remote: Completed after: \([0-9]\+\) us.*'
+readonly     SERIES_LIST_CLIENT="baseline contention allocation"
+
+set -e
+. ./postprocess.sh
+
+puts() {
+	printf '%s\n' "$@"
+}
+
+iter_deref() {
+	local var="$1"
+	eval puts '"$'"$var"'"' | head -n "$samples_per_point"
+}
+
+iter_advance() {
+	local var="$1"
+	eval "$var='`eval puts '"$'"$var"'"' | tail -n +"$((samples_per_point + 1))"`'"
+}
+
+copyseries() {
+	seriesname="$1"
+	logvar="$2"
+	extractionregex="$3"
+
+	set -e
+	reuse "data.$seriesname.description" string
+	for index in `seq 0 "$((points_per_series - 1))"`
+	do
+		echo -n .
+		reuse "data.$seriesname.samples[$index].$independent" integer
+		[ "`iter_deref "$logvar" | wc -l`" -eq "$samples_per_point" ] || { echo "Missing expected number of samples for data point: the log must be missing some entries!" && false; }
+		iter_deref "$logvar" | sed -e "s/$extractionregex/\1/" -e '1i\unstructured\ninteger' | jaguar/jaguar set "$outfile" "data.$seriesname.samples[$index].$dependent" array -
+		iter_advance "$logvar"
+	done
+}
+
+[ "`puts "$FIELDS_LIST" | wc -w`" -eq 2 ]
+readonly independent="`puts "$FIELDS_LIST" | cut -d" " -f1`"
+readonly dependent="`puts "$FIELDS_LIST" | cut -d" " -f2`"
+
+echo -n "Munging experiment log"
+
+log="`decode log`"
+echo -n .
+log_client="`puts "$log" | grep -e "$DATA_POINT_DELIM_REGEX" -e "$SAMPLE_REGEX_CLIENT"`"
+echo -n .
+readonly sample_delims="`puts "$log_client" | grep -n "$DATA_POINT_DELIM_REGEX"`"
+echo -n .
+readonly series_per_machine="`puts "$SERIES_LIST_CLIENT" | wc -w`"
+echo -n .
+readonly points_per_series="`puts "$sample_delims" | wc -l | sed '$a\'"$series_per_machine" | paste -sd/ | bc`"
+echo -n .
+readonly samples_per_point="`puts "$sample_delims" | cut -d: -f1 | tac | head -n2 | sed '$a\1' | paste -sd- | bc`"
+echo
+
+cat <<-tac
+
+	According to the log, this experiemnt appears to have had the following parameters:
+	   Data series:              $((series_per_machine * 2))
+	   Series from each machine: $series_per_machine
+	   Data points per series:   $points_per_series
+	   Samples per data point:   $samples_per_point
+tac
+echo -n "Is this correct (y/N)? "
+read approved
+[ "$approved" = "y" ] || { echo "Not confirmed; aborting!" >&2 && false; }
+unset approved
+echo
+
+echo "Classifying log data..."
+log_client="`puts "$log_client" | grep -v "$DATA_POINT_DELIM_REGEX"`"
+unset log
+
+echo "Copying legend entries..."
+for field in $FIELDS_LIST
+do
+	reuse "legend.samples.$field.description" string
+	reuse "legend.samples.$field.unit" string
+done
+
+for series in $SERIES_LIST_CLIENT
+do
+	echo -n "Processing data series: $series..."
+
+	echo -n "(client)"
+	copyseries "$series" log_client "$SAMPLE_REGEX_CLIENT"
+
+	echo
+done
+
+echo "All done!  Result is in: $outfile"
