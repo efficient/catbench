@@ -93,6 +93,15 @@ def stringorstdin(string):
 
 	return stdin.read()
 
+def dontpackunstructured(ignorekeys, values):
+	if len(values) > 1:
+		print('Unstructured means precisely that, so there shouldn\'t be multiple columns here!', file = stderr)
+		exit(1)
+	return values[0]
+
+def actuallypackstructured(keys, values):
+	return dict(zip(keys, values))
+
 def arrayfromcsv(fname):
 	fd = stdin
 	if fname != '-':
@@ -106,13 +115,20 @@ def arrayfromcsv(fname):
 	if fd != stdin:
 		fd.close()
 
+	packerupper=actuallypackstructured
+	firstvalueline=2
+	if lines[0].strip() == 'unstructured':
+		packerupper=dontpackunstructured
+		firstvalueline = 1
+		lines = lines[1:]
+
 	types = list(map(parse_type, lines[0].strip().split(',')))
 	if arrayfromcsv in types:
 		print('Arrays within arrays?! I\'m afraid I can\'t let you do that, Dave.', file = stderr)
 		exit(1)
 
 	keys = lines[1].strip().split(',')
-	return [dict(zip(keys, (lambda x: [types[idx](x[idx]) for idx in range(len(x))])(line.strip().split(',')))) for line in lines[2:]]
+	return [packerupper(keys, (lambda x: [types[idx](x[idx]) for idx in range(len(x))])(line.strip().split(','))) for line in lines[firstvalueline:]]
 
 def parse_type(string):
 	try:
