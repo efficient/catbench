@@ -3,7 +3,9 @@
 readonly DATA_POINT_DELIM_REGEX='RUNNING [A-Z]\+:'
 readonly            FIELDS_LIST="table_entries round_trip_time"
 readonly    SAMPLE_REGEX_CLIENT='.*remote: Completed after: \([0-9]\+\) us.*'
+readonly    SAMPLE_REGEX_SERVER='.*Computed in: \([0-9]\+\) us.*'
 readonly     SERIES_LIST_CLIENT="baseline contention allocation"
+readonly   SERIES_SUFFIX_SERVER="_overhead"
 
 set -e
 . ./postprocess.sh
@@ -20,6 +22,12 @@ iter_deref() {
 iter_advance() {
 	local var="$1"
 	eval "$var='`eval puts '"$'"$var"'"' | tail -n +"$((samples_per_point + 1))"`'"
+}
+
+iter_prepend() {
+	local var="$1"
+	local data="$2"
+	eval "$var='$data'`printf "'\n'"`"'"$'"$var"'"'
 }
 
 iter_empty() {
@@ -41,6 +49,22 @@ copyseries() {
 		iter_deref "$logvar" | sed '1i\unstructured\ninteger' | jaguar/jaguar set "$outfile" "data.$seriesname.samples[$index].$dependent" array -
 		iter_advance "$logvar"
 	done
+}
+
+calculateoh() {
+	local clientvar="$1"
+	local servervar="$2"
+
+	local origlen="`iter_deref "$servervar" | wc -l`"
+	set -e
+	[ -p thisclient ] || mkfifo thisclient
+	iter_deref "$clientvar" >thisclient &
+	[ -p thisserver ] || mkfifo thisserver
+	iter_deref "$servervar" >thisserver &
+	iter_advance "$servervar"
+	iter_prepend "$servervar" "`paste -d"-\n" thisclient thisserver | bc`"
+	rm thisclient thisserver
+	[ "`iter_deref "$servervar" | wc -l`" -eq "$origlen" ]
 }
 
 [ "`puts "$FIELDS_LIST" | wc -w`" -eq 2 ]
@@ -78,6 +102,7 @@ echo
 
 echo "Classifying log data..."
 log_client="`puts "$log_client" | sed -n "s/$SAMPLE_REGEX_CLIENT/\1/p"`"
+log_server="`puts "$log" | sed -n "s/$SAMPLE_REGEX_SERVER/\1/p"`"
 unset log
 
 echo "Copying legend entries..."
@@ -90,13 +115,17 @@ done
 for series in $SERIES_LIST_CLIENT
 do
 	echo -n "Processing data series: $series..."
+	calculateoh log_client log_server
 
 	echo -n "(client)"
 	copyseries "$series" log_client
 
+	echo -n "(server)"
+	copyseries "$series$SERIES_SUFFIX_SERVER" log_server
+
 	echo
 done
 
-iter_empty log_client || { echo "Extra leftover samples in log: we must have misparsed it!" >&2 && false; }
+{ iter_empty log_client && iter_empty log_server; } || { echo "Extra leftover samples in log: we must have misparsed it!" >&2 && false; }
 
 echo "All done!  Result is in: $outfile"
