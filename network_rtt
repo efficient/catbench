@@ -7,8 +7,6 @@ readonly DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
-readonly OVERHEAD_EXPECTED="15"
-readonly OVERHEAD_MAXVARIANCE="5"
 readonly NUM_TRASH="7"
 readonly TRASH_ALLOC="800"
 
@@ -93,10 +91,6 @@ else
 fi
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.description string "Round trip time from client perspective"
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.unit string "us"
-
-comp() {
-	echo "$@" | bc -l | grep 1 >/dev/null
-}
 
 setdefaultmask() {
 	groupname="$1"
@@ -191,11 +185,6 @@ recordtrial() {
 	num="`grep "Average:" rtt_client | cut -d" " -f3`"
 	oh="`grep "Average:" rtt_server | cut -d" " -f2`"
 	num_oh="`echo "$num - $oh" | bc -l`"
-	if comp "$num_oh < $((OVERHEAD_EXPECTED - OVERHEAD_MAXVARIANCE))" || comp "$num_oh > $((OVERHEAD_EXPECTED + OVERHEAD_MAXVARIANCE))"
-	then
-		echo "RESULT DISCARDED: This trial's network overhead ($num_oh) was too different from our expectations ($OVERHEAD_EXPECTED)!" >&2
-		return 1
-	fi
 	eval $var="\$$var\\\\n\$$independent,\$num"
 	eval ${var}_oh="\$${var}_oh\\\\n\$$independent,\$num_oh"
 }
@@ -228,9 +217,9 @@ do
 		RUNNING ITERATION: $$independent
 
 	tac
-	while ! recordtrial baseline "$table_entries"; do :; done
-	while ! recordtrial contention "$table_entries" "$NUM_TRASH"; do :; done
-	while ! recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"; do :; done
+	recordtrial baseline "$table_entries"
+	recordtrial contention "$table_entries" "$NUM_TRASH"
+	recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$baseline_oh" | jaguar/jaguar set "$logfilename" data.baseline_overhead.samples array -
