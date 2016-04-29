@@ -214,11 +214,23 @@ do
 	eval $independent=$input
 	eval cat <<-tac
 
-		RUNNING ITERATION: $$independent
+		=================
+
+		RUNNING ITERATION: $independent
 
 	tac
 	recordtrial baseline "$table_entries"
+	eval cat <<-tac
+
+		RUNNING TRIAL: $independent contention
+
+	tac
 	recordtrial contention "$table_entries" "$NUM_TRASH"
+	eval cat <<-tac
+
+		RUNNING TRIAL: $independent allocation
+
+	tac
 	recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
