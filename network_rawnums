@@ -22,6 +22,11 @@ iter_advance() {
 	eval "$var='`eval puts '"$'"$var"'"' | tail -n +"$((samples_per_point + 1))"`'"
 }
 
+iter_empty() {
+	local logvar="$1"
+	[ -z "`iter_deref "$logvar"`" ]
+}
+
 copyseries() {
 	local seriesname="$1"
 	local logvar="$2"
@@ -92,5 +97,7 @@ do
 
 	echo
 done
+
+iter_empty log_client || { echo "Extra leftover samples in log: we must have misparsed it!" >&2 && false; }
 
 echo "All done!  Result is in: $outfile"
