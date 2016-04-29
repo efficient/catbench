@@ -30,7 +30,6 @@ iter_empty() {
 copyseries() {
 	local seriesname="$1"
 	local logvar="$2"
-	local extractionregex="$3"
 
 	set -e
 	reuse "data.$seriesname.description" string
@@ -39,7 +38,7 @@ copyseries() {
 		echo -n .
 		reuse "data.$seriesname.samples[$index].$independent" integer
 		[ "`iter_deref "$logvar" | wc -l`" -eq "$samples_per_point" ] || { echo "Missing expected number of samples for data point: the log must be missing some entries!" >&2 && false; }
-		iter_deref "$logvar" | sed -e "s/$extractionregex/\1/" -e '1i\unstructured\ninteger' | jaguar/jaguar set "$outfile" "data.$seriesname.samples[$index].$dependent" array -
+		iter_deref "$logvar" | sed '1i\unstructured\ninteger' | jaguar/jaguar set "$outfile" "data.$seriesname.samples[$index].$dependent" array -
 		iter_advance "$logvar"
 	done
 }
@@ -78,7 +77,7 @@ unset approved
 echo
 
 echo "Classifying log data..."
-log_client="`puts "$log_client" | grep -v "$DATA_POINT_DELIM_REGEX"`"
+log_client="`puts "$log_client" | sed -n "s/$SAMPLE_REGEX_CLIENT/\1/p"`"
 unset log
 
 echo "Copying legend entries..."
@@ -93,7 +92,7 @@ do
 	echo -n "Processing data series: $series..."
 
 	echo -n "(client)"
-	copyseries "$series" log_client "$SAMPLE_REGEX_CLIENT"
+	copyseries "$series" log_client
 
 	echo
 done
