@@ -165,12 +165,12 @@ runtrial() {
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep'" | sed -ue '/^EAL: /d' -e 's/^/remote: /' | tee rtt_client
+	sudo killall lockserver-ng
+	waitforexit clients/lockserver-ng
 	cat rtt_server
 
 	echo "NETWORK_RTT: Cleaning up..."
 	killall square_evictions
-	sudo killall lockserver-ng
-	waitforexit clients/lockserver-ng
 	if [ -n "$mask" ]
 	then
 		sudo cgdelete intel_rdt:lockserver
