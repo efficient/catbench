@@ -23,9 +23,9 @@ iter_advance() {
 }
 
 copyseries() {
-	seriesname="$1"
-	logvar="$2"
-	extractionregex="$3"
+	local seriesname="$1"
+	local logvar="$2"
+	local extractionregex="$3"
 
 	set -e
 	reuse "data.$seriesname.description" string
@@ -33,7 +33,7 @@ copyseries() {
 	do
 		echo -n .
 		reuse "data.$seriesname.samples[$index].$independent" integer
-		[ "`iter_deref "$logvar" | wc -l`" -eq "$samples_per_point" ] || { echo "Missing expected number of samples for data point: the log must be missing some entries!" && false; }
+		[ "`iter_deref "$logvar" | wc -l`" -eq "$samples_per_point" ] || { echo "Missing expected number of samples for data point: the log must be missing some entries!" >&2 && false; }
 		iter_deref "$logvar" | sed -e "s/$extractionregex/\1/" -e '1i\unstructured\ninteger' | jaguar/jaguar set "$outfile" "data.$seriesname.samples[$index].$dependent" array -
 		iter_advance "$logvar"
 	done
