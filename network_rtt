@@ -217,19 +217,19 @@ do
 
 		=================
 
-		RUNNING ITERATION: $independent
+		RUNNING ITERATION: $input
 
 	tac
 	recordtrial baseline "$table_entries"
 	eval cat <<-tac
 
-		RUNNING TRIAL: $independent contention
+		RUNNING TRIAL: $input contention
 
 	tac
 	recordtrial contention "$table_entries" "$NUM_TRASH"
 	eval cat <<-tac
 
-		RUNNING TRIAL: $independent allocation
+		RUNNING TRIAL: $input allocation
 
 	tac
 	recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"
