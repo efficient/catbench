@@ -24,12 +24,6 @@ iter_advance() {
 	eval "$var='`eval puts '"$'"$var"'"' | tail -n +"$((samples_per_point + 1))"`'"
 }
 
-iter_prepend() {
-	local var="$1"
-	local data="$2"
-	eval "$var='$data'`printf "'\n'"`"'"$'"$var"'"'
-}
-
 iter_empty() {
 	local logvar="$1"
 	[ -z "`iter_deref "$logvar"`" ]
@@ -55,16 +49,15 @@ calculateoh() {
 	local clientvar="$1"
 	local servervar="$2"
 
-	local origlen="`iter_deref "$servervar" | wc -l`"
+	local origlen="`puts "$servervar" | wc -l`"
 	set -e
-	[ -p thisclient ] || mkfifo thisclient
-	iter_deref "$clientvar" >thisclient &
-	[ -p thisserver ] || mkfifo thisserver
-	iter_deref "$servervar" >thisserver &
-	iter_advance "$servervar"
-	iter_prepend "$servervar" "`paste -d"-\n" thisclient thisserver | bc`"
-	rm thisclient thisserver
-	[ "`iter_deref "$servervar" | wc -l`" -eq "$origlen" ]
+	[ -p allclients ] || mkfifo allclients
+	eval puts '"$'"$clientvar"'"' >allclients &
+	[ -p allservers ] || mkfifo allservers
+	eval puts '"$'"$servervar"'"' >allservers &
+	eval "$servervar='`paste -d"-\n" allclients allservers | bc`'"
+	rm allclients allservers
+	[ "`puts "$servervar" | wc -l`" -eq "$origlen" ]
 }
 
 [ "`puts "$FIELDS_LIST" | wc -w`" -eq 2 ]
@@ -112,10 +105,12 @@ do
 	reuse "legend.samples.$field.unit" string
 done
 
+echo "Computing network overheads..."
+calculateoh log_client log_server
+
 for series in $SERIES_LIST_CLIENT
 do
 	echo -n "Processing data series: $series..."
-	calculateoh log_client log_server
 
 	echo -n "(client)"
 	copyseries "$series" log_client
