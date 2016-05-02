@@ -30,17 +30,17 @@ iter_empty() {
 }
 
 copyseries() {
-	local seriesname="$1"
-	local logvar="$2"
+	local serieslist="$1"
+	local entryindex="$2"
+	local logvar="$3"
 
 	set -e
-	reuse "data.$seriesname.description" string
-	for index in `seq 0 "$((points_per_series - 1))"`
+	for seriesname in $serieslist
 	do
 		echo -n .
-		reuse "data.$seriesname.samples[$index].$independent" integer
+		reuse "data.$seriesname.samples[$entryindex].$independent" integer
 		[ "`iter_deref "$logvar" | wc -l`" -eq "$samples_per_point" ] || { echo "Missing expected number of samples for data point: the log must be missing some entries!" >&2 && false; }
-		iter_deref "$logvar" | sed '1i\unstructured\ninteger' | jaguar/jaguar set "$outfile" "data.$seriesname.samples[$index].$dependent" array -
+		iter_deref "$logvar" | sed '1i\unstructured\ninteger' | jaguar/jaguar set "$outfile" "data.$seriesname.samples[$entryindex].$dependent" array -
 		iter_advance "$logvar"
 	done
 }
@@ -63,6 +63,7 @@ calculateoh() {
 [ "`puts "$FIELDS_LIST" | wc -w`" -eq 2 ]
 readonly independent="`puts "$FIELDS_LIST" | cut -d" " -f1`"
 readonly dependent="`puts "$FIELDS_LIST" | cut -d" " -f2`"
+readonly series_list_server="`puts "$SERIES_LIST_CLIENT" | sed "s/ \|$/$SERIES_SUFFIX_SERVER&/g"`"
 
 echo -n "Munging experiment log"
 
@@ -93,30 +94,44 @@ read approved
 unset approved
 echo
 
-echo "Classifying log data..."
+echo -n "Classifying log data"
 log_client="`puts "$log_client" | sed -n "s/$SAMPLE_REGEX_CLIENT/\1/p"`"
+echo -n .
 log_server="`puts "$log" | sed -n "s/$SAMPLE_REGEX_SERVER/\1/p"`"
+echo -n .
 unset log
+echo
 
-echo "Copying legend entries..."
+echo -n "Copying legend entries"
 for field in $FIELDS_LIST
 do
 	reuse "legend.samples.$field.description" string
+	echo -n .
 	reuse "legend.samples.$field.unit" string
+	echo -n .
 done
+echo
+
+echo -n "Copying series labels"
+for series in $SERIES_LIST_CLIENT $series_list_server
+do
+	reuse "data.$series.description" string
+	echo -n .
+done
+echo
 
 echo "Computing network overheads..."
 calculateoh log_client log_server
 
-for series in $SERIES_LIST_CLIENT
+for index in `seq 0 "$((points_per_series - 1))"`
 do
-	echo -n "Processing data series: $series..."
+	echo -n "Processing record index: $index..."
 
 	echo -n "(client)"
-	copyseries "$series" log_client
+	copyseries "$SERIES_LIST_CLIENT" "$index" log_client
 
 	echo -n "(server)"
-	copyseries "$series$SERIES_SUFFIX_SERVER" log_server
+	copyseries "$series_list_server" "$index" log_server
 
 	echo
 done
