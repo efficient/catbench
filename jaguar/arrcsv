@@ -1,0 +1,51 @@
+#!/bin/sh
+
+if [ $# -lt 2 -o $# -gt 3 ]
+then
+	cat <<-tac
+		USAGE: $0 [-n] <JSON> <path>
+
+		-n means no header
+	tac
+	exit 1
+fi
+
+prnhdr="true"
+if [ $# -eq 3 ]
+then
+	case "$1" in
+	"-n")
+		prnhdr="false"
+		shift
+		;;
+	*)
+		echo "That was not an -n!" >&2
+		exit 2
+		;;
+	esac
+fi
+
+jagfile="$1"
+array="$2"
+
+linenum() {
+	local regexp="$1"
+	grep -ne "$regexp" | head -n1 | cut -d: -f1
+}
+
+res="`"$(dirname "$0")/jaguar" get "$jagfile" "$array" | sed -e 's/\[\(.*\)\]/\1/' -e 's/, /\n/g'`"
+
+open="`echo "$res" | linenum '{'`"
+close="`echo "$res" | linenum '}'`"
+
+header="`echo "$array" | rev | cut -d. -f1 | rev`"
+if [ -n "$open" -a -n "$close" ]
+then
+	stride="`echo "$close - $open + 1" | bc`"
+	header="`echo "$res" | head -n"$stride" | sed 's/.*'"'"'\([^'"'"']\+\)'"'"'.*/\1/' | paste -sd,`"
+	delims="`for num in $(seq "$stride"); do echo -n ,; done | sed 's/,$/\\\n/'`"
+	res="`echo "$res" | sed 's/}//' | rev | cut -d" " -f1 | rev | paste -sd"$delims"`"
+fi
+
+"$prnhdr" && echo "$header"
+echo "$res"
