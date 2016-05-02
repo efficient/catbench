@@ -6,6 +6,12 @@ then
 		USAGE: $0 [-n] <JSON> <path>
 
 		-n means no header
+
+		To get a CSV of a particular series, you can do:
+		$ ./arrcsv <datafile> data.<series>.samples
+
+		To get a simple listing of the points within a data point whose dependent is recorded as a list, try:
+		$ ./arrcsv <datafile> data.<series>.samples[<point>].<dependent>
 	tac
 	exit 1
 fi
