@@ -7,7 +7,7 @@ readonly DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
-readonly NUM_TRASH="7"
+readonly NUM_TRASH="8"
 readonly TRASH_ALLOC="800"
 
 usage() {
