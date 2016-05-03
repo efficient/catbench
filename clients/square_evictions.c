@@ -279,7 +279,8 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 						return 1;
 
 				++accesses;
-				if(accesses == max_accesses) {
+				// This counter can wrap, so we have to ignore it when we're talking about infinite runs. Does it burn us in other cases as well?
+				if(!infinite_duration && accesses == max_accesses) {
 					duration += clock() - startpass;
 					printf("Completed traversal in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 					fflush(stdout);
@@ -536,6 +537,11 @@ int main(int argc, char *argv[]) {
 	}
 	if((accesses || baserandom) && !randomize) {
 		fputs("-a and -b only make sense in concert with -r\n", stderr);
+		ret = 1;
+		goto cleanup;
+	}
+	if(infinite_duration && accesses) {
+		fputs("-u means infinite and cannot be capped using -a\n", stderr);
 		ret = 1;
 		goto cleanup;
 	}
