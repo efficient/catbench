@@ -52,7 +52,6 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		}
 
 		while(true) {
-			puts("About to send activation packet!");
 			clock_t time = realtime();
 			if(!rte_eth_tx_buffer(PORT, 0, buf, packet)) {
 				time = realtime();
@@ -61,7 +60,6 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 					return 4;
 				}
 			}
-			puts("Sent activation packet!");
 
 			timeout = false;
 			alarm(TIMEOUT_S);

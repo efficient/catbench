@@ -113,9 +113,7 @@ static int experiment(args_t *args) {
 	while(loop) {
 		clock_t thistime;
 
-		printf("This is trial %d\n", iter);
 		assert(iter <= TIMING_BUFFER_LEN + 1);
-		puts("Awaiting client request...");
 		struct rte_mbuf *packet = NULL;
 		while(true) {
 			if(!loop)
@@ -124,24 +122,14 @@ static int experiment(args_t *args) {
 			if(ct) {
 				struct ether_hdr *eth = rte_pktmbuf_mtod(packet, struct ether_hdr *);
 				bool addressed_to_me = false;
-#ifndef NDEBUG
 				addressed_to_me = is_same_ether_addr(&eth->d_addr, &laddr);
 				thistime = realtime();
 
-				printf("Received packet%s addressed to me\n", addressed_to_me ? "" : " not");
-				printf("\tDestination: ");
-				paddr(&eth->d_addr);
-				printf("\tSource:      ");
-				paddr(&eth->s_addr);
-#endif
 				if(addressed_to_me)
 					break;
 			}
 		}
 
-#ifndef NDEBUG
-		puts("Performing pointer chasing...");
-#endif
 		uintptr_t *cur = arr;
 		while((cur = (uintptr_t *) *cur) != arr);
 
@@ -162,7 +150,6 @@ static int experiment(args_t *args) {
 			ret = 2;
 			goto cleanup;
 		}
-		puts("Sent completion notification!");
 	}
 stoploop:
 
