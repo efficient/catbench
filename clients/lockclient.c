@@ -8,6 +8,9 @@
 
 #define ITERATIONS 2000
 #define TIMEOUT_S  30
+#define WARMUP     600
+
+#define NUM_SAVED  (ITERATIONS - WARMUP)
 
 typedef struct {
 	struct ether_addr mac;
@@ -28,9 +31,9 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		return 1;
 	}
 
-	clock_t samples[ITERATIONS];
+	clock_t samples[NUM_SAVED];
 	// Run one extra time and discard the results of the first trial.
-	for(int times = 0; times <= ITERATIONS; ++times) {
+	for(int times = 0; times < ITERATIONS; ++times) {
 		struct rte_mbuf *packet = rte_pktmbuf_alloc(pool);
 		if(!packet) {
 			fputs("Couldn't allocate packet buffer\n", stderr);
@@ -67,8 +70,8 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 			while(!(got = rte_eth_rx_burst(PORT, 0, &packet, 1)) && !timeout);
 			if(got) {
 				clock_t duration = realtime() - time;
-				if(times)
-					samples[times - 1] = duration;
+				if(times >= WARMUP)
+					samples[times - WARMUP] = duration;
 
 				printf("Completed after: %ld us\n", duration);
 				if(args->sleep)
@@ -85,10 +88,10 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		}
 	}
 
-	qsort(samples, ITERATIONS, sizeof *samples, comparetimes);
-	double ave = samples[ITERATIONS / 2];
-#if ITERATIONS > 2 && ITERATIONS % 2
-	ave += samples[ITERATIONS / 2 - 1];
+	qsort(samples, NUM_SAVED, sizeof *samples, comparetimes);
+	double ave = samples[NUM_SAVED / 2];
+#if NUM_SAVED % 2 == 0
+	ave += samples[NUM_SAVED / 2 - 1];
 	ave /= 2;
 #endif
 	printf("Average: %f us\n", ave);

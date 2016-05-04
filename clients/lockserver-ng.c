@@ -13,6 +13,7 @@
 #include "realtime.h"
 
 #define TIMING_BUFFER_LEN 5000
+#define WARMUP            600
 
 typedef struct {
 	int len;
@@ -24,11 +25,11 @@ static clock_t times[TIMING_BUFFER_LEN];
 
 static void sigterm_handler(int signal) {
 	(void) signal;
-	--iter;
+	iter -= WARMUP;
 	if(iter) {
 		qsort(times, iter, sizeof *times, comparetimes);
 		double ave = times[iter / 2];
-		if(iter > 2 && iter % 2) {
+		if(iter % 2 == 0) {
 			ave += times[iter / 2 - 1];
 			ave /= 2;
 		}
@@ -139,11 +140,11 @@ static int experiment(args_t *args) {
 
 		clock_t delta = realtime() - thistime;
 		printf("Computed in: %ld us\n", delta);
-		if(iter) {
-			assert(iter <= TIMING_BUFFER_LEN);
-			times[iter++ - 1] = delta;
-		} else
-			++iter;
+		if(iter >= WARMUP) {
+			assert(iter - WARMUP < TIMING_BUFFER_LEN);
+			times[iter - WARMUP] = delta;
+		}
+		++iter;
 
 		if(!rte_eth_tx_burst(PORT, 0, &packet, 1)) {
 			fputs("Data wasn't actually transmitted\n", stderr);
