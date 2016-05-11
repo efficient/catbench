@@ -164,7 +164,7 @@ runtrial() {
 	fi
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep'" | sed -ue '/^EAL: /d' -e 's/^/remote: /' | tee rtt_client
+	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep'" | sed -u 's/^/remote: /' | tee rtt_client
 	sudo killall lockserver-ng
 	waitforexit clients/lockserver-ng
 	cat rtt_server
