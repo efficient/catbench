@@ -3,12 +3,15 @@
 #include <rte_ethdev.h>
 #include <unistd.h>
 
+#define LINK_SPEED ETH_LINK_SPEED_10G
 #define MBUF_CACHE_SIZE 250
 #define NUM_MBUFS 8191
 #define RX_RING_SIZE 128
 #define TX_RING_SIZE 512
 
-static const struct rte_eth_conf PORT_CONF;
+static const struct rte_eth_conf PORT_CONF = {
+	.link_speeds = LINK_SPEED,
+};
 static const struct rte_eth_rxconf RX_CONF;
 static const struct rte_eth_txconf TX_CONF;
 static const char *DEFAULT_EAL_ARGS[] = {
@@ -65,6 +68,11 @@ struct rte_mempool *dpdk_start(int argc, char **argv) {
 	struct rte_eth_link status = {.link_status = ETH_LINK_DOWN};
 	while(status.link_status != ETH_LINK_UP)
 		rte_eth_link_get(PORT, &status);
+	printf("Link speed is %u Mbps.\n", status.link_speed);
+	if(rte_eth_speed_bitflag(status.link_speed, 0) != LINK_SPEED) {
+		fputs("It's the wrong speed, Gromit!\n", stderr);
+		return NULL;
+	}
 	puts("Initialization complete!");
 
 	return pool;
