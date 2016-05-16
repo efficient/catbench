@@ -621,7 +621,7 @@ int main(int argc, char *argv[]) {
 			await_signal = true;
 			break;
 		default:
-			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-h] [-o] [-r [#]] [-q] [-f ,,] [-s] [-w] [-v] [-l @] [-j #] [-m] [-a #] [-b #] [-u] [-i]\n",
+			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-h] [-o #] [-r [#]] [-q] [-f ,,] [-s] [-w] [-v] [-l @] [-j #] [-m] [-a #] [-b #] [-u] [-i]\n",
 					invoc);
 			printf(
 					" -n #: Number of PERIODS (default %d)\n"
