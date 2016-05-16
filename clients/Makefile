@@ -29,18 +29,18 @@ lockserver-ng: lockserver-ng.o dpdk_wrapper.o realtime.o ../external/dpdk/build/
 rng_test: rng.o
 square_evictions: llc.o movnt.o perf_poll.o realtime.o rng.o
 
-dpdk_wrapper.%: CFLAGS += -std=gnu99 -Wno-cast-qual
-dpdk_wrapper.%: CPPFLAGS += -include rte_config.h
-dpdk_wrapper.%: ../external/dpdk/build/lib/libethdev.a
-dpdk_wrapper.%: dpdk_wrapper.h
+dpdk_wrapper.o: CFLAGS += -std=gnu99 -Wno-cast-qual
+dpdk_wrapper.o: CPPFLAGS += -include rte_config.h
+dpdk_wrapper.o: ../external/dpdk/build/lib/libethdev.a
+dpdk_wrapper.o: dpdk_wrapper.h
 llc.o: llc.h
-lockclient.%: CFLAGS += -std=gnu99
-lockclient.%: CPPFLAGS += -include rte_config.h
-lockclient.%: dpdk_wrapper.h realtime.h
-lockserver-ng.%: CFLAGS += -std=gnu99
-lockserver-ng.%: CPPFLAGS += -include rte_config.h
-lockserver-ng.%: ../external/dpdk/build/lib/libethdev.a
-lockserver-ng.%: dpdk_wrapper.h realtime.h
+lockclient.o: CFLAGS += -std=gnu99
+lockclient.o: CPPFLAGS += -include rte_config.h
+lockclient.o: dpdk_wrapper.h realtime.h
+lockserver-ng.o: CFLAGS += -std=gnu99
+lockserver-ng.o: CPPFLAGS += -include rte_config.h
+lockserver-ng.o: ../external/dpdk/build/lib/libethdev.a
+lockserver-ng.o: dpdk_wrapper.h realtime.h
 movnt.o: movnt.h
 perf_poll.o: perf_poll.h syscallers.h
 rng.o: rng.h
