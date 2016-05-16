@@ -87,6 +87,21 @@ def usage(parsed = None, args = None):
 	print('USAGE: {} <command> <filename> [argument]...'.format(argv[0]))
 	exit(1)
 
+def stringorstdin(string):
+	if string != '-':
+		return string
+
+	return stdin.read()
+
+def dontpackunstructured(ignorekeys, values):
+	if len(values) > 1:
+		print('Unstructured means precisely that, so there shouldn\'t be multiple columns here!', file = stderr)
+		exit(1)
+	return values[0]
+
+def actuallypackstructured(keys, values):
+	return dict(zip(keys, values))
+
 def arrayfromcsv(fname):
 	fd = stdin
 	if fname != '-':
@@ -100,18 +115,25 @@ def arrayfromcsv(fname):
 	if fd != stdin:
 		fd.close()
 
+	packerupper=actuallypackstructured
+	firstvalueline=2
+	if lines[0].strip() == 'unstructured':
+		packerupper=dontpackunstructured
+		firstvalueline = 1
+		lines = lines[1:]
+
 	types = list(map(parse_type, lines[0].strip().split(',')))
 	if arrayfromcsv in types:
 		print('Arrays within arrays?! I\'m afraid I can\'t let you do that, Dave.', file = stderr)
 		exit(1)
 
 	keys = lines[1].strip().split(',')
-	return [dict(zip(keys, (lambda x: [types[idx](x[idx]) for idx in range(len(x))])(line.strip().split(',')))) for line in lines[2:]]
+	return [packerupper(keys, (lambda x: [types[idx](x[idx]) for idx in range(len(x))])(line.strip().split(','))) for line in lines[firstvalueline:]]
 
 def parse_type(string):
 	try:
 		return {
-			'string': str,
+			'string': filtered_type(''),
 			'integer': int,
 			'fraction': float,
 			'boolean': filtered_type(False),
@@ -123,6 +145,7 @@ def parse_type(string):
 
 def filtered_type(obj):
 	return {
+		str: stringorstdin,
 		bool: lambda s: True if s.lower() == 'true' or s == '1' else False if s.lower() == 'false' or s == '0' else exec('raise ValueError(\'unable to parse bool\')'),
 		list: arrayfromcsv,
 	}.get(type(obj), type(obj))
