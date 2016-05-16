@@ -36,6 +36,7 @@ dpdk_wrapper.o: dpdk_wrapper.h
 llc.o: llc.h
 lockclient.o: CFLAGS += -std=gnu99
 lockclient.o: CPPFLAGS += -include rte_config.h
+lockclient.o: ../external/dpdk/build/lib/libethdev.a
 lockclient.o: dpdk_wrapper.h realtime.h
 lockserver-ng.o: CFLAGS += -std=gnu99
 lockserver-ng.o: CPPFLAGS += -include rte_config.h
