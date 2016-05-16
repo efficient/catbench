@@ -10,13 +10,12 @@ import json;
 from matplotlib import ticker;
 import numpy as np
 
-
 def setup_optparse():
     parser = argparse.ArgumentParser();
     parser.add_argument('--input', '-i', dest='datafile',
-                        help='input csv with header');
+                        help='input json');
     parser.add_argument('--series', '-s', nargs='+', dest='series_labels',
-                        help='series label(s). Enter single key or multiple keys');
+                        help='series label(s). Single label or space separated list');
     parser.add_argument('--xdata', '-x', dest='x_label',
                         help='X axis label');
     parser.add_argument('--ydata', '-y', nargs='+', dest='y_labels',
@@ -28,12 +27,19 @@ def setup_optparse():
     parser.add_argument('--outfile', '-o', dest='outfile', default="graph.png",
                         help='Output filename');
     parser.add_argument('--fit', '-f', dest='fit', default=False);
-    parser.add_argument('--ymin', dest='ymin', default=None);
-    parser.add_argument('--ymax', dest='ymax', default=None);
-    parser.add_argument('--log', dest='log', action='store_true', default=False);
-    parser.add_argument('--no-commit', '-n', dest='no_commit_message', action='store_true', default=True);
+    parser.add_argument('--ymin', dest='ymin', default=None,
+                        help="Y axis minimum. Default 0");
+    parser.add_argument('--ymax', dest='ymax', default=None,
+                        help="Y axis maximum. Default 1.75 * the max y value found in the data");
+    parser.add_argument('--no-commit', '-n', dest='no_commit_message', action='store_true', default=False,
+                        help="Do not include commit number on graph");
     parser.add_argument('--log-y', dest='logy', action='store_true', default=False);
     parser.add_argument('--log-x', dest='logx', action='store_true', default=False);
+    parser.add_argument('--cdf', dest='cdf', action='store_true', default=False);
+    parser.add_argument('--legend-x', dest='legend_x', default=1.5,
+                        help="Legend box location x coordinate");
+    parser.add_argument('--legend-y', dest='legend_y', default=1.5,
+                        help="Legend boy location y coordinate");
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
@@ -41,7 +47,7 @@ def setup_optparse():
         args.ymin = int(args.yim)
     if(args.ymax != None):
         args.ymax = int(args.ymax)
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.log, args.no_commit_message, args.logx, args.logy;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
     fd = open(filename, 'r');
@@ -138,7 +144,56 @@ def get_series_aux(filename, seriesname, ilist):
         fd.close();
         return ret;
 
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, plt_log, no_commit_message, logx, logy):
+def graph_cdf(filename, slabels, xlabel, ypoints, title, outfile):
+    fd = open(filename, 'r');
+    data = json.load(fd);
+    fig = plt.figure();
+    ax = fig.add_subplot(1,1,1);
+    #ax.set_xlabel(xlabel);
+    y = list();
+    cdf = list();
+    num_bins = 68;
+    series_descriptions = list();
+    for series in slabels:
+        desc = data.get("data").get(series).get("description");
+        cur_series_data = (data.get("data").get(series).get("samples")[0]).get(ypoints[0]);
+        y.append(cur_series_data);
+        print series_descriptions;
+        print y;
+        cur_series_data.sort();
+        counts, bin_edges = np.histogram(cur_series_data, bins=max(cur_series_data), normed=True);
+        ax.plot(cur_series_data, np.linspace(0,1,len(cur_series_data)), label=desc);
+        cdf.append(np.cumsum(counts));
+    count = 0;
+    for yp in y:
+        count += 1;
+    box = ax.get_position();
+    ax.set_position([box.x0, box.y0, box.width, box.height * 0.7]);
+
+    #for c in cdf:
+        #print c;
+        #print bin_edges[1:];
+        #ax.plot(bin_edges[1:], c);
+    for yp in y:
+        ys = sorted(yp);
+        import scipy.stats as stats
+        fit = stats.norm.pdf(ys, np.mean(ys), np.std(ys));
+        density = stats.kde.gaussian_kde(ys);
+        #x = np.arange(1000, 20000, 1000);
+        #ax.plot(ys, fit, '-o');
+        #ax.hist(ys, normed=True);
+        #ax.plot(x, density(x), label=series_descriptions[count]);
+        count += 1;
+    ax.set_title(title);
+    ax.title.set_position((0.5, 1.08));
+    handles, labels = ax.get_legend_handles_labels()
+    import operator
+    hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
+    handles2, labels2 = zip(*hl)
+    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
+    fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
+
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -168,15 +223,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             if(key2 == "description"):
                 continue;
             xy = map(list, zip(*val2));
-	    line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
-	    #if(logx == True and logy == True):
-            #    line.append((ax.loglog(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
-            #elif(logx == True and logy == False):
-            #    line.append((ax.semilogx(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
-            #elif(logx == False and logy == True):
-            #    line.append((ax.semilogy(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
-        #else:
-	    #    line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+            line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
             ax.scatter(xy[0], xy[1]);
         if(max(xy[0]) > cur_xmax):
             cur_xmax = max(xy[0]);
@@ -192,16 +239,15 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     idx = 0;
     if(x_copy[0] > 0):
         x_copy.insert(0, 0);
-    while(idx + 1 < len(x_copy)):
-        if(x_copy[idx] + min_dist > x_copy[idx+1]):
-            x_copy.pop(idx+1);
-            continue;
-        idx += 1;
-    if(plt_log == False or (logx == logy == False)):
+    #while(idx + 1 < len(x_copy)):
+        #if(x_copy[idx] + min_dist > x_copy[idx+1]):
+            #x_copy.pop(idx+1);
+            #continue;
+        #idx += 1;
+    if(logx == logy == False):
         plt.xticks(x_copy);
     ax.set_title(title);
     ax.title.set_position((0.5, 1.08));
-    lgd = plt.legend(loc="center right", bbox_to_anchor=(1.7,0.5));
 
     handles, labels = ax.get_legend_handles_labels()
 
@@ -209,8 +255,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     import operator
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
-    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.7, 0.5));
-    #lgd = plt.legend(loc="center right", bbox_to_anchor=(1.7,0.5));
+    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
+    lgd = plt.legend(loc="center right", bbox_to_anchor=(1.0,0.3));
 
 #    cur_ymax = cur_ymax * 1.75;
     plt.xlim(xmin=0);
@@ -224,20 +270,29 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             plt.ylim(ymin=float(user_ymin), ymax=float(cur_ymax));
         elif(fit == False):
             plt.ylim(ymin=float(user_ymin), ymax=float(user_ymax));
-    else:
+    if(logy == True):
         yticks = list();
         cur_tick = 1;
         while(cur_tick < cur_ymax * 10):
             yticks.append(cur_tick);
             cur_tick = cur_tick * 10;
-        print yticks;
         plt.yticks(yticks);
+    if(logx == True):
+        xticks = list();
+        cur_tick = 1;
+        while(cur_tick < cur_xmax * 10):
+            xticks.append(cur_tick);
+            cur_tick = cur_tick * 10;
+        plt.xticks(xticks);
     #ax.axis("tight");
-    fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
+    fig.savefig(outfile, format='png', bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, log, no_commit_message, logx, logy = setup_optparse();
-    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, log, no_commit_message, logx, logy);
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y = setup_optparse();
+    if(cdf == False):
+        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y);
+    else:
+        graph_cdf(filename, slabels, xlabel, ylabels, title, outfile);
 
 main();
 # Col 0 are the x points
