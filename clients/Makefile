@@ -8,7 +8,7 @@ CPPFLAGS += \
 CFLAGS += \
 
 LDLIBS += \
-	-lrt
+	-lrt \
 
 # Add to LDLIBS of targets needing to use the DPDK driver.
 LINK_PMD_IXGBE := -Wl,--whole-archive ../external/dpdk/build/lib/librte_pmd_ixgbe.a -Wl,--no-whole-archive
