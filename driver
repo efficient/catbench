@@ -51,7 +51,7 @@ jaguar/jaguar set "$CATBENCH_JAGFILE" meta.command "$*"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.commit "`git log --oneline --abbrev-commit --no-decorate -1`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.date "`date "+%F %T %z"`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.message "`git log --no-abbrev-commit --decorate -1`"
-jaguar/jaguar set "$CATBENCH_JAGFILE" meta.patch "`git diff --ignore-submodules HEAD | base64`"
+git diff --ignore-submodules HEAD | base64 | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.patch -
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.status "`git status -uno`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.submodule "`git submodule status`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.uname "`uname -a`"
@@ -61,7 +61,7 @@ echo "$ $@"
 status="$?"
 
 logging_cleanup
-jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log "`base64 "$prefix.log"`"
+base64 "$prefix.log" | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log -
 rm "$prefix.log"
 
 exit "$status"

@@ -151,18 +151,20 @@ static struct {
 	int perfstride;
 	bool measure_all;
 	int max_accesses;
+	bool infinite_duration;
 } square_evictions_saved;
 
 static void square_evictions_handler(int);
 static void term_handler(int);
 
-typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, int, rng_t *, rng_t *, bool,
-		bool, perf_log_buffer_t **, int, bool, int);
+typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, int, rng_t *, rng_t *, bool, bool,
+		perf_log_buffer_t **, int, bool, int, bool);
 
 static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded, int unroll,
 		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
-		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses) {
+		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses,
+		bool infinite_duration) {
 	square_evictions_saved.arr = arr;
 	square_evictions_saved.cache_line_size = cache_line_size;
 	square_evictions_saved.num_periods = num_periods;
@@ -178,6 +180,7 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 	square_evictions_saved.perfstride = perfstride;
 	square_evictions_saved.measure_all = measure_all;
 	square_evictions_saved.max_accesses = max_accesses;
+	square_evictions_saved.infinite_duration = infinite_duration;
 
 	struct sigaction signal_setup = {.sa_handler = square_evictions_handler};
 	struct sigaction term_setup = {.sa_handler = term_handler};
@@ -197,7 +200,8 @@ static void nop(int o) { (void) o; nope = false; }
 static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded, int unroll,
 		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
-		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses) {
+		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses,
+		bool infinite_duration) {
 	assert(perflog);
 
 	if(cont_rand)
@@ -221,9 +225,12 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		}
 		startperf = clock();
 	}
-		
+
+	if(infinite_duration)
+		fputs("NB: Will run forever without reaching expanded phase...\n", stderr);
+
 	clock_t duration = 0;
-	for(int cycle = 0; cycle < 2 * num_periods; ++cycle) {
+	for(int cycle = 0; cycle < 2 * num_periods; infinite_duration ? 0 : ++cycle) {
 		const char *desc = "";
 		rng_t *randomizer = randomize;
 		int siz;
@@ -331,8 +338,8 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 					if(!bufappend(perflog, perfd, startperf))
 						return 1;
 
-				accesses += subaccesses;
-				if(accesses == max_accesses) {
+				// This counter can wrap, so we have to ignore it when we're talking about infinite runs. Does it burn us in other cases as well?
+				if(!infinite_duration && accesses == max_accesses) {
 					duration += clock() - startpass;
 					printf("Completed traversal in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 					fflush(stdout);
@@ -380,7 +387,8 @@ static void square_evictions_handler(int sig) {
 			square_evictions_saved.perflog,
 			square_evictions_saved.perfstride,
 			square_evictions_saved.measure_all,
-			square_evictions_saved.max_accesses);
+			square_evictions_saved.max_accesses,
+			square_evictions_saved.infinite_duration);
 }
 
 static void term_handler(int sig) {
@@ -414,12 +422,13 @@ int main(int argc, char *argv[]) {
 	bool sanitycheck_memory = false;
 	bool sanitycheck_clockspeed = false;
 	bool measure_all = false;
+	bool infinite_duration = false;
 	bool await_signal = false;
 
 	char *invoc = argv[0];
 	int each_arg;
 	opterr = 0;
-	while((each_arg = getopt(argc, argv, "n:p:c:e:hu:r::qf:swvl:j:ma:b:i")) != -1) {
+	while((each_arg = getopt(argc, argv, "n:p:c:e:ho:r::qf:swvl:j:ma:b:ui")) != -1) {
 		switch(each_arg) {
 		case 'n':
 			if(!parse_arg_arg(each_arg, &num_periods)) {
@@ -529,11 +538,14 @@ int main(int argc, char *argv[]) {
 				goto cleanup;
 			}
 			break;
+		case 'o':
+			infinite_duration = true;
+			break;
 		case 'i':
 			await_signal = true;
 			break;
 		default:
-			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-h] [-u] [-r [#]] [-q] [-f ,,] [-s] [-w] [-v] [-l @] [-j #] [-m] [-a #] [-b #] [-i]\n",
+			printf("USAGE: %s [-n #] [-p #] [-c %%] [-e %%] [-h] [-o #] [-r [#]] [-q] [-f ,,] [-s] [-w] [-v] [-l @] [-j #] [-m] [-a #] [-b #] [-u] [-i]\n",
 					invoc);
 			printf(
 					" -n #: Number of PERIODS (default %d)\n"
@@ -541,7 +553,7 @@ int main(int argc, char *argv[]) {
 					" -c %%: Percent cache CONTRACTED 1/2-period (default %d)\n"
 					" -e %%: Percent cache EXPANDED 1/2-period (default %d)\n"
 					" -h: Allocate using huge pages for contiguous memory\n"
-					" -u #: Unroll loop given number of times\n"
+					" -o #: Unroll loop given number of times\n"
 					" -r [#]: Randomize ordering to fool prefetcher\n"
 					"         Optionally takes a custom rng increment\n"
 					" -q: Do not spin to handle out-of-bounds rng results\n"
@@ -555,6 +567,7 @@ int main(int argc, char *argv[]) {
 					" -m: MEAsure all memory accesses using rdtscp\n"
 					" -a #: Limit accesses to a subset of this cardinality\n"
 					" -b #: Perform first access this far into the rng period\n"
+					" -u: Run 5ever, just repeating the first contracted phase\n"
 					" -i: Wait and perform the specified traversal on USR1\n",
 					DEFAULT_NUM_PERIODS, DEFAULT_PASSES_PER_CYCLE,
 					DEFAULT_PERCENT_CONTRACTED, DEFAULT_PERCENT_EXPANDED,
@@ -593,6 +606,11 @@ int main(int argc, char *argv[]) {
 	}
 	if((accesses || baserandom) && !randomize) {
 		fputs("-a and -b only make sense in concert with -r\n", stderr);
+		ret = 1;
+		goto cleanup;
+	}
+	if(infinite_duration && accesses) {
+		fputs("-u means infinite and cannot be capped using -a\n", stderr);
 		ret = 1;
 		goto cleanup;
 	}
@@ -697,7 +715,7 @@ int main(int argc, char *argv[]) {
 	}
 	ret = call(large, cache_line_size, num_periods, passes_per_cycle, cap_contracted,
 			cap_expanded, unroll, random, randtv, norngspin, sanitycheck_memory,
-			&perfbuf, perfstride, measure_all, accesses);
+			&perfbuf, perfstride, measure_all, accesses, infinite_duration);
 
 	if(perflog) {
 		assert(perfbuf);
