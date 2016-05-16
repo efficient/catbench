@@ -36,10 +36,10 @@ def setup_optparse():
     parser.add_argument('--log-y', dest='logy', action='store_true', default=False);
     parser.add_argument('--log-x', dest='logx', action='store_true', default=False);
     parser.add_argument('--cdf', dest='cdf', action='store_true', default=False);
-    parser.add_argument('--legend-x', dest='legend_x', default=1.5,
-                        help="Legend box location x coordinate");
-    parser.add_argument('--legend-y', dest='legend_y', default=1.5,
-                        help="Legend boy location y coordinate");
+    parser.add_argument('--legend-x', dest='legend_x', type=float, default=1.0,
+                        help="Legend box location x coordinate (default 1.0)");
+    parser.add_argument('--legend-y', dest='legend_y', type=float, default=0.3,
+                        help="Legend boy location y coordinate (default 0.3)");
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
@@ -256,7 +256,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
-    lgd = plt.legend(loc="center right", bbox_to_anchor=(1.0,0.3));
+    lgd = plt.legend(loc="center right", bbox_to_anchor=(legend_x,legend_y));
 
 #    cur_ymax = cur_ymax * 1.75;
     plt.xlim(xmin=0);
