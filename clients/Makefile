@@ -14,7 +14,7 @@ LDLIBS += \
 LINK_PMD_IXGBE := -Wl,--whole-archive ../external/dpdk/build/lib/librte_pmd_ixgbe.a -Wl,--no-whole-archive
 
 .PHONY: all
-all: square_evictions
+all: square_evictions lockserver-ng lockclient
 
 include ../external/modules.mk
 
