@@ -12,6 +12,7 @@
 #include "dpdk_wrapper.h"
 #include "realtime.h"
 
+//#define AVE_MEDIAN
 #define TIMING_BUFFER_LEN 5000
 #define WARMUP            600
 
@@ -21,18 +22,26 @@ typedef struct {
 
 static bool loop = true;
 static int iter = 0;
+#ifdef AVE_MEDIAN
 static clock_t times[TIMING_BUFFER_LEN];
+#else
+static double ave;
+#endif
 
 static void sigterm_handler(int signal) {
 	(void) signal;
 	iter -= WARMUP;
 	if(iter) {
+#ifdef AVE_MEDIAN
 		qsort(times, iter, sizeof *times, comparetimes);
 		double ave = times[iter / 2];
 		if(iter % 2 == 0) {
 			ave += times[iter / 2 - 1];
 			ave /= 2;
 		}
+#else
+		ave /= iter;
+#endif
 		printf("Average: %f us\n", ave);
 	}
 	exit(!iter);
@@ -141,8 +150,12 @@ static int experiment(args_t *args) {
 		clock_t delta = realtime() - thistime;
 		printf("Computed in: %ld us\n", delta);
 		if(iter >= WARMUP) {
+#ifdef AVE_MEDIAN
 			assert(iter - WARMUP < TIMING_BUFFER_LEN);
 			times[iter - WARMUP] = delta;
+#else
+			ave += delta;
+#endif
 		}
 		++iter;
 

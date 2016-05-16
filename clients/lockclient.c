@@ -6,6 +6,7 @@
 #include "dpdk_wrapper.h"
 #include "realtime.h"
 
+//#define AVE_MEDIAN
 #define ITERATIONS 2000
 #define TIMEOUT_S  30
 #define WARMUP     600
@@ -31,7 +32,11 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		return 1;
 	}
 
+#ifdef AVE_MEDIAN
 	clock_t samples[NUM_SAVED];
+#else
+	double ave = 0;
+#endif
 	// Run one extra time and discard the results of the first trial.
 	for(int times = 0; times < ITERATIONS; ++times) {
 		struct rte_mbuf *packet = rte_pktmbuf_alloc(pool);
@@ -71,7 +76,11 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 			if(got) {
 				clock_t duration = realtime() - time;
 				if(times >= WARMUP)
+#ifdef AVE_MEDIAN
 					samples[times - WARMUP] = duration;
+#else
+					ave += duration;
+#endif
 
 				printf("Completed after: %ld us\n", duration);
 				if(args->sleep)
@@ -88,11 +97,15 @@ static int experiment(args_t *args, struct rte_mempool *pool) {
 		}
 	}
 
+#ifdef AVE_MEDIAN
 	qsort(samples, NUM_SAVED, sizeof *samples, comparetimes);
 	double ave = samples[NUM_SAVED / 2];
 #if NUM_SAVED % 2 == 0
 	ave += samples[NUM_SAVED / 2 - 1];
 	ave /= 2;
+#endif
+#else
+	ave /= NUM_SAVED;
 #endif
 	printf("Average: %f us\n", ave);
 	return 0;
