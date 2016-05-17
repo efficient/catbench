@@ -8,7 +8,7 @@
 
 //#define AVE_MEDIAN
 #define ITERATIONS 2000
-#define TIMEOUT_S  30
+#define TIMEOUT_S  120
 #define WARMUP     600
 
 #define NUM_SAVED  (ITERATIONS - WARMUP)
