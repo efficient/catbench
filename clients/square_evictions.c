@@ -126,6 +126,17 @@ static bool parse_arg_arg(char flag, int *dest) {
 	return true;
 }
 
+static struct {
+	bool transition;
+	bool last;
+} w_lap_meta;
+
+static void lap_handler(int sig) {
+	w_lap_meta.transition = true;
+	if(sig == SIGTERM)
+		w_lap_meta.last = true;
+}
+
 static bool uninterrupted = true;
 static struct {
 	uint8_t *arr;
@@ -216,6 +227,9 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 	if(infinite_duration)
 		fputs("NB: Will run forever without reaching expanded phase...\n", stderr);
 
+	int w_lap = 0;
+	long w_lap_accesses = 0;
+	double w_lap_duration = 0;
 	clock_t duration = 0;
 	for(int cycle = 0; cycle < 2 * num_periods; infinite_duration ? 0 : ++cycle) {
 		const char *desc = "";
@@ -293,12 +307,37 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		}
 
 		if(!max_accesses) {
-			clock_t duration = clock() - startpass;
-			printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
-			fflush(stdout);
-			if(check_memrate) {
-				fprintf(stderr, "Accesses performed: %d\n", accesses);
-				fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) accesses / duration * CLOCKS_PER_SEC);
+			if(w_lap_meta.transition) {
+				if(w_lap) {
+					fprintf(stderr, "ENDLAP%03d completed in %.6f seconds\n", w_lap, w_lap_duration);
+					fprintf(stderr, "ENDLAP%03d performed %ld accesses\n", w_lap, w_lap_accesses);
+					fprintf(stderr, "ENDLAP%03d rate was %.6f accesses/s\n", w_lap, w_lap_accesses / w_lap_duration);
+				} else
+					fputs("ENDLAP000 (completed)\n", stderr);
+
+				w_lap_meta.transition = 0;
+				w_lap_duration = 0;
+				w_lap_accesses = 0;
+				++w_lap;
+			// Skip border iterations.
+			} else {
+				double duration = ((double) (clock() - startpass)) / CLOCKS_PER_SEC;
+				printf("LAP%03d Completed iteration in %.6f seconds\n", w_lap, duration);
+				fflush(stdout);
+				if(check_memrate) {
+					fprintf(stderr, "LAP%03d Accesses performed: %d\n", w_lap, accesses);
+					fprintf(stderr, "LAP%03d Sanity check: %.6f accesses/s\n", w_lap, accesses / duration);
+				}
+
+				if(w_lap) {
+					w_lap_accesses += accesses;
+					w_lap_duration += duration;
+				}
+			}
+
+			if(w_lap_meta.last) {
+				fputs("So ends The Last Lap.\n", stderr);
+				exit(0);
 			}
 		} else
 			duration += clock() - startpass;
@@ -632,6 +671,14 @@ int main(int argc, char *argv[]) {
 	evictions_fun_t call = square_evictions;
 	if(await_signal)
 		call = square_evictions_async;
+	else if(sanitycheck_memory) {
+		struct sigaction signal_setup = {.sa_handler = lap_handler};
+		if(sigaction(SIGUSR1, &signal_setup, NULL) != 0 ||
+				sigaction(SIGTERM, &signal_setup, NULL) != 0) {
+			perror("Setting up signal handler");
+			return 1;
+		}
+	}
 
 	large = alloc(cap_expanded, hugepages);
 	if(!large) { // "at large"
