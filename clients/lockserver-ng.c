@@ -18,6 +18,8 @@
 
 typedef struct {
 	int len;
+	pid_t sig_init;
+	pid_t sig_warm;
 } args_t;
 
 static bool loop = true;
@@ -120,6 +122,10 @@ static int experiment(args_t *args) {
 	printf("Listening on MAC: ");
 	paddr(&laddr);
 
+	if(args->sig_init)
+		if(kill(args->sig_init, SIGUSR1))
+			perror("Signaling initialization");
+
 	while(loop) {
 		clock_t thistime;
 
@@ -156,7 +162,9 @@ static int experiment(args_t *args) {
 #else
 			ave += delta;
 #endif
-		}
+		} else if(args->sig_warm && iter == WARMUP - 1)
+			if(kill(args->sig_warm, SIGUSR1))
+				perror("Signaling warmup");
 		++iter;
 
 		if(!rte_eth_tx_burst(PORT, 0, &packet, 1)) {
@@ -190,20 +198,34 @@ static bool parse_arg_arg(int *dest, char flag, int min) {
 int main(int argc, char **argv) {
 	args_t args = {
 		.len = DEFAULT_LEN,
+		.sig_init = 0,
+		.sig_warm = 0,
 	};
 
 	int each_arg;
-	while((each_arg = getopt(argc, argv, "l:")) != -1)
+	while((each_arg = getopt(argc, argv, "l:s::t::")) != -1)
 		switch(each_arg) {
 		case 'l':
 			if(!parse_arg_arg(&args.len, 'l', 1))
 				return 127;
 			break;
+		case 's':
+			args.sig_init = getppid();
+			if(optarg && !parse_arg_arg(&args.sig_init, 's', 1))
+				return 127;
+			break;
+		case 't':
+			args.sig_warm = getppid();
+			if(optarg && !parse_arg_arg(&args.sig_warm, 't', 1))
+				return 127;
+			break;
 		default:
-			printf("USAGE: %s [-l #] [-- <DPDK arguments>...]\n", argv[0]);
+			printf("USAGE: %s [-l #] [-s [#]] [-t [#]] [-- <DPDK arguments>...]\n", argv[0]);
 			printf(
-					" -l #: LENGTH to traverse (octawords, default %d)\n",
-					DEFAULT_LEN);
+					" -l  # : LENGTH to traverse (octawords, default %d)\n"
+					" -s [#]: SIGNAL (USR1) specified pid (default %d) after init\n"
+					" -t [#]: SIGNAL (USR1) specified pid (default %d) after warmup\n",
+					DEFAULT_LEN, getppid(), getppid());
 			return 127;
 		}
 
