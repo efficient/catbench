@@ -9,6 +9,7 @@ readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
 readonly NUM_TRASH="8"
 readonly TRASH_ALLOC="800"
+readonly TRASH_PASSES="1000"
 
 usage() {
 	cat <<-tac
@@ -91,6 +92,8 @@ else
 fi
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.description string "Round trip time from client perspective"
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.unit string "us"
+jaguar/jaguar set "$logfilename" legend.samples.contender_throughput.description string "Contender processes throughput"
+jaguar/jaguar set "$logfilename" legend.samples.contender_throughput.unit string "accesses/s"
 
 setdefaultmask() {
 	groupname="$1"
@@ -142,7 +145,9 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
-	( sudo clients/lockserver-ng -l "$entries" >rtt_server ) &
+	./onmycommand killall -USR1 square_evictions &
+	sigpid="$!"
+	sudo clients/lockserver-ng -s "$sigpid" -t "$sigpid" -l "$entries" >rtt_server &
 	waitforalloc
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
@@ -151,10 +156,11 @@ runtrial() {
 		echo "NETWORK_RTT: Setting mask to $invmask..."
 		setdefaultmask trash "$invmask"
 	fi
+	truncate -s0 rtt_trash
 	for contender in `seq "$contenders"`
 	do
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
+		( clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -p "$TRASH_PASSES" -uwhr 2>&1 >/dev/null | sed "s/^/TRASH$contender: /" >>rtt_trash ) &
 	done
 
 	if [ -n "$mask" ]
@@ -165,12 +171,15 @@ runtrial() {
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep'" | sed -u 's/^/remote: /' | tee rtt_client
-	sudo killall lockserver-ng
-	waitforexit clients/lockserver-ng
-	cat rtt_server
 
 	echo "NETWORK_RTT: Cleaning up..."
 	killall square_evictions
+	waitforexit clients/square_evictions
+	sudo killall lockserver-ng
+	waitforexit clients/lockserver-ng
+	cat rtt_server
+	cat rtt_trash
+	killall onmycommand
 	if [ -n "$mask" ]
 	then
 		sudo cgdelete intel_rdt:lockserver
@@ -188,6 +197,19 @@ recordtrial() {
 	num_oh="`echo "$num - $oh" | bc -l`"
 	eval $var="\$$var\\\\n\$$independent,\$num"
 	eval ${var}_oh="\$${var}_oh\\\\n\$$independent,\$num_oh"
+	if [ "$var" != "baseline" ]
+	then
+		rates="`grep "ENDLAP002 rate" rtt_trash | cut -d" " -f5`"
+		echo "$rates"
+		numrates="`printf '%s\n' "$rates" | wc -l`"
+		echo "$numrates"
+		sumrates="`printf '%s\n' "$rates" | paste -sd+`"
+		echo "$sumrates"
+		averates="`echo "($sumrates)/$numrates" | bc -l`"
+		echo "$averates"
+		[ "$numrates" -ne "$2" ] && echo "WARNING: WRONG NUMBER ($numrates) of contender throughput reports!" >&2
+		eval ${var}_tp="\$${var}_tp\\\\n\$$independent,\$averates"
+	fi
 }
 
 echo -n "Remote sudo password? "
@@ -201,14 +223,18 @@ jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.baseline_overhead.description string "Baseline network delay"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
 jaguar/jaguar set "$logfilename" data.contention_overhead.description string "Contention network delay"
+jaguar/jaguar set "$logfilename" data.contention_throughput.description string "Contention contender processes throughput"
 jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
 jaguar/jaguar set "$logfilename" data.allocation_overhead.description string "Allocation network delay"
+jaguar/jaguar set "$logfilename" data.allocation_throughput.description string "Allocation contender processes throughput"
 baseline="$header"
 baseline_oh="$header"
 contention="$header"
 contention_oh="$header"
+contention_tp="integer,fraction\n$independent,contender_throughput"
 allocation="$header"
 allocation_oh="$header"
+allocation_tp="integer,fraction\n$independent,contender_throughput"
 sudo -l >/dev/null
 for input in $iterator
 do
@@ -238,7 +264,10 @@ echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array 
 echo "$baseline_oh" | jaguar/jaguar set "$logfilename" data.baseline_overhead.samples array -
 echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
 echo "$contention_oh" | jaguar/jaguar set "$logfilename" data.contention_overhead.samples array -
+echo "$contention_tp" | jaguar/jaguar set "$logfilename" data.contention_throughput.samples array -
 echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
 echo "$allocation_oh" | jaguar/jaguar set "$logfilename" data.allocation_overhead.samples array -
+echo "$allocation_tp" | jaguar/jaguar set "$logfilename" data.allocation_throughput.samples array -
 rm rtt_client
 rm rtt_server
+rm rtt_trash
