@@ -203,29 +203,27 @@ int main(int argc, char **argv) {
 	};
 
 	int each_arg;
-	while((each_arg = getopt(argc, argv, "l:s::t::")) != -1)
+	while((each_arg = getopt(argc, argv, "l:s:t:")) != -1)
 		switch(each_arg) {
 		case 'l':
 			if(!parse_arg_arg(&args.len, 'l', 1))
 				return 127;
 			break;
 		case 's':
-			args.sig_init = getppid();
-			if(optarg && !parse_arg_arg(&args.sig_init, 's', 1))
+			if(!parse_arg_arg(&args.sig_init, 's', 1))
 				return 127;
 			break;
 		case 't':
-			args.sig_warm = getppid();
-			if(optarg && !parse_arg_arg(&args.sig_warm, 't', 1))
+			if(!parse_arg_arg(&args.sig_warm, 't', 1))
 				return 127;
 			break;
 		default:
-			printf("USAGE: %s [-l #] [-s [#]] [-t [#]] [-- <DPDK arguments>...]\n", argv[0]);
+			printf("USAGE: %s [-l #] [-s #] [-t #] [-- <DPDK arguments>...]\n", argv[0]);
 			printf(
-					" -l  # : LENGTH to traverse (octawords, default %d)\n"
-					" -s [#]: SIGNAL (USR1) specified pid (default %d) after init\n"
-					" -t [#]: SIGNAL (USR1) specified pid (default %d) after warmup\n",
-					DEFAULT_LEN, getppid(), getppid());
+					" -l #: LENGTH to traverse (octawords, default %d)\n"
+					" -s #: SIGNAL (USR1) specified pid after init\n"
+					" -t #: SIGNAL (USR1) specified pid after warmup\n",
+					DEFAULT_LEN);
 			return 127;
 		}
 
