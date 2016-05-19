@@ -200,13 +200,9 @@ recordtrial() {
 	if [ "$var" != "baseline" ]
 	then
 		rates="`grep "ENDLAP002 rate" rtt_trash | cut -d" " -f5`"
-		echo "$rates"
 		numrates="`printf '%s\n' "$rates" | wc -l`"
-		echo "$numrates"
 		sumrates="`printf '%s\n' "$rates" | paste -sd+`"
-		echo "$sumrates"
 		averates="`echo "($sumrates)/$numrates" | bc -l`"
-		echo "$averates"
 		[ "$numrates" -ne "$2" ] && echo "WARNING: WRONG NUMBER ($numrates) of contender throughput reports!" >&2
 		eval ${var}_tp="\$${var}_tp\\\\n\$$independent,\$averates"
 	fi
