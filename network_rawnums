@@ -164,24 +164,25 @@ then
 
 	for trash in `seq "$num_trash"`
 	do
-		echo -n "Processing contending process: $trash"
+		echo -n "Processing contending process: $trash..."
 		this_trash="`puts "$trash_times" | grep "TRASH$trash" | cut -d" " -f5 | paste - -`"
 		this_contention="`puts "$this_trash" | cut -f1`"
 		this_allocation="`puts "$this_trash" | cut -f2`"
-		jaguar/jaguar get "$infile" data.contention_throughput.description | sed "s/\(process\)es/\1 $trash/" | jaguar/jaguar set "$outfile" "data.contention_throughput_$trash.description" string -
-		jaguar/jaguar get "$infile" data.allocation_throughput.description | sed "s/\(process\)es/\1 $trash/" | jaguar/jaguar set "$outfile" "data.allocation_throughput_$trash.description" string -
 
-		elem="0"
-		while bounds baseline "$elem"
+		for series in `echo "$SERIES_LIST_CLIENT" | cut -d" " -f2-`
 		do
-			echo -n .
-			reuse "data.contention_throughput.samples[$elem].table_entries" integer "data.contention_throughput_$trash.samples[$elem].table_entries"
-			jaguar/jaguar set "$outfile" "data.contention_throughput_$trash.samples[$elem].contender_throughput" fraction "`iter_deref this_contention`"
-			iter_advance this_contention
-			reuse "data.allocation_throughput.samples[$elem].table_entries" integer "data.allocation_throughput_$trash.samples[$elem].table_entries"
-			jaguar/jaguar set "$outfile" "data.allocation_throughput_$trash.samples[$elem].contender_throughput" fraction "`iter_deref this_allocation`"
-			iter_advance this_allocation
-			elem="$((elem + 1))"
+			echo -n "($series)"
+			jaguar/jaguar get "$infile" data.${series}_throughput.description | sed "s/\(process\)es/\1 $trash/" | jaguar/jaguar set "$outfile" "data.${series}_throughput_$trash.description" string -
+
+			elem="0"
+			while bounds "$series" "$elem"
+			do
+				echo -n .
+				reuse "data.${series}_throughput.samples[$elem].table_entries" integer "data.${series}_throughput_$trash.samples[$elem].table_entries"
+				jaguar/jaguar set "$outfile" "data.${series}_throughput_$trash.samples[$elem].contender_throughput" fraction "`iter_deref "this_$series"`"
+				iter_advance "this_$series"
+				elem="$((elem + 1))"
+			done
 		done
 		echo
 	done
