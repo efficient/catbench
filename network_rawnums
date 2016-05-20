@@ -16,12 +16,12 @@ puts() {
 
 iter_deref() {
 	local var="$1"
-	eval puts '"$'"$var"'"' | head -n "$samples_per_point"
+	eval puts '"$'"$var"'"' | head -n "$iter_window"
 }
 
 iter_advance() {
 	local var="$1"
-	eval "$var='`eval puts '"$'"$var"'"' | tail -n +"$((samples_per_point + 1))"`'"
+	eval "$var='`eval puts '"$'"$var"'"' | tail -n +"$((iter_window + 1))"`'"
 }
 
 iter_empty() {
@@ -39,7 +39,7 @@ copyseries() {
 	do
 		echo -n .
 		reuse "data.$seriesname.samples[$entryindex].$independent" integer
-		[ "`iter_deref "$logvar" | wc -l`" -eq "$samples_per_point" ] || { echo "Missing expected number of samples for data point: the log must be missing some entries!" >&2 && false; }
+		[ "`iter_deref "$logvar" | wc -l`" -eq "$iter_window" ] || { echo "Missing expected number of samples for data point: the log must be missing some entries!" >&2 && false; }
 		iter_deref "$logvar" | sed '1i\unstructured\ninteger' | jaguar/jaguar set "$outfile" "data.$seriesname.samples[$entryindex].$dependent" array -
 		iter_advance "$logvar"
 	done
@@ -60,6 +60,14 @@ calculateoh() {
 	[ "`puts "$servervar" | wc -l`" -eq "$origlen" ]
 }
 
+confirm() {
+	local msg="$1"
+	local approved
+	echo -n "$msg (y/N)? "
+	read approved
+	[ "$approved" = "y" ]
+}
+
 [ "`puts "$FIELDS_LIST" | wc -w`" -eq 2 ]
 readonly independent="`puts "$FIELDS_LIST" | cut -d" " -f1`"
 readonly dependent="`puts "$FIELDS_LIST" | cut -d" " -f2`"
@@ -67,7 +75,7 @@ readonly series_list_server="`puts "$SERIES_LIST_CLIENT" | sed "s/ \|$/$SERIES_S
 
 echo -n "Munging experiment log"
 
-log="`decode log`"
+readonly log="`decode log`"
 echo -n .
 log_client="`puts "$log" | grep -e "$DATA_POINT_DELIM_REGEX" -e "$SAMPLE_REGEX_CLIENT"`"
 echo -n .
@@ -79,6 +87,7 @@ readonly points_per_series="`puts "$sample_delims" | wc -l | sed '$a\'"$series_p
 echo -n .
 readonly samples_per_point="`puts "$sample_delims" | cut -d: -f1 | tac | head -n2 | sed '$a\1' | paste -sd- | bc`"
 echo
+iter_window="$samples_per_point"
 
 cat <<-tac
 
@@ -88,10 +97,7 @@ cat <<-tac
 	   Data points per series:   $points_per_series
 	   Samples per data point:   $samples_per_point
 tac
-echo -n "Is this correct (y/N)? "
-read approved
-[ "$approved" = "y" ] || { echo "Not confirmed; aborting!" >&2 && false; }
-unset approved
+confirm "Is this correct" || { echo "Not confirmed; aborting!" >&2 && false; }
 echo
 
 echo -n "Classifying log data"
@@ -99,7 +105,6 @@ log_client="`puts "$log_client" | sed -n "s/$SAMPLE_REGEX_CLIENT/\1/p"`"
 echo -n .
 log_server="`puts "$log" | sed -n "s/$SAMPLE_REGEX_SERVER/\1/p"`"
 echo -n .
-unset log
 echo
 
 echo -n "Copying legend entries"
@@ -138,4 +143,49 @@ done
 
 { iter_empty log_client && iter_empty log_server; } || { echo "Extra leftover samples in log: we must have misparsed it!" >&2 && false; }
 
+readonly trash_times="`puts "$log" | grep 'ENDLAP002 rate'`"
+if [ -n "$trash_times" ]
+then
+	trash_records="`puts "$trash_times" | wc -l`"
+	readonly num_trash="`echo "$trash_records/$((series_per_machine - 1))/$points_per_series" | bc`"
+	unset trash_records
+	cat <<-tac
+
+		The log also contains throughput data for this many contending processes: $num_trash
+	tac
+fi
+if [ -n "$num_trash" ] && confirm "Does that look correct, and would you like me to also scrape the stats of each individual contender"
+then
+	echo
+	echo "Copying legend entries..."
+	reuse legend.samples.contender_throughput.description string
+	reuse legend.samples.contender_throughput.unit string
+	iter_window="1"
+
+	for trash in `seq "$num_trash"`
+	do
+		echo -n "Processing contending process: $trash"
+		this_trash="`puts "$trash_times" | grep "TRASH$trash" | cut -d" " -f5 | paste - -`"
+		this_contention="`puts "$this_trash" | cut -f1`"
+		this_allocation="`puts "$this_trash" | cut -f2`"
+		jaguar/jaguar get "$infile" data.contention_throughput.description | sed "s/\(process\)es/\1 $trash/" | jaguar/jaguar set "$outfile" "data.contention_throughput_$trash.description" string -
+		jaguar/jaguar get "$infile" data.allocation_throughput.description | sed "s/\(process\)es/\1 $trash/" | jaguar/jaguar set "$outfile" "data.allocation_throughput_$trash.description" string -
+
+		elem="0"
+		while bounds baseline "$elem"
+		do
+			echo -n .
+			reuse "data.contention_throughput.samples[$elem].table_entries" integer "data.contention_throughput_$trash.samples[$elem].table_entries"
+			jaguar/jaguar set "$outfile" "data.contention_throughput_$trash.samples[$elem].contender_throughput" fraction "`iter_deref this_contention`"
+			iter_advance this_contention
+			reuse "data.allocation_throughput.samples[$elem].table_entries" integer "data.allocation_throughput_$trash.samples[$elem].table_entries"
+			jaguar/jaguar set "$outfile" "data.allocation_throughput_$trash.samples[$elem].contender_throughput" fraction "`iter_deref this_allocation`"
+			iter_advance this_allocation
+			elem="$((elem + 1))"
+		done
+		echo
+	done
+fi
+
+echo
 echo "All done!  Result is in: $outfile"
