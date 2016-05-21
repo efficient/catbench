@@ -199,11 +199,11 @@ recordtrial() {
 	eval ${var}_oh="\$${var}_oh\\\\n\$$independent,\$num_oh"
 	if [ "$var" != "baseline" ]
 	then
-		rates="`grep "ENDLAP002 rate" rtt_trash | cut -d" " -f5`"
+		rates="`grep "ENDLAP002 rate" rtt_trash | sort | tail -n+2 | cut -d" " -f5`"
 		numrates="`printf '%s\n' "$rates" | wc -l`"
 		sumrates="`printf '%s\n' "$rates" | paste -sd+`"
 		averates="`echo "($sumrates)/$numrates" | bc -l`"
-		[ "$numrates" -ne "$2" ] && echo "WARNING: WRONG NUMBER ($numrates) of contender throughput reports!" >&2
+		[ "$numrates" -ne "$(($2 - 1))" ] && echo "WARNING: WRONG NUMBER ($((numrates + 1))) of contender throughput reports!" >&2
 		eval ${var}_tp="\$${var}_tp\\\\n\$$independent,\$averates"
 	fi
 }
