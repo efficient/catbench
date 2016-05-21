@@ -147,7 +147,7 @@ runtrial() {
 	echo "NETWORK_RTT: Spawning server..."
 	./onmycommand killall -USR1 square_evictions &
 	sigpid="$!"
-	sudo clients/lockserver-ng -s "$sigpid" -t "$sigpid" -l "$entries" >rtt_server &
+	sudo clients/lockserver-ng -s "$sigpid" -t "$sigpid" -l "$entries" -- -c "`printf '%#x' $((1 << contenders))`" >rtt_server &
 	waitforalloc
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
@@ -160,7 +160,7 @@ runtrial() {
 	for contender in `seq "$contenders"`
 	do
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		( clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -p "$TRASH_PASSES" -uwhr 2>&1 >/dev/null | sed "s/^/TRASH$contender: /" >>rtt_trash ) &
+		( taskset "`printf '%#x' $((1 << (contender - 1)))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -p "$TRASH_PASSES" -uwhr 2>&1 >/dev/null | sed "s/^/TRASH$contender: /" >>rtt_trash ) &
 	done
 
 	if [ -n "$mask" ]
