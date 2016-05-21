@@ -142,7 +142,7 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
-	( sudo clients/lockserver-ng -l "$entries" >rtt_server ) &
+	sudo clients/lockserver-ng -l "$entries" >rtt_server &
 	waitforalloc
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
