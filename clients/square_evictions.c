@@ -212,7 +212,7 @@ static int square_evictions(int cache_line_size, int num_periods, int passes_per
 						printf("Current max cycles for a memory access %lu\n", max_time);
 					}
 					// Ignore the first 2 cycles due to memory fetch behavior
-					if(cycle < 2) {
+					if(cycle > 2) {
 						++histogram[logtwo(time)];
 					}
 				}
