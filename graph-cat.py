@@ -188,6 +188,7 @@ def graph_cdf(filename, slabels, xlabel, ypoints, title, outfile):
     ax.title.set_position((0.5, 1.08));
     handles, labels = ax.get_legend_handles_labels()
     import operator
+    print labels;
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
@@ -253,10 +254,11 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 
     # or sort them by labels
     import operator
+    print labels;
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
-    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
-    lgd = plt.legend(loc="center right", bbox_to_anchor=(legend_x,legend_y));
+    print labels2;
+    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
 
 #    cur_ymax = cur_ymax * 1.75;
     plt.xlim(xmin=0);
