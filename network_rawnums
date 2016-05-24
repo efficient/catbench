@@ -156,6 +156,11 @@ then
 fi
 if [ -n "$num_trash" ] && confirm "Does that look correct, and would you like me to also scrape the stats of each individual contender"
 then
+	if confirm "Would you also like a breakdown of the nauseating details of each data point"
+	then
+		trash_subtimes="`puts "$log" | grep 'LAP002.*accesses/s'`"
+	fi
+
 	echo
 	echo "Copying legend entries..."
 	reuse legend.samples.contender_throughput.description string
@@ -168,11 +173,16 @@ then
 		this_trash="`puts "$trash_times" | grep "TRASH$trash" | cut -d" " -f5 | paste - -`"
 		this_contention="`puts "$this_trash" | cut -f1`"
 		this_allocation="`puts "$this_trash" | cut -f2`"
+		if [ -n "$trash_subtimes" ]
+		then
+			this_subtimes="`puts "$trash_subtimes" | grep "TRASH$trash"`"
+		fi
 
 		for series in `echo "$SERIES_LIST_CLIENT" | cut -d" " -f2-`
 		do
 			echo -n "($series)"
-			jaguar/jaguar get "$infile" data.${series}_throughput.description | sed "s/\(process\)es/\1 $trash/" | jaguar/jaguar set "$outfile" "data.${series}_throughput_$trash.description" string -
+			this_desc="`jaguar/jaguar get "$infile" data.${series}_throughput.description | sed -e "s/\(process\)es/\1 $trash/"`"
+			jaguar/jaguar set "$outfile" "data.${series}_throughput_$trash.description" string "`puts "$this_desc"`"
 
 			elem="0"
 			while bounds "$series" "$elem"
@@ -181,6 +191,18 @@ then
 				reuse "data.${series}_throughput.samples[$elem].table_entries" integer "data.${series}_throughput_$trash.samples[$elem].table_entries"
 				jaguar/jaguar set "$outfile" "data.${series}_throughput_$trash.samples[$elem].contender_throughput" fraction "`iter_deref "this_$series"`"
 				iter_advance "this_$series"
+
+				if [ -n "$trash_subtimes" ]
+				then
+					echo -n .
+					reuse "data.${series}_throughput.samples[$elem].table_entries" integer "data.${series}_throughputs_$trash.samples[$elem].table_entries"
+					jaguar/jaguar set "$outfile" "data.${series}_throughputs_$trash.description" string "`puts "$this_desc breakdown"`"
+					sub_subtimes="`puts "$this_subtimes" | sed -n '/ENDLAP/q;p' | cut -d" " -f5 | sed '1i\unstructured\nfraction'`"
+					puts "$sub_subtimes" | jaguar/jaguar set "$outfile" "data.${series}_throughputs_$trash.samples[$elem]" array -
+					sub_sublines="`puts "$sub_subtimes" | wc -l`"
+					this_subtimes="`puts "$this_subtimes" | tail -n+"$sub_sublines"`"
+				fi
+
 				elem="$((elem + 1))"
 			done
 		done
