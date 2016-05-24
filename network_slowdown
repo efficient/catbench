@@ -21,3 +21,25 @@ do
 	jaguar/jaguar set "$outfile" data.turning_off_cat.samples[$elem].slowdown_factor fraction "$turning_off_cat"
 	elem=$((elem + 1))
 done
+
+if jaguar/jaguar get "$infile" "data.contention_throughput$subnum" >/dev/null 2>&1 && confirm "This data file also includes (a) contender series; shall I process that/those as well"
+then
+	echo "$subnum"
+	jaguar/jaguar set "$outfile" "data.throughput_slowdown$subnum.description" string "Contender$subnum slowdown"
+
+	elem="0"
+	while bounds baseline "$elem"
+	do
+		reuse "data.contention_throughput$subnum.samples[$elem].table_entries" integer "data.throughput_slowdown$subnum.samples[$elem].table_entries"
+		slowdown="`echo "$(sample contender_throughput "contention_throughput$subnum" "$elem")/$(sample contender_throughput "allocation_throughput$subnum" "$elem")" | bc -l`"
+		jaguar/jaguar set "$outfile" "data.throughput_slowdown$subnum.samples[$elem].slowdown_factor" fraction "$slowdown"
+		elem="$((elem + 1))"
+	done
+
+	if [ -n "$subnum" ]
+	then
+		subnum="_1"
+	else
+		subnum="_$((`echo "$subnum" | tr -d _` + 1))"
+	fi
+fi
