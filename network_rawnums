@@ -60,14 +60,6 @@ calculateoh() {
 	[ "`puts "$servervar" | wc -l`" -eq "$origlen" ]
 }
 
-confirm() {
-	local msg="$1"
-	local approved
-	echo -n "$msg (y/N)? "
-	read approved
-	[ "$approved" = "y" ]
-}
-
 [ "`puts "$FIELDS_LIST" | wc -w`" -eq 2 ]
 readonly independent="`puts "$FIELDS_LIST" | cut -d" " -f1`"
 readonly dependent="`puts "$FIELDS_LIST" | cut -d" " -f2`"

@@ -27,6 +27,14 @@ decode() {
 	jaguar/jaguar get "$infile" "meta.$metadata" | base64 -d
 }
 
+confirm() {
+	local msg="$1"
+	local approved
+	echo -n "$msg (y/N)? "
+	read approved
+	[ "$approved" = "y" ]
+}
+
 if [ $# -ne 2 ]
 then
 	echo "USAGE: $0 <infile> <outfile>"
