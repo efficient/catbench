@@ -22,8 +22,18 @@ do
 	elem=$((elem + 1))
 done
 
-if jaguar/jaguar get "$infile" "data.contention_throughput$subnum" >/dev/null 2>&1 && confirm "This data file also includes (a) contender series; shall I process that/those as well"
+if jaguar/jaguar get "$infile" data.contention_throughput >/dev/null 2>&1
 then
+	if ! confirm "This data file also includes (a) contender series; shall I process that/those as well"
+	then
+		exit 0
+	fi
+else
+	subnum="_1"
+fi
+
+while jaguar/jaguar get "$infile" "data.contention_throughput$subnum" >/dev/null 2>&1
+do
 	echo "$subnum"
 	jaguar/jaguar set "$outfile" "data.throughput_slowdown$subnum.description" string "Contender$subnum slowdown"
 
@@ -42,4 +52,4 @@ then
 	else
 		subnum="_$((`echo "$subnum" | tr -d _` + 1))"
 	fi
-fi
+done
