@@ -199,6 +199,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 
     fig = plt.figure();
     ax = fig.add_subplot(1,1,1);
+    ax.ticklabel_format(useOffset=False);
     colors = [
         "#a6cee3",
         "#1f78b4",
