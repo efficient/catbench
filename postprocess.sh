@@ -47,4 +47,9 @@ then
 fi
 
 cp jaguar/template_postprocessed.json "$outfile"
-jaguar/jaguar set "$outfile" meta.origfile "`md5sum "$infile" | cut -d" " -f1`"
+if jaguar/jaguar get "$infile" meta.origfile >/dev/null 2>&1
+then
+	reuse meta.origfile string
+else
+	jaguar/jaguar set "$outfile" meta.origfile "`md5sum "$infile" | cut -d" " -f1`"
+fi
