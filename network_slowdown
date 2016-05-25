@@ -46,7 +46,7 @@ do
 		elem="$((elem + 1))"
 	done
 
-	if [ -n "$subnum" ]
+	if [ -z "$subnum" ]
 	then
 		subnum="_1"
 	else
