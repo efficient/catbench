@@ -188,6 +188,7 @@ def graph_cdf(filename, slabels, xlabel, ypoints, title, outfile):
     ax.title.set_position((0.5, 1.08));
     handles, labels = ax.get_legend_handles_labels()
     import operator
+    print labels;
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
@@ -198,6 +199,25 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 
     fig = plt.figure();
     ax = fig.add_subplot(1,1,1);
+    colors = [
+        "#a6cee3",
+        "#1f78b4",
+        "#b2df8a",
+        "#33a02c",
+        "#fb9a99",
+        "#e31a1c",
+        "#fdbf6f",
+        "#ff7f00",
+        "#cab2d6",
+        "#6a3d9a",
+        "#ffff99",
+        "#b15928",
+        "#000000",
+        "#ff0000",
+        "#00ff00",
+        "#0000ff"
+    ]
+    ax.set_color_cycle(colors);
 
     ax.set_xlabel(get_label(filename, xlabel));
     ax.set_ylabel(get_label(filename, ylabels[0]));
@@ -253,10 +273,10 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 
     # or sort them by labels
     import operator
+    print labels;
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
-    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
-    lgd = plt.legend(loc="center right", bbox_to_anchor=(legend_x,legend_y));
+    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
 
 #    cur_ymax = cur_ymax * 1.75;
     plt.xlim(xmin=0);
