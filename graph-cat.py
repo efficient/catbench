@@ -44,7 +44,7 @@ def setup_optparse():
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
     if(args.ymin != None):
-        args.ymin = int(args.yim)
+        args.ymin = int(args.ymin)
     if(args.ymax != None):
         args.ymax = int(args.ymax)
     return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y;
@@ -222,6 +222,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 
     ax.set_xlabel(get_label(filename, xlabel));
     ax.set_ylabel(get_label(filename, ylabels[0]));
+    ax.ticklabel_format(useOffset=False)
+
 
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height * 0.7])
@@ -279,10 +281,10 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     handles2, labels2 = zip(*hl)
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
 
-#    cur_ymax = cur_ymax * 1.75;
+    cur_ymax = cur_ymax * 1.75;
     plt.xlim(xmin=0);
     plt.setp(ax.get_xticklabels(), fontsize=10, rotation=30)
-    if(logy == False and logx == False ):
+    if(logy == False):
         if(user_ymin == None and fit == False and user_ymax == None):
             plt.ylim(ymin=0,ymax=cur_ymax);
         elif(fit == False and user_ymin == None):
@@ -306,7 +308,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             cur_tick = cur_tick * 10;
         plt.xticks(xticks);
     #ax.axis("tight");
-    fig.savefig(outfile, format='png', bbox_extra_artists=(lgd,), bbox_inches='tight');
+    fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
     filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y = setup_optparse();
