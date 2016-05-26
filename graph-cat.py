@@ -41,6 +41,8 @@ def setup_optparse():
     parser.add_argument('--legend-y', dest='legend_y', type=float, default=0.3,
                         help="Legend boy location y coordinate (default 0.3)");
     parser.add_argument('--grid-y', dest='grid_y', action='store_true', default=False);
+    parser.add_argument('--smart-x', dest='smart_x', action='store_true', default=False,
+                        help="Put x ticks only when there is a data point for that x value");
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
@@ -48,7 +50,7 @@ def setup_optparse():
         args.ymin = int(args.ymin)
     if(args.ymax != None):
         args.ymax = int(args.ymax)
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
     fd = open(filename, 'r');
@@ -195,7 +197,7 @@ def graph_cdf(filename, slabels, xlabel, ypoints, title, outfile):
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
     fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y):
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -271,7 +273,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             #x_copy.pop(idx+1);
             #continue;
         #idx += 1;
-    if(logx == logy == False):
+    if(logx == logy == smart_x == False):
         plt.xticks(x_copy);
     ax.set_title(title);
     ax.title.set_position((0.5, 1.08));
@@ -315,9 +317,9 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y = setup_optparse();
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x = setup_optparse();
     if(cdf == False):
-        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y);
+        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x);
     else:
         graph_cdf(filename, slabels, xlabel, ylabels, title, outfile);
 
