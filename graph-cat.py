@@ -40,6 +40,7 @@ def setup_optparse():
                         help="Legend box location x coordinate (default 1.0)");
     parser.add_argument('--legend-y', dest='legend_y', type=float, default=0.3,
                         help="Legend boy location y coordinate (default 0.3)");
+    parser.add_argument('--grid-y', dest='grid_y', action='store_true', default=False);
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
@@ -47,7 +48,7 @@ def setup_optparse():
         args.ymin = int(args.ymin)
     if(args.ymax != None):
         args.ymax = int(args.ymax)
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
     fd = open(filename, 'r');
@@ -194,7 +195,7 @@ def graph_cdf(filename, slabels, xlabel, ypoints, title, outfile):
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
     fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y):
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -223,6 +224,9 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     ax.set_xlabel(get_label(filename, xlabel));
     ax.set_ylabel(get_label(filename, ylabels[0]));
     ax.ticklabel_format(useOffset=False)
+
+    if(grid_y == True):
+        ax.yaxis.grid(True);
 
 
     box = ax.get_position()
@@ -311,9 +315,9 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y = setup_optparse();
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y = setup_optparse();
     if(cdf == False):
-        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y);
+        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y);
     else:
         graph_cdf(filename, slabels, xlabel, ylabels, title, outfile);
 
