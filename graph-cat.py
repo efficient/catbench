@@ -51,7 +51,7 @@ def setup_optparse():
     if(args.ymin != None):
         args.ymin = float(args.ymin)
     if(args.ymax != None):
-        args.ymax = int(args.ymax)
+        args.ymax = float(args.ymax)
     return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
