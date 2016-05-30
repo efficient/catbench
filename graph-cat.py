@@ -43,16 +43,19 @@ def setup_optparse():
     parser.add_argument('--grid-y', dest='grid_y', action='store_true', default=False);
     parser.add_argument('--smart-x', dest='smart_x', action='store_true', default=False,
                         help="Put x ticks only when there is a data point for that x value");
+    parser.add_argument('--nosort', dest='nosort', action='store_true', default=False,
+                        help="Do not alphabetically sort legend entries, preserve input order");
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
     if(args.ymin != None):
-        args.ymin = int(args.ymin)
+        args.ymin = float(args.ymin)
     if(args.ymax != None):
         args.ymax = int(args.ymax)
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort;
 
 def get_tuples(filename, slabels, xlabel, ylabels):
+    count = 0;
     fd = open(filename, 'r');
     data = json.load(fd);
     series_tuples = dict();
@@ -64,6 +67,8 @@ def get_tuples(filename, slabels, xlabel, ylabels):
         if(series_name not in series_tuples):
             continue;
         series_tuples[series_name]["description"] = series.get("description");
+        series_tuples[series_name]["order"] = slabels.index(series_name);
+        count += 1;
         for sample in series.get("samples"):
             for ylabel in ylabels:
 #TODO what if there is no entry for a particular ylabel?
@@ -197,7 +202,7 @@ def graph_cdf(filename, slabels, xlabel, ypoints, title, outfile):
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
     fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x):
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -246,13 +251,17 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     cur_ymax=0;
     cur_xmax=0;
     x_copy=None;
+    temp = list();
     for key, val in series_tuples.items():
         line = list();
         for key2, val2 in val.items():
-            if(key2 == "description"):
+            if(key2 == "description" or key2 == "order"):
                 continue;
             xy = map(list, zip(*val2));
-            line.append((ax.plot(xy[0], xy[1], label=val["description"])));# + str(key2[1])))[0]);
+            line_label = val["description"];
+            line.append((ax.plot(xy[0], xy[1], label=line_label))); #+ str(key2[1])))[0]);
+            print val["order"];
+            temp.append((line[len(line) - 1][0], val["order"], line_label));
             ax.scatter(xy[0], xy[1]);
         if(max(xy[0]) > cur_xmax):
             cur_xmax = max(xy[0]);
@@ -279,12 +288,28 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     ax.title.set_position((0.5, 1.08));
 
     handles, labels = ax.get_legend_handles_labels()
+    print handles;
+    print temp[0][0];
+    print handles == temp[0][0];
+    print "DSFJLSDJFKS"
+    print temp[0][2];
+    print labels[0];
+    print labels == temp[0][2];
 
-    # or sort them by labels
     import operator
-    print labels;
-    hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
-    handles2, labels2 = zip(*hl)
+    handles2 = None;
+    labels2 = None;
+    if(nosort):
+        idx = 0;
+        hl = sorted(temp, key=operator.itemgetter(1));
+        handles2, trash, labels2 = zip(*hl);
+        print labels2;
+        print hl;
+    else:
+        # or sort them by labels
+        print labels;
+        hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
+        handles2, labels2 = zip(*hl)
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
 
     cur_ymax = cur_ymax * 1.75;
@@ -314,12 +339,15 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             cur_tick = cur_tick * 10;
         plt.xticks(xticks);
     #ax.axis("tight");
+    from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+
     fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x = setup_optparse();
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort = setup_optparse();
     if(cdf == False):
-        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x);
+        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort);
     else:
         graph_cdf(filename, slabels, xlabel, ylabels, title, outfile);
 
