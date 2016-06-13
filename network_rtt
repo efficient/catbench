@@ -111,7 +111,7 @@ countfreepages() {
 waitforalloc() {
 	# Wait for the number of free hugepages to drop.
 	orig="`countfreepages`"
-	while [ "`countfreepages`" -eq "$orig" ]; do :; done
+	while [ "`countfreepages`" -eq "$orig" -a "$orig" -ne "0" ]; do :; done
 
 	# Now wait for it to stabilize!
 	while [ "`sed -n 's/HugePages_Free:[[:space:]]\+\([[:digit:]]\)/\1/p' /proc/meminfo`" -ne "$orig" ]
