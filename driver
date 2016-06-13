@@ -38,6 +38,7 @@ fi
 
 prefix="catbench-`basename $1`_`date +%F_%H-%M-%S_%z`"
 export CATBENCH_JAGFILE="$prefix.json"
+export CATBENCH_LOGFILE="$prefix.log"
 if [ -e "$CATBENCH_JAGFILE" ]
 then
 	echo "ERROR: Output JSON file already exists; aborting!" >&2
