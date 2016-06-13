@@ -2,8 +2,8 @@
 
 readonly DEFAULT_CLIENT_SLEEP="100000"
 readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
-readonly DEFAULT_TABLE_ENTRIES="10000"
-readonly DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
+readonly DEFAULT_ZIPF_ALPHA="0.00"
+readonly DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
@@ -12,15 +12,15 @@ readonly TRASH_ALLOC="800"
 
 usage() {
 	cat <<-tac
-		USAGE: $0 <-s|-t> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
+		USAGE: $0 <-s|-t> <host on which to run client process> <path to repo on remote system>
 
-		-s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
-		-t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
+		-s: Vary sleep and fix zipf alpha at $DEFAULT_ZIPF_ALPHA
+		-t: Vary zipf alpha and fix the sleep at $DEFAULT_CLIENT_SLEEP s
 	tac
 }
 
 client_sleep="$DEFAULT_CLIENT_SLEEP"
-table_entries="$DEFAULT_TABLE_ENTRIES"
+zipf_alpha="$DEFAULT_ZIPF_ALPHA"
 understood="true"
 while "$understood"
 do
@@ -31,8 +31,8 @@ do
 			iterator="$DEFAULT_CLIENT_SLEEP_LOOP"
 			;;
 		-t)
-			independent="table_entries"
-			iterator="$DEFAULT_TABLE_ENTRIES_LOOP"
+			independent="zipf_alpha"
+			iterator="$DEFAULT_ZIPF_ALPHA_LOOP"
 			;;
 		*)
 			understood="false"
@@ -44,14 +44,13 @@ do
 		shift
 	fi
 done
-if [ -z "$independent" -o $# -ne 3 ]
+if [ -z "$independent" -o $# -ne 2 ]
 then
 	usage
 	exit 1
 fi
 foreign_client="$1"
 remote_path="$2"
-local_macaddr="$3"
 
 logfilename="$CATBENCH_JAGFILE"
 if [ -z "$logfilename" ]
@@ -81,10 +80,10 @@ if [ "$independent" = "client_sleep" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.description string "Delay between client requests"
 	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.unit string "us"
-elif [ "$independent" = "table_entries" ]
+elif [ "$independent" = "zipf_alpha" ]
 then
-	jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
-	jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
+	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.description string "Alpha parameter of zipf distribution"
+	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.unit string ""
 else
 	echo "Internal ERROR" >&2
 	exit 4
@@ -128,7 +127,7 @@ waitforexit() {
 }
 
 runtrial() {
-	entries="$1"
+	alpha="$1"
 	contenders="0"
 	if [ -n "$2" ]
 	then
@@ -142,7 +141,7 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
-	sudo clients/lockserver-ng -l "$entries" -- -c "`printf '%#x' $((1 << contenders))`" >rtt_server &
+	( cd ../mica2-catbench/build && sudo ./server >../../catbench/rtt_server ) &
 	waitforalloc
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
@@ -164,9 +163,9 @@ runtrial() {
 	fi
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep'" | sed -u 's/^/remote: /' | tee rtt_client
-	sudo killall lockserver-ng
-	waitforexit clients/lockserver-ng
+	ssh "$foreign_client" "cd '$remote_path/../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench '$alpha'" | sed -u 's/^/remote: /' | tee rtt_client
+	sudo killall server
+	waitforexit ./server
 	cat rtt_server
 
 	echo "NETWORK_RTT: Cleaning up..."
@@ -193,7 +192,7 @@ read passwd
 stty echo
 echo
 
-header="integer,fraction\n$independent,round_trip_time"
+header="fraction,fraction\n$independent,round_trip_time"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
 jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
@@ -211,19 +210,19 @@ do
 		RUNNING ITERATION: $input
 
 	tac
-	recordtrial baseline "$table_entries"
+	recordtrial baseline "$zipf_alpha"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
 
 	tac
-	recordtrial contention "$table_entries" "$NUM_TRASH"
+	recordtrial contention "$zipf_alpha" "$NUM_TRASH"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"
+	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$LOCKSERVER_MASK"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
