@@ -134,6 +134,7 @@ runtrial() {
 		contenders="$2"
 	fi
 	mask="$3"
+	sudo sh -c "echo 32768 >/proc/sys/vm/nr_hugepages"
 
 	if [ -n "$mask" ]
 	then
@@ -143,6 +144,7 @@ runtrial() {
 	echo "NETWORK_RTT: Spawning server..."
 	( cd ../mica2-catbench/build && sudo ./server >../../catbench/rtt_server ) &
 	waitforalloc
+	sudo sh -c "echo 33792 >/proc/sys/vm/nr_hugepages"
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
