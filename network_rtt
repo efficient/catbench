@@ -166,10 +166,10 @@ runtrial() {
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "cd '$remote_path/../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench '$alpha' >'../../$remote_path/rtt_client'"
 	scp "$foreign_client:$remote_path/rtt_client" .
-	sed -u 's/^/remote: /' rtt_client
+	sed -u 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 	sudo killall server
 	waitforexit ./server
-	cat rtt_server
+	cat rtt_server >>"$CATBENCH_LOGFILE"
 
 	echo "NETWORK_RTT: Cleaning up..."
 	killall square_evictions
