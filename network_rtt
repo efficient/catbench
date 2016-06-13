@@ -184,10 +184,7 @@ recordtrial() {
 
 	runtrial "$@"
 	num="`grep "Average:" rtt_client | cut -d" " -f3`"
-	oh="`grep "Average:" rtt_server | cut -d" " -f2`"
-	num_oh="`echo "$num - $oh" | bc -l`"
 	eval $var="\$$var\\\\n\$$independent,\$num"
-	eval ${var}_oh="\$${var}_oh\\\\n\$$independent,\$num_oh"
 }
 
 echo -n "Remote sudo password? "
@@ -198,17 +195,11 @@ echo
 
 header="integer,fraction\n$independent,round_trip_time"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
-jaguar/jaguar set "$logfilename" data.baseline_overhead.description string "Baseline network delay"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
-jaguar/jaguar set "$logfilename" data.contention_overhead.description string "Contention network delay"
 jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
-jaguar/jaguar set "$logfilename" data.allocation_overhead.description string "Allocation network delay"
 baseline="$header"
-baseline_oh="$header"
 contention="$header"
-contention_oh="$header"
 allocation="$header"
-allocation_oh="$header"
 sudo -l >/dev/null
 for input in $iterator
 do
@@ -235,10 +226,7 @@ do
 	recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
-echo "$baseline_oh" | jaguar/jaguar set "$logfilename" data.baseline_overhead.samples array -
 echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
-echo "$contention_oh" | jaguar/jaguar set "$logfilename" data.contention_overhead.samples array -
 echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
-echo "$allocation_oh" | jaguar/jaguar set "$logfilename" data.allocation_overhead.samples array -
 rm rtt_client
 rm rtt_server
