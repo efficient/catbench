@@ -161,6 +161,7 @@ runtrial() {
 		echo "NETWORK_RTT: Unsetting mask..."
 		unsetmask
 	fi
+	while ! grep '^tput' rtt_server >/dev/null 2>&1; do sleep 1; done
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "cd '$remote_path/../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench '$alpha'" | sed -u 's/^/remote: /' | tee rtt_client
