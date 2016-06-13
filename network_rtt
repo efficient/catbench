@@ -164,7 +164,9 @@ runtrial() {
 	while ! grep '^tput' rtt_server >/dev/null 2>&1; do sleep 1; done
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "cd '$remote_path/../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench '$alpha'" | sed -u 's/^/remote: /' | tee rtt_client
+	ssh "$foreign_client" "cd '$remote_path/../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench '$alpha' >'../../$remote_path/rtt_client'"
+	scp "$foreign_client:$remote_path/rtt_client" .
+	sed -u 's/^/remote: /' rtt_client
 	sudo killall server
 	waitforexit ./server
 	cat rtt_server
@@ -183,7 +185,7 @@ recordtrial() {
 	shift
 
 	runtrial "$@"
-	num="`grep "Average:" rtt_client | cut -d" " -f3`"
+	num="`grep "Average:" rtt_client | cut -d" " -f2`"
 	eval $var="\$$var\\\\n\$$independent,\$num"
 }
 
