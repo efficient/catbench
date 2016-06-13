@@ -62,8 +62,8 @@ then
 	exit 1
 fi
 
-localrev="`git log --no-abbrev-commit -1 | head -n1 | cut -d' ' -f2`"
-remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit -1 | head -n1 | cut -d' ' -f2"`"
+localrev="`git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2`"
+remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2"`"
 if [ "$localrev" != "$remoterev" ]
 then
 	echo "ERROR: Version mismatch between systems!" >&2
