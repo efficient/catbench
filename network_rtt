@@ -134,7 +134,7 @@ runtrial() {
 		contenders="$2"
 	fi
 	mask="$3"
-	sudo sh -c "echo 32768 >/proc/sys/vm/nr_hugepages"
+	../mica2-catbench/script/setup.sh 32768
 
 	if [ -n "$mask" ]
 	then
