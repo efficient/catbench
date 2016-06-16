@@ -1,0 +1,37 @@
+#!/bin/sh
+
+readonly COUNTERS="`echo "
+	L1-dcache-load-misses/L1-dcache-load-misses (L1D.REPLACEMENT)
+	L1-icache-load-misses/L1-icache-load-misses (ICACHE.MISS)
+	dTLB-load-misses/dTLB-load-misses (DTLB_MISSES.MISS_CAUSES_A_WALK)
+	iTLB-load-misses/iTLB-load-misses (ITLB_MISSES.MISS_CAUSES_A_WALK)
+	r81d0/MEM_UOPS_RETIRED.ALL_LOADS (i.e. L1-dcache-loads, dTLB-load-misses)
+	r08d1/MEM_UOPS_RETIRED.L1_MISS
+	r10d1/MEM_UOPS_RETIRED.L2_MISS
+	r2124/L2_RQSTS.DEMAND_DATA_RD_MISS
+	re124/L2_RQSTS.ALL_DEMAND_DATA_RD
+	re424/L2_RQSTS.ALL_CODE_RD
+	r01f0/L2_TRANS.DEMAND_DATA_RD
+	r04f0/L2_TRANS.CODE_RD
+	" | tail -n+2 | tr -d '\t'`"
+
+if [ $# -ne 1 ]
+then
+	cat <<-tac
+		USAGE: $0 <<list,of,cores> | end>
+
+		Records cache-related performance counters on the specified cores
+		until called again with the 'end' argument.
+		Multiple invocations "stack."
+	tac
+	exit 1
+fi
+cores="$1"
+set -e
+
+if [ "$cores" = "end" ]
+then
+	kill -int "`ps -eopid,cmd | tr -s " " | sed -n 's/^ \?\([[:digit:]]\+\) \<perf\>.*/\1/p' | tail -n1`" 2>/dev/null || echo "No instances left to end"
+else
+	perf stat -e"`echo "$COUNTERS" | cut -d/ -f1 | paste -sd,`" 2>&1 -aC"$cores" | eval sed `echo "$COUNTERS" | sed 's:.*:-e"s/&/":'` &
+fi
