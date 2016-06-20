@@ -62,14 +62,14 @@ echo "$ $@"
 status="$?"
 
 logging_cleanup
-pack="base64 -w0 $prefix.log"
+pack="base64 -w0 '$prefix.log'"
 unpack="base64 -d"
 if [ "`du -b "$prefix.log" | cut -f1`" -gt "$((2 * 1024 * 1024 * 1024))" ] # 2 GiB
 then
-	pack="gzip -c $prefix.log | base64 -w0"
+	pack="gzip -c '$prefix.log' | base64 -w0"
 	unpack="$unpack | zcat"
 fi
-$pack | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log -
+eval "$pack" | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log -
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.unpack "$unpack"
 rm "$prefix.log"
 
