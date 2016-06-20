@@ -8,6 +8,7 @@ readonly DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
 readonly NUM_TRASH="6"
+readonly PERF_CORES="0,1"
 readonly TRASH_ALLOC="800"
 
 usage() {
@@ -164,9 +165,11 @@ runtrial() {
 		unsetmask
 	fi
 	while ! grep '^tput' rtt_server >/dev/null 2>&1; do sleep 1; done
+	./cacheperf "$PERF_CORES"
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "cd '$remote_path/../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench '$alpha' >'../../$remote_path/rtt_client'"
+	./cacheperf end
 	scp "$foreign_client:$remote_path/rtt_client" .
 	sed -u 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 	sudo killall server
