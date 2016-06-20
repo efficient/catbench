@@ -62,7 +62,7 @@ echo "$ $@"
 status="$?"
 
 logging_cleanup
-base64 "$prefix.log" | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log -
+base64 -w0 "$prefix.log" | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log -
 rm "$prefix.log"
 
 exit "$status"
