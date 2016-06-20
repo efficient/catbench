@@ -8,6 +8,7 @@ readonly DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
 readonly NUM_TRASH="6"
+readonly PERF_CORES="0"
 readonly TRASH_ALLOC="800"
 
 usage() {
@@ -162,9 +163,11 @@ runtrial() {
 		echo "NETWORK_RTT: Unsetting mask..."
 		unsetmask
 	fi
+	./cacheperf "$PERF_CORES"
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep' >'$remote_path/rtt_client'"
+	./cacheperf end
 	scp "$foreign_client:$remote_path/rtt_client" .
 	sed -u 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 	sudo killall lockserver-ng
