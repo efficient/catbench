@@ -24,7 +24,12 @@ sample() {
 
 decode() {
 	local metadata="$1"
-	jaguar/jaguar get "$infile" "meta.$metadata" | base64 -d
+	local incantation="`jaguar/jaguar get "$infile" meta.unpack 2>/dev/null`"
+	if [ -z "$incantation" ]
+	then
+		incantation="base64 -d"
+	fi
+	jaguar/jaguar get "$infile" "meta.$metadata" | eval "$incantation"
 }
 
 if [ $# -ne 2 ]
