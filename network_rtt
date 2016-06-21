@@ -200,9 +200,11 @@ echo
 
 header="integer,fraction\n$independent,round_trip_time"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
+jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
 jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
 baseline="$header"
+basealloc="$header"
 contention="$header"
 allocation="$header"
 sudo -l >/dev/null
@@ -219,6 +221,12 @@ do
 	recordtrial baseline "$table_entries"
 	eval cat <<-tac
 
+		RUNNING TRIAL: $input basealloc
+
+	tac
+	recordtrial basealloc "$table_entries" 0 "$LOCKSERVER_MASK"
+	eval cat <<-tac
+
 		RUNNING TRIAL: $input contention
 
 	tac
@@ -231,6 +239,7 @@ do
 	recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
+echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
 echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
 echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
 rm rtt_client
