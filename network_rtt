@@ -180,7 +180,7 @@ runtrial() {
 		sudo cgdelete intel_rdt:trash
 	fi
 	scp "$foreign_client:$remote_path/rtt_client" .
-	sed -u 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
+	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 }
 
 recordtrial() {
