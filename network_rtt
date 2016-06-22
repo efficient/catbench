@@ -168,8 +168,6 @@ runtrial() {
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep' >'$remote_path/rtt_client'"
 	./cacheperf end
-	scp "$foreign_client:$remote_path/rtt_client" .
-	sed -u 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 	sudo killall lockserver-ng
 	waitforexit clients/lockserver-ng
 	cat rtt_server >>"$CATBENCH_LOGFILE"
@@ -181,6 +179,8 @@ runtrial() {
 		sudo cgdelete intel_rdt:lockserver
 		sudo cgdelete intel_rdt:trash
 	fi
+	scp "$foreign_client:$remote_path/rtt_client" .
+	sed -u 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 }
 
 recordtrial() {
