@@ -181,7 +181,7 @@ runtrial() {
 		sudo cgdelete intel_rdt:lockserver
 		sudo cgdelete intel_rdt:trash
 	fi
-	scp "$foreign_client:$remote_path/rtt_client" .
+	scp -C "$foreign_client:$remote_path/rtt_client" .
 	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 }
 
