@@ -7,8 +7,8 @@ readonly DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
-readonly NUM_TRASH="6"
-readonly PERF_CORES="0,1"
+readonly NUM_TRASH="7"
+readonly PERF_CORES="0"
 readonly TRASH_ALLOC="800"
 
 usage() {
@@ -160,7 +160,7 @@ runtrial() {
 	for contender in `seq "$contenders"`
 	do
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		taskset "`printf '%#x' $((1 << (contender + 1)))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
+		taskset "`printf '%#x' $((1 << contender))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
 	done
 
 	if [ -n "$mask" ]
