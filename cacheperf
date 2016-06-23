@@ -2,17 +2,22 @@
 
 readonly COUNTERS="`echo "
 	L1-dcache-load-misses/L1-dcache-load-misses (L1D.REPLACEMENT)
-	L1-icache-load-misses/L1-icache-load-misses (ICACHE.MISS)
-	dTLB-load-misses/dTLB-load-misses (DTLB_MISSES.MISS_CAUSES_A_WALK)
+	L1-icache-load-misses/L1-icache-load-misses (ICACHE.MISSES)
+	dTLB-load-misses/dTLB-load-misses (DTLB_LOAD_MISSES.MISS_CAUSES_A_WALK)
 	iTLB-load-misses/iTLB-load-misses (ITLB_MISSES.MISS_CAUSES_A_WALK)
 	r81d0/MEM_UOPS_RETIRED.ALL_LOADS (i.e. L1-dcache-loads, dTLB-load-misses)
-	r08d1/MEM_UOPS_RETIRED.L1_MISS
-	r10d1/MEM_UOPS_RETIRED.L2_MISS
+	r08d1/MEM_LOAD_UOPS_RETIRED.L1_MISS
+	r10d1/MEM_LOAD_UOPS_RETIRED.L2_MISS
 	r2124/L2_RQSTS.DEMAND_DATA_RD_MISS
 	re124/L2_RQSTS.ALL_DEMAND_DATA_RD
 	re424/L2_RQSTS.ALL_CODE_RD
 	r01f0/L2_TRANS.DEMAND_DATA_RD
 	r04f0/L2_TRANS.CODE_RD
+	r2424/L2_RQSTS.CODE_RD_MISS (HSW)
+	r2724/L2_RQSTS.ALL_DEMAND_MISS (HSW)
+	re724/L2_RQSTS.ALL_DEMAND_REFERENCES (HSW)
+	r3f24/L2_RQSTS.MISS (HSW)
+	rff24/L2_RQSTS.REFERENCES (HSW)
 	" | tail -n+2 | tr -d '\t'`"
 
 if [ $# -ne 1 ]
