@@ -1,0 +1,172 @@
+#!/bin/sh
+
+readonly CONTENDERS="8"
+
+filepresent() {
+	if [ -d "$1" ]
+	then
+		echo "$1: Is a directory" >&2
+		return 1
+	elif [ ! -e "$1" ]
+	then
+		echo "$1: No such file or directory" >&2
+		return 1
+	fi
+}
+
+filename() {
+	echo "$filename" | sed 's/\.json/'"$1"'/'
+}
+
+modfile() {
+	set -e
+	cp "$infile" "$filename"
+
+	jaguar/jaguar set "$filename" legend.samples.table_entries.description "Mite server working set size"
+	jaguar/jaguar set "$filename" legend.samples.table_entries.unit "B"
+	jaguar/jaguar set "$filename" legend.samples.round_trip_time.description "End-to-end round trip time"
+	jaguar/jaguar set "$filename" legend.samples.contender_throughput.unit "M accesses/s"
+
+	jaguar/jaguar set "$filename" data.baseline.description "No contenders"
+	jaguar/jaguar set "$filename" data.contention.description "Contenders"
+	jaguar/jaguar set "$filename" data.allocation.description "Contenders+CAT"
+	jaguar/jaguar get "$filename" data.contention_throughput.description | sed 's/Contention/Contenders/' | tr -d '\n' | jaguar/jaguar set "$filename" data.contention_throughput.description -
+	jaguar/jaguar get "$filename" data.allocation_throughput.description | sed 's/Allocation/Contenders+CAT/' | tr -d '\n' | jaguar/jaguar set "$filename" data.allocation_throughput.description -
+
+	for series in baseline contention allocation
+	do
+		local csv=""
+		while [ "`printf '%s\n' "$csv" | head -n1`" != "round_trip_time,table_entries" ]
+		do
+			csv="`jaguar/arrcsv "$filename" "data.$series.samples"`"
+		done
+
+		local rescsv="fraction,integer\nround_trip_time,table_entries"
+		for line in `printf '%s\n' "$csv" | tail -n+2`
+		do
+			local left="`echo "$line" | cut -d, -f1`"
+			local right="$((`echo "$line" | cut -d, -f2` * 8))"
+			rescsv="$rescsv\n$left,$right"
+		done
+
+		echo "$rescsv" | jaguar/jaguar set "$filename" "data.$series.samples" -
+	done
+
+	modtputs "$filename"
+}
+
+moddelay() {
+	set -e
+	cp "$tomdelay" "$(filename -delay.json)"
+
+	jaguar/jaguar set "$(filename -delay.json)" legend.samples.round_trip_time.description "End-to-end round trip time"
+	jaguar/jaguar set "$(filename -delay.json)" data.baseline.description "No contenders"
+	jaguar/jaguar set "$(filename -delay.json)" data.contention.description "Contenders"
+	jaguar/jaguar set "$(filename -delay.json)" data.allocation.description "Contenders+CAT"
+}
+
+modtputs() {
+	set -e
+	local victim="$1"
+
+	if ! jaguar/jaguar get "$victim" data.contention_throughput >/dev/null 2>&1
+	then
+		local sfix="_1"
+	fi
+
+	while jaguar/jaguar get "$victim" "data.contention_throughput$sfix.samples" >/dev/null 2>&1
+	do
+		for pfix in contention_throughput allocation_throughput
+		do
+			local csv=""
+			while [ "`printf '%s\n' "$csv" | head -n1`" != "contender_throughput,table_entries" ]
+			do
+				csv="`jaguar/arrcsv "$victim" "data.$pfix$sfix.samples"`"
+			done
+
+			local rescsv="fraction,integer\ncontender_throughput,table_entries"
+			for line in `printf '%s\n' "$csv" | tail -n+2`
+			do
+				local left="`echo "$line" | cut -d, -f1 | sed 's:$:/1000000:' | bc -l`"
+				local right="`echo "$line" | cut -d, -f2`"
+				rescsv="$rescsv\n$left,$right"
+			done
+
+			echo "$rescsv" | jaguar/jaguar set "$victim" "data.$pfix$sfix.samples" -
+		done
+
+		if [ -n "$sfix" ]
+		then
+			sfix="_$((`echo "$sfix" | tr -d _` + 1))"
+		else
+			break
+		fi
+	done
+}
+
+set -e
+if [ $# -lt 1 -o $# -gt 3 ]
+then
+	echo "USAGE: $0 [<original size file> [<original delay file>]] <Jaguar file>"
+	exit 1
+fi
+if [ $# -gt 1 ]
+then
+	infile="$1"
+	shift
+fi
+if [ $# -gt 1 ]
+then
+	tomdelay="$1"
+	shift
+fi
+filename="$1"
+
+[ -z "$infile" ] || { [ ! -e "$filename" ] && modfile; }
+filepresent "$filename" && ./graph-cat.py -n \
+	-t "Mite response latency vs. mite working set size" \
+	--log-x -x table_entries --log-y -y round_trip_time --grid-y \
+	-s baseline contention allocation --nosort \
+	--legend-x 0.45 --legend-y 0.8 \
+	-i "$filename" -o "$(filename .png)"
+filepresent "$filename" && ./graph-cat.py -n \
+	-t "Avg. off-core contender throughput vs. mite working set size" \
+	--log-x -x table_entries -y contender_throughput --grid-y --ymax 25 \
+	-s contention_throughput allocation_throughput \
+	--legend-x 2 --legend-y 0.5 \
+	-i "$filename" -o "$(filename -throughput.png)"
+
+[ -e "$(filename -slowdown.json)" ] || yes | ./network_slowdown "$filename" "$(filename -slowdown.json)"
+filepresent "$(filename -slowdown.json)" && ./graph-cat.py -n \
+	-t "Avg. off-core contender slowdown due to CAT vs. mite working set size" \
+	--log-x -x table_entries -y slowdown_factor --grid-y --ymax 1.2 \
+	-s throughput_slowdown \
+	--legend-x 1 --legend-y 0.1 \
+	-i "$(filename -slowdown.json)" -o "$(filename -throughput-slowdown.png)"
+
+[ -e "$(filename -raw.json)" ] || { echo 'y\ny\nn' | ./network_rawnums "$filename" "$(filename -raw.json)" && modtputs "$(filename -raw.json)"; }
+filepresent "$(filename -raw.json)" && ./graph-cat.py -n \
+	-t "Contender throughputs vs. mite working set size" \
+	--log-x -x table_entries -y contender_throughput --grid-y --ymax 25 \
+	-s `seq "$CONTENDERS" | while read trash; do echo "contention_throughput_$trash allocation_throughput_$trash"; done` \
+	--legend-x 2 --legend-y 0.5 \
+	-i "$(filename -raw.json)" -o "$(filename -throughputs.png)"
+
+[ -e "$(filename -raw-slowdown.json)" ] || yes | ./network_slowdown "$(filename -raw.json)" "$(filename -raw-slowdown.json)"
+filepresent "$(filename -raw-slowdown.json)" && ./graph-cat.py -n \
+	-t "Contender slowdowns due to CAT vs. mite working set size" \
+	--log-x -x table_entries -y slowdown_factor --grid-y --ymax 1.2\
+	-s `seq "$CONTENDERS" | while read trash; do echo "throughput_slowdown_$trash"; done` \
+	--legend-x 1 --legend-y 0.4 \
+	-i "$(filename -raw-slowdown.json)" -o "$(filename -throughput-slowdowns.png)"
+
+[ -z "$tomdelay" ] || { [ ! -e "$(filename -delay.json)" ] && moddelay; }
+if [ -e "$(filename -delay.json)" ]
+then
+	filepresent "$(filename -delay.json)" && ./graph-cat.py -n \
+	-t "Mite response latency vs. request interval" \
+	--log-x -x client_sleep -y round_trip_time --grid-y --ymax 300 \
+	-s baseline contention allocation --nosort \
+	--legend-x 0.45 --legend-y 0.8 \
+	-i "$(filename -delay.json)" -o "$(filename -delay.png)"
+fi
