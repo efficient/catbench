@@ -42,5 +42,5 @@ then
 	perf report --stdio | grep -A1 '^# Samples:' | grep -v -- -- | sed "s/'//g" | rev | cut -d" " -f1 | rev | paste - - | eval sed `echo "$COUNTERS" | sed 's:.*:-e"s/&/":'`
 else
 	rm -f perf.data
-	sudo perf record -se"`echo "$COUNTERS" | cut -d/ -f1 | paste -sd,`" --call-graph lbr -aC"$cores" 2>&1 &
+	sudo perf record -se"`echo "$COUNTERS" | cut -d/ -f1 | paste -sd,`" --call-graph lbr -aC"$cores" -o perf.data &
 fi
