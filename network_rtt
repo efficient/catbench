@@ -152,6 +152,7 @@ runtrial() {
 	../mica2-catbench/script/setup.sh 32768
 	( cd ../mica2-catbench/build && sudo ./server >../../catbench/rtt_server ) &
 	waitforalloc
+	sleep 3
 	sudo sh -c "echo 33792 >/proc/sys/vm/nr_hugepages"
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
