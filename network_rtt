@@ -91,6 +91,10 @@ else
 fi
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.description string "Round trip time from client perspective"
 jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.unit string "us"
+jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
+jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
+
+base64 -w0 ../mica2-catbench/build/server | jaguar/jaguar set "$logfilename" meta.server_binary string -
 
 setdefaultmask() {
 	groupname="$1"
@@ -191,7 +195,7 @@ recordtrial() {
 
 	runtrial "$@"
 	num="`grep "Average:" rtt_client | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$num"
+	eval $var="\$$var\\\\n\$$independent,\$num,'`base64 -w0 perf.data`'"
 }
 
 echo -n "Remote sudo password? "
@@ -200,7 +204,7 @@ read passwd
 stty echo
 echo
 
-header="fraction,fraction\n$independent,round_trip_time"
+header="fraction,fraction,string\n$independent,round_trip_time,perf_data"
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
