@@ -36,7 +36,11 @@ set -e
 
 if [ "$cores" = "end" ]
 then
-	kill -int "`ps -eopid,cmd | tr -s " " | sed -n 's/^ \?\([[:digit:]]\+\) \<perf\>.*/\1/p' | tail -n1`" 2>/dev/null || echo "No instances left to end"
+	sudo kill -int "`ps -eopid,cmd | tr -s " " | sed -n 's/^ \?\([[:digit:]]\+\) \<perf\>.*/\1/p' | tail -n1`" 2>/dev/null || echo "No instances left to end"
+	while [ "`ps -e | grep '\<perf\>$' | tail -n+2 | wc -l`" -ne "0" ]; do :; done
+	sudo chown "`whoami`:" perf.data
+	perf report --stdio | grep -A1 '^# Samples:' | grep -v -- -- | sed "s/'//g" | rev | cut -d" " -f1 | rev | paste - - | eval sed `echo "$COUNTERS" | sed 's:.*:-e"s/&/":'`
 else
-	perf stat -e"`echo "$COUNTERS" | cut -d/ -f1 | paste -sd,`" 2>&1 -aC"$cores" | eval sed `echo "$COUNTERS" | sed 's:.*:-e"s/&/":'` &
+	rm -f perf.data
+	sudo perf record -se"`echo "$COUNTERS" | cut -d/ -f1 | paste -sd,`" --call-graph lbr -aC"$cores" 2>&1 &
 fi
