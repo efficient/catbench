@@ -170,11 +170,13 @@ runtrial() {
 		echo "NETWORK_RTT: Unsetting mask..."
 		unsetmask
 	fi
-	./cacheperf "$PERF_CORES"
+	./onmycommand ./cacheperf "$PERF_CORES" &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep' >'$remote_path/rtt_client'"
+	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep' | tee '$remote_path/rtt_client' | grep -F 'Initialization complete!'" | ( grep -Fm1 "Initialization complete!" && killall -USR1 onmycommand && cat ) >/dev/null
+	sleep 2
 	./cacheperf end
+	killall onmycommand
 	sudo killall lockserver-ng
 	waitforexit clients/lockserver-ng
 	cat rtt_server >>"$CATBENCH_LOGFILE"
