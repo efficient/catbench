@@ -4,6 +4,8 @@ readonly DEFAULT_CLIENT_SLEEP="100000"
 readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
 readonly DEFAULT_ZIPF_ALPHA="0.00"
 readonly DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
+readonly DEFAULT_MICA_WAYS="0x003"
+readonly DEFAULT_MICA_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
@@ -20,6 +22,7 @@ usage() {
 
 		-s: Vary sleep and fix zipf alpha at $DEFAULT_ZIPF_ALPHA
 		-t: Vary zipf alpha and fix the sleep at $DEFAULT_CLIENT_SLEEP s
+		-m: Vary the number of ways allocated to Mica
 	tac
 }
 
@@ -37,6 +40,10 @@ do
 		-t)
 			independent="zipf_alpha"
 			iterator="$DEFAULT_ZIPF_ALPHA_LOOP"
+			;;
+		-m)
+			independent="mica_ways"
+			iterator="$DEFAULT_MICA_WAYS_LOOP"
 			;;
 		*)
 			understood="false"
@@ -91,6 +98,10 @@ elif [ "$independent" = "zipf_alpha" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.description string "Alpha parameter of zipf distribution"
 	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.unit string ""
+elif [ "$independent" = "mica_ways" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.description string "#ways allocated exclusively to Mica"
+	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.unit string ""
 else
 	echo "Internal ERROR" >&2
 	exit 4
@@ -214,6 +225,10 @@ stty echo
 echo
 
 header="fraction,fraction,string\n$independent,round_trip_time,perf_data"
+if [ "$independent" = "mica_ways" ]
+then
+	header="string,fraction,string\n$independent,round_trip_time,perf_data"
+fi
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
@@ -225,6 +240,10 @@ allocation="$header"
 sudo -l >/dev/null
 for input in $iterator
 do
+	if [ "$independent" != "mica_ways" ]
+	then
+		mica_ways="$LOCKSERVER_MASK"
+	fi
 	eval $independent=$input
 	eval cat <<-tac
 
@@ -239,19 +258,19 @@ do
 		RUNNING TRIAL: $input basealloc
 
 	tac
-	recordtrial basealloc "$zipf_alpha" 0 "$LOCKSERVER_MASK"
+	recordtrial basealloc "$zipf_alpha" 0 "$mica_ways"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
 
 	tac
-	recordtrial contention "$zipf_alpha" "$NUM_TRASH"
+	recordtrial contention "$zipf_alpha" "$NUM_TRASH" "$mica_ways"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$LOCKSERVER_MASK"
+	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$mica_ways"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
