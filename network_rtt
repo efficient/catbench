@@ -4,6 +4,8 @@ readonly DEFAULT_CLIENT_SLEEP="100000"
 readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
 readonly DEFAULT_TABLE_ENTRIES="10000"
 readonly DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
+readonly DEFAULT_MICA_WAYS="0x003"
+readonly DEFAULT_MICA_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
@@ -13,10 +15,11 @@ readonly TRASH_ALLOC="800"
 
 usage() {
 	cat <<-tac
-		USAGE: $0 <-s|-t> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
+		USAGE: $0 <-s|-t|-m> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
 
 		-s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
 		-t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
+		-m: Vary the number of ways allocated to Mica
 	tac
 }
 
@@ -34,6 +37,10 @@ do
 		-t)
 			independent="table_entries"
 			iterator="$DEFAULT_TABLE_ENTRIES_LOOP"
+			;;
+		-m)
+			independent="mica_ways"
+			iterator="$DEFAULT_MICA_WAYS_LOOP"
 			;;
 		*)
 			understood="false"
@@ -89,6 +96,10 @@ elif [ "$independent" = "table_entries" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
+elif [ "$independent" = "mica_ways" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.description string "#ways allocated exclusively to Mica"
+	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.unit string ""
 else
 	echo "Internal ERROR" >&2
 	exit 4
@@ -208,6 +219,10 @@ stty echo
 echo
 
 header="integer,fraction,string\n$independent,round_trip_time,perf_data"
+if [ "$independent" = "mica_ways" ]
+then
+	header="string,fraction,string\n$independent,round_trip_time,perf_data"
+fi
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
@@ -219,6 +234,10 @@ allocation="$header"
 sudo -l >/dev/null
 for input in $iterator
 do
+	if [ "$independent" != "mica_ways" ]
+	then
+		mica_ways="$LOCKSERVER_MASK"
+	fi
 	eval $independent=$input
 	eval cat <<-tac
 
@@ -233,19 +252,19 @@ do
 		RUNNING TRIAL: $input basealloc
 
 	tac
-	recordtrial basealloc "$table_entries" 0 "$LOCKSERVER_MASK"
+	recordtrial basealloc "$table_entries" 0 "$mica_ways"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
 
 	tac
-	recordtrial contention "$table_entries" "$NUM_TRASH"
+	recordtrial contention "$table_entries" "$NUM_TRASH" "$mica_ways"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$table_entries" "$NUM_TRASH" "$LOCKSERVER_MASK"
+	recordtrial allocation "$table_entries" "$NUM_TRASH" "$mica_ways"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
