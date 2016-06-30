@@ -164,11 +164,10 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
-	../mica2-catbench/script/setup.sh 32768
+	../mica2-catbench/script/setup.sh 16384
 	( cd ../mica2-catbench/build && sudo ./server >../../catbench/rtt_server ) &
 	waitforalloc 1024
 	sleep 3
-	sudo sh -c "echo 33792 >/proc/sys/vm/nr_hugepages"
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
