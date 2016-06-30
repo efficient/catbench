@@ -264,7 +264,7 @@ do
 		RUNNING TRIAL: $input contention
 
 	tac
-	recordtrial contention "$zipf_alpha" "$NUM_TRASH" "$mica_ways"
+	recordtrial contention "$zipf_alpha" "$NUM_TRASH"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input allocation
