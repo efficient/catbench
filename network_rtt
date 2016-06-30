@@ -213,7 +213,7 @@ recordtrial() {
 	shift
 
 	runtrial "$@"
-	num="`grep "Average:" rtt_latencies | cut -d" " -f2`"
+	num="`grep "Average:" rtt_client | cut -d" " -f2`"
 	eval $var="\$$var\\\\n\$$independent,\$num,'`base64 -w0 perf.data`'"
 }
 
