@@ -147,7 +147,7 @@ runtrial() {
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
-		invmask="`printf '%#x\n' $((0xfff - mask))`"
+		invmask="`printf '%#x\n' $((0xfffff - mask))`"
 		echo "NETWORK_RTT: Setting mask to $invmask..."
 		setdefaultmask trash "$invmask"
 	fi
