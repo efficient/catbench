@@ -190,7 +190,7 @@ runtrial() {
 	./onmycommand ./cacheperf "$PERF_CORES" &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "cd '$remote_path/../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$MICA_TPUT_LIMIT' | tee '../../$remote_path/rtt_client' | grep -F --line-buffered 'tput='" | ( grep -Fm1 "tput=" && killall -USR1 onmycommand && cat ) >/dev/null
+	ssh "$foreign_client" "cd '$remote_path/../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench -o '../../$remote_path/rtt_latencies' '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$MICA_TPUT_LIMIT' | tee '../../$remote_path/rtt_client' | grep -F --line-buffered 'tput='" | ( grep -Fm1 "tput=" && killall -USR1 onmycommand && cat ) >/dev/null
 	./cacheperf end
 	killall onmycommand
 	sudo killall server
@@ -204,8 +204,8 @@ runtrial() {
 		sudo cgdelete intel_rdt:lockserver
 		sudo cgdelete intel_rdt:trash
 	fi
-	scp -C "$foreign_client:$remote_path/rtt_client" .
-	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
+	scp -C "$foreign_client:$remote_path/rtt_client" "$foreign_client:$remote_path/rtt_latencies" .
+	sed 's/^/remote: /' rtt_client rtt_latencies >>"$CATBENCH_LOGFILE"
 }
 
 recordtrial() {
@@ -213,7 +213,7 @@ recordtrial() {
 	shift
 
 	runtrial "$@"
-	num="`grep "Average:" rtt_client | cut -d" " -f2`"
+	num="`grep "Average:" rtt_latencies | cut -d" " -f2`"
 	eval $var="\$$var\\\\n\$$independent,\$num,'`base64 -w0 perf.data`'"
 }
 
@@ -277,3 +277,4 @@ echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples ar
 echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
 rm rtt_client
 rm rtt_server
+rm rtt_latencies
