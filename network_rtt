@@ -164,7 +164,7 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
-	../mica2-catbench/script/setup.sh 16384
+	../mica2-catbench/script/setup.sh 16384 0
 	( cd ../mica2-catbench/build && sudo ./server >../../catbench/rtt_server ) &
 	waitforalloc 1024
 	sleep 3
