@@ -258,7 +258,7 @@ do
 		RUNNING TRIAL: $input contention
 
 	tac
-	recordtrial contention "$table_entries" "$NUM_TRASH" "$mica_ways"
+	recordtrial contention "$table_entries" "$NUM_TRASH"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input allocation
