@@ -123,6 +123,7 @@ then
 		where -<action switch> is one of:
 		 -a : Ave. latency
 		 -e : Performance counter events
+		 -n : Normalized performance counter events
 		 -p : Save file with performance counter events
 		 -t : 99.9% tail latency
 		 -u : Save file with raw latencies in us
@@ -186,6 +187,24 @@ do
 				printf " %'${maxlen_event}d" `puts "$percs" | tail -n+"$counter" | head -n"$num_events" | cut -f2 | tr -d ","`
 				puts
 				counter="$((counter + num_events))"
+			done
+		done
+		;;
+	-n)
+		puts "# Normalized performance counters:"
+		filter_percs
+		times="`grep -F "seconds time elapsed" "$logfile" | tr -s " " | cut -d" " -f2`"
+		hdr_events
+		counter="0"
+		for indep in $INDEPS
+		do
+			for series in $SERIES
+			do
+				thistime="`puts "$times" | tail -n+"$((counter + 1))" | head -n1`"
+				printf "%${maxlen_indep}s (%${maxlen_series}s) :" "$indep" "$series"
+				printf " %'${maxlen_event}.2f" `puts "$percs" | tail -n+"$((counter * num_events + 1))" | head -n"$num_events" | cut -f2 | tr -d "," | sed "s:\$:/$thistime:" | bc -l`
+				puts
+				counter="$((counter + 1))"
 			done
 		done
 		;;
