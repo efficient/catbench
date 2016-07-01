@@ -1,6 +1,8 @@
 #!/bin/sh
 
 readonly COUNTERS="`echo "
+	cpu-cycles/cpu-cycles
+	instructions/instructions
 	L1-dcache-load-misses/L1-dcache-load-misses (L1D.REPLACEMENT)
 	L1-icache-load-misses/L1-icache-load-misses (ICACHE.MISSES)
 	dTLB-load-misses/dTLB-load-misses (DTLB_LOAD_MISSES.MISS_CAUSES_A_WALK)
