@@ -223,7 +223,7 @@ do
 			printf "%${maxlen_indep}s :" "$indep"
 			for series in $SERIES
 			do
-				printf " %${maxlen_series}s" "`tail -n+"$counter" <<-liat | head -n"$ITERATIONS" | tail -n+"$((WARMUP + 1))" | ./make-cdf | grep -Fm1 " 0.999" | cut -d" " -f1
+				printf " %${maxlen_series}s" "`tail -n+"$counter" <<-liat | head -n"$ITERATIONS" | tail -n+"$((WARMUP + 1))" | sort -n | tail -n+"$(((ITERATIONS - WARMUP) * 999 / 1000))" | head -n1
 					$latencies
 				liat`"
 				counter="$((counter + ITERATIONS))"
