@@ -142,7 +142,7 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
-	sudo clients/lockserver-ng -l "$entries" -- -c "`printf '%#x' $((1 << contenders))`" >rtt_server &
+	sudo clients/lockserver-ng -l "$entries" -- -c 0x1 >rtt_server &
 	waitforalloc
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
@@ -154,7 +154,7 @@ runtrial() {
 	for contender in `seq "$contenders"`
 	do
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		taskset "`printf '%#x' $((1 << (contender - 1)))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
+		taskset "`printf '%#x' $((1 << contender))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
 	done
 
 	if [ -n "$mask" ]
