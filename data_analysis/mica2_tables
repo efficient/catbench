@@ -146,7 +146,7 @@ readonly num_series="`puts "$SERIES" | wc -w`"
 
 logfile="`puts "$jagfile" | sed 's/\.[^.]\+$/.log/'`"
 percfile="`puts "$logfile" | sed 's/\.log$/-perc&/'`"
-unpack="`jaguar/jaguar get "$jagfile" meta.unpack 2>/dev/null`"
+unpack="`jaguar/jaguar get "$jagfile" meta.unpack 2>/dev/null || true`"
 usfile="`puts "$logfile" | sed 's/\.log$/-us&/'`"
 if [ -z "$unpack" ]
 then
