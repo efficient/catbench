@@ -15,7 +15,7 @@ static const struct rte_eth_conf PORT_CONF = {
 static const struct rte_eth_rxconf RX_CONF;
 static const struct rte_eth_txconf TX_CONF;
 static const char *DEFAULT_EAL_ARGS[] = {
-	"-m64",
+	"--socket-mem=64",
 	"--huge-unlink",
 };
 #define DEFAULT_EAL_NARGS (sizeof DEFAULT_EAL_ARGS / sizeof *DEFAULT_EAL_ARGS)

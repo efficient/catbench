@@ -171,14 +171,14 @@ runtrial() {
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
-		invmask="`printf '%#x\n' $((0xfff - mask))`"
+		invmask="`printf '%#x\n' $((0xfffff - mask))`"
 		echo "NETWORK_RTT: Setting mask to $invmask..."
 		setdefaultmask trash "$invmask"
 	fi
 	for contender in `seq "$contenders"`
 	do
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		taskset "`printf '%#x' $((1 << contender))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
+		taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
 	done
 
 	if [ -n "$mask" ]
