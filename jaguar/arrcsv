@@ -39,7 +39,7 @@ linenum() {
 	grep -ne "$regexp" | head -n1 | cut -d: -f1
 }
 
-res="`"$(dirname "$0")/jaguar" get "$jagfile" "$array" | sed -e 's/\[\(.*\)\]/\1/' -e 's/, /\n/g'`"
+res="`PYTHONHASHSEED="0" "$(dirname "$0")/jaguar" get "$jagfile" "$array" | sed -e 's/\[\(.*\)\]/\1/' -e 's/, /\n/g'`"
 
 open="`echo "$res" | linenum '{'`"
 close="`echo "$res" | linenum '}'`"
