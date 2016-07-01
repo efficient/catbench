@@ -216,6 +216,11 @@ do
 	-t)
 		puts "# 99.9% tail latencies:"
 		filter_latencies
+		if [ -e 'cdf' ]; then
+			./cdf -b "$usfile.bin" -n 0 min <<-liat > /dev/null
+				$latencies
+			liat
+		fi
 		hdr_series
 		counter="1"
 		for indep in $INDEPS
@@ -223,9 +228,13 @@ do
 			printf "%${maxlen_indep}s :" "$indep"
 			for series in $SERIES
 			do
-				printf " %${maxlen_series}s" "`tail -n+"$counter" <<-liat | head -n"$ITERATIONS" | tail -n+"$((WARMUP + 1))" | sort -n | tail -n+"$(((ITERATIONS - WARMUP) * 999 / 1000))" | head -n1
-					$latencies
-				liat`"
+				if [ ! -e 'cdf' ]; then
+					printf " %${maxlen_series}s" "`tail -n+"$counter" <<-liat | head -n"$ITERATIONS" | tail -n+"$((WARMUP + 1))" | sort -n | tail -n+"$(((ITERATIONS - WARMUP) * 999 / 1000))" | head -n1
+						$latencies
+					liat`"
+				else
+					printf " %${maxlen_series}s" "`./cdf -b "$usfile.bin" -s "$((counter + WARMUP - 1))" -n "$((ITERATIONS - WARMUP))" 0.999 | cut -d" " -f2`"
+				fi
 				counter="$((counter + ITERATIONS))"
 			done
 			puts
