@@ -38,6 +38,7 @@ fi
 
 prefix="catbench-`basename $1`_`date +%F_%H-%M-%S_%z`"
 export CATBENCH_JAGFILE="$prefix.json"
+export CATBENCH_LOGFILE="$prefix.log"
 if [ -e "$CATBENCH_JAGFILE" ]
 then
 	echo "ERROR: Output JSON file already exists; aborting!" >&2
@@ -61,7 +62,15 @@ echo "$ $@"
 status="$?"
 
 logging_cleanup
-base64 "$prefix.log" | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log -
+pack="base64 -w0 '$prefix.log'"
+unpack="base64 -d"
+if [ "`du -b "$prefix.log" | cut -f1`" -gt "$((2 * 1024 * 1024 * 1024))" ] # 2 GiB
+then
+	pack="gzip -c '$prefix.log' | base64 -w0"
+	unpack="$unpack | zcat"
+fi
+eval "$pack" | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log -
+jaguar/jaguar set "$CATBENCH_JAGFILE" meta.unpack "$unpack"
 rm "$prefix.log"
 
 exit "$status"

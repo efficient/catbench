@@ -63,8 +63,8 @@ then
 	exit 1
 fi
 
-localrev="`git log --no-abbrev-commit -1 | head -n1 | cut -d' ' -f2`"
-remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit -1 | head -n1 | cut -d' ' -f2"`"
+localrev="`git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2`"
+remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2"`"
 if [ "$localrev" != "$remoterev" ]
 then
 	echo "ERROR: Version mismatch between systems!" >&2
@@ -147,12 +147,12 @@ runtrial() {
 	echo "NETWORK_RTT: Spawning server..."
 	./onmycommand killall -USR1 square_evictions &
 	sigpid="$!"
-	sudo clients/lockserver-ng -s "$sigpid" -t "$sigpid" -l "$entries" -- -c "`printf '%#x' $((1 << contenders))`" >rtt_server &
+	sudo clients/lockserver-ng -s "$sigpid" -t "$sigpid" -l "$entries" -- -c 0x1 >rtt_server &
 	waitforalloc
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
-		invmask="`printf '%#x\n' $((0xfff - mask))`"
+		invmask="`printf '%#x\n' $((0xfffff - mask))`"
 		echo "NETWORK_RTT: Setting mask to $invmask..."
 		setdefaultmask trash "$invmask"
 	fi
@@ -160,7 +160,7 @@ runtrial() {
 	for contender in `seq "$contenders"`
 	do
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		( taskset "`printf '%#x' $((1 << (contender - 1)))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -p "$TRASH_PASSES" -uwhr 2>&1 >/dev/null | sed "s/^/TRASH$contender: /" >>rtt_trash ) &
+		( taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -p "$TRASH_PASSES" -uwhr 2>&1 >/dev/null | sed "s/^/TRASH$contender: /" >>rtt_trash ) &
 	done
 
 	if [ -n "$mask" ]
