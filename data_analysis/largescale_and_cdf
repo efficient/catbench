@@ -1,0 +1,60 @@
+#!/bin/sh
+
+readonly SERIES="baseline basealloc contention allocation"
+readonly INDICES="`seq 0 2`"
+
+set -e
+if [ $# -ne 3 ]
+then
+	echo "USAGE: $0 <filename minus the .log> <jaguar> <make-cdf>"
+	false
+fi
+readonly name="$1"
+readonly jaguar="$2"
+readonly seethef="$3"
+
+[ -x "$jaguar" ]
+[ -x "$seethef" ]
+
+mkdir "$name"
+#mkdir "${name}_overhead"
+counter="1"
+for suffix in "" #"_overhead"
+do
+	for index in $INDICES
+	do
+		for series in $SERIES
+		do
+			filename="$name$suffix/data_$series-$index.csv"
+			#"./$jaguar" get "$name-raw.json" "data.$series$suffix.samples[$index].round_trip_time" | sed -e 's/\[\(.*\)\]/\1/' -e 's/, /\n/g' >"$filename"
+			tail -n+"$counter" "$name.log" | head -n30000000 | tail -n20000000 >"$filename"
+
+			gnuplot <<-tolpung
+				set output "$name$suffix/timescale_$series-$index.png"
+				set terminal png
+				plot "$filename"
+			tolpung
+
+			"./$seethef" <"$filename" >"$filename-cdf"
+			gnuplot <<-tolpung
+				set output "$name$suffix/cdf_$series-$index.png"
+				set terminal png
+				set logscale x
+				plot "$filename-cdf" with lines
+			tolpung
+
+			counter="$((counter + 30000000))"
+		done
+
+		gnuplot <<-tolpung
+			set output "$name$suffix/cdf_$index.png"
+			set terminal png
+			set logscale x
+			plot "$name$suffix/data_`echo "$SERIES" | cut -d" " -f1`-$index.csv-cdf" with lines, \
+			     "$name$suffix/data_`echo "$SERIES" | cut -d" " -f2`-$index.csv-cdf" with lines, \
+			     "$name$suffix/data_`echo "$SERIES" | cut -d" " -f3`-$index.csv-cdf" with lines, \
+			     "$name$suffix/data_`echo "$SERIES" | cut -d" " -f4`-$index.csv-cdf" with lines
+		tolpung
+	done
+done
+rm $name/data_*.csv* $name$suffix/data_*.csv*

@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+
+# Todo:  Make it adaptive;  don't print out
+# unnecessary colinear points.
+
+$step = $ARGV[0];
+if (!$step) { $step = 0.1; }
+$max = $ARGV[1];
+
+$totsamps = 0;
+while (<STDIN>) {
+  chomp;
+  s/\#.*//;
+  next if (length($_) < 1);
+  push @samps, $_;
+#  $totsamps += $_;
+}
+
+
+@samps = sort bynum @samps;
+#print "Samples: @samps\n";
+
+$count = 0;
+$looking_at = $samps[0];
+$totsamps = $#samps + 1;
+my $last_x;
+my $last_y;
+foreach $samp (@samps) {
+    # XXX:  Not well tested, does this change things drastically?
+    if ($samp > ($looking_at)) {
+	printf("%.5f %.5f\n", $looking_at, $count / $totsamps);
+	printf("%.5f %.5f\n", $samp, $count / $totsamps);
+	if ($samp - $looking_at < $step) {
+	    $looking_at += $step;
+	} else {
+	    $looking_at = $samp;
+	}
+    }
+	
+#  while ($samp > $looking_at) {
+#    printf("%.5f %.5f\n", $looking_at, $count / $totsamps);
+#    $looking_at += $step;
+#    if ($max && $looking_at > $max) { last; }
+#  }
+  $count += 1; #$samp;
+  if ($max && $looking_at > $max) { last; }
+}
+$looking_at += $step;
+if ($totsamps > 0) {
+    printf("%.5f %.5f\n", $looking_at, $count / $totsamps);
+}
+close(OUT);
+
+
+sub bynum { $a <=> $b; }

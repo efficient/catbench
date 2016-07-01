@@ -1,0 +1,246 @@
+#!/bin/sh
+
+readonly DEP="round_trip_time"
+readonly INDEPS="0.00 0.90 0.99"
+readonly ITERATIONS="30000000"
+readonly SERIES="baseline basealloc contention allocation"
+readonly WARMUP="10000000"
+
+echo() {
+	puts "INTERNAL ERROR: echo called" >&2
+	return 1
+}
+
+max() {
+	set -e
+
+	sort "$@" | tail -n1
+}
+
+puts() {
+	printf "%s\n" "$*"
+}
+
+printf() {
+	"`which printf`" "$@"
+}
+
+repnz() {
+	local times="$1"
+	local str="$2"
+	set -e
+
+	printf %s "$str"
+
+	local time
+	for time in `seq "$((times - 1))"`
+	do
+		printf %s " $str"
+	done
+}
+
+strlen() {
+	set -e
+
+	local str
+	for str in "$@"
+	do
+		printf %s "$str" | wc -m
+	done
+}
+
+filter_latencies() {
+	set -e
+
+	if [ -n "$latencies" ]
+	then
+		return 0
+	fi
+
+	if [ -e "$usfile" ]
+	then
+		readonly latencies="`cat "$usfile"`"
+	else
+		readonly latencies="`grep -F "Completed after:" "$logfile" | cut -d" " -f4`"
+	fi
+}
+
+filter_percs() {
+	set -e
+
+	if [ -n "$percs" ]
+	then
+		return 0
+	fi
+
+	if [ -e "$percfile" ]
+	then
+		readonly percs="`cat "$percfile"`"
+		readonly num_events="`puts "$percs" | cut -f1 | sort | uniq | wc -l`"
+	else
+		local sentinel="^NETWORK_RTT:"
+		local postproc="cat"
+		if jaguar/jaguar get "$jagfile" meta.server_binary >/dev/null 2>&1
+		then
+			# perf record
+			local keyword="perf record: Captured"
+		elif grep -Fm1 "Perf" "$logfile" >/dev/null
+		then
+			# perf stat
+			local keyword="'system wide':"
+			sentinel='seconds time elapsed$'
+			postproc="tr -s ' ' | sed 's/^ \([^ ]\+\) \(.\+\) [^ ]\+/\2\t\1/'"
+		else
+			# vtune
+			local keyword="Hardware Event"
+			postproc="tr -s ' ' '\t' | cut -f1-2"
+		fi
+
+		readonly num_events="$((`grep -FA50 -m1 "$keyword" "$logfile" | sed "/$sentinel/q" | grep -vFe"[vdso]" -e"amplxe:" -e"--" | grep -vxF "" | grep -v '^ \+[0-9]\+ ' | wc -l` - 2))"
+		readonly percs="`grep -vFe"[vdso]" -e"amplxe:" -e"--" "$logfile" | grep -vxF "" | grep -v '^ \+[0-9]\+ ' | grep -FA"$num_events" "$keyword" | grep -vFe"$keyword" -e"--" | eval "$postproc"`"
+	fi
+	readonly events="`puts "$percs" | head -n"$num_events" | cut -f1 | cut -d" " -f1`"
+	readonly maxlen_event="`strlen $events | max -n`"
+}
+
+hdr_events() {
+	set -e
+
+	printf "%$((maxlen_indep + 2 + maxlen_series + 1))s : `repnz "$num_events" "%${maxlen_event}s"`\n" "" $events
+}
+
+hdr_series() {
+	set -e
+
+	printf "%${maxlen_indep}s : `repnz "$num_series" "%${maxlen_series}s"`\n" "" $SERIES
+}
+
+if [ $# -lt 2 ]
+then
+	cat <<-tac
+		USAGE: $0 -<action switch>... <Jaguar file>
+
+		where -<action switch> is one of:
+		 -a : Ave. latency
+		 -e : Performance counter events
+		 -n : Normalized performance counter events
+		 -p : Save file with performance counter events
+		 -t : 99.9% tail latency
+		 -u : Save file with raw latencies in us
+	tac
+	exit 1
+fi
+args="`puts "$*" | rev | cut -d" " -f2- | rev`"
+shift "$(($# - 1))"
+jagfile="$1"
+set -e
+
+if [ ! -e "$jagfile" ]
+then
+	puts "$jagfile: No such file" >&2
+	exit 2
+fi
+
+readonly maxlen_indep="`strlen $INDEPS | max -n`"
+readonly maxlen_series="`strlen $SERIES | max -n`"
+readonly num_series="`puts "$SERIES" | wc -w`"
+
+logfile="`puts "$jagfile" | sed 's/\.[^.]\+$/.log/'`"
+percfile="`puts "$logfile" | sed 's/\.log$/-perc&/'`"
+unpack="`jaguar/jaguar get "$jagfile" meta.unpack 2>/dev/null || true`"
+usfile="`puts "$logfile" | sed 's/\.log$/-us&/'`"
+if [ -z "$unpack" ]
+then
+	unpack="base64 -d"
+fi
+
+[ -e "$logfile" ] || jaguar/jaguar get "$jagfile" meta.log | eval "$unpack" >"$logfile"
+
+for arg in $args
+do
+	case "$arg" in
+	-a)
+		puts "# Ave. latencies:"
+		hdr_series
+		index="0"
+		for indep in $INDEPS
+		do
+			printf "%${maxlen_indep}s :" "$indep"
+			for series in $SERIES
+			do
+				printf " %${maxlen_series}s" "`jaguar/jaguar get "$jagfile" "data.$series.samples[$index].$DEP"`"
+			done
+			puts
+			index="$((index + 1))"
+		done
+		;;
+	-e)
+		puts "# Performance counters:"
+		filter_percs
+		hdr_events
+		counter="1"
+		for indep in $INDEPS
+		do
+			for series in $SERIES
+			do
+				printf "%${maxlen_indep}s (%${maxlen_series}s) :" "$indep" "$series"
+				printf " %'${maxlen_event}d" `puts "$percs" | tail -n+"$counter" | head -n"$num_events" | cut -f2 | tr -d ","`
+				puts
+				counter="$((counter + num_events))"
+			done
+		done
+		;;
+	-n)
+		puts "# Normalized performance counters:"
+		filter_percs
+		times="`grep -F "seconds time elapsed" "$logfile" | tr -s " " | cut -d" " -f2`"
+		hdr_events
+		counter="0"
+		for indep in $INDEPS
+		do
+			for series in $SERIES
+			do
+				thistime="`puts "$times" | tail -n+"$((counter + 1))" | head -n1`"
+				printf "%${maxlen_indep}s (%${maxlen_series}s) :" "$indep" "$series"
+				printf " %'${maxlen_event}.2f" `puts "$percs" | tail -n+"$((counter * num_events + 1))" | head -n"$num_events" | cut -f2 | tr -d "," | sed "s:\$:/$thistime:" | bc -l`
+				puts
+				counter="$((counter + 1))"
+			done
+		done
+		;;
+	-p)
+		filter_percs
+		puts "$percs" >"$percfile"
+		continue
+		;;
+	-t)
+		puts "# 99.9% tail latencies:"
+		filter_latencies
+		hdr_series
+		counter="1"
+		for indep in $INDEPS
+		do
+			printf "%${maxlen_indep}s :" "$indep"
+			for series in $SERIES
+			do
+				printf " %${maxlen_series}s" "`tail -n+"$counter" <<-liat | head -n"$ITERATIONS" | tail -n+"$((WARMUP + 1))" | sort -n | tail -n+"$(((ITERATIONS - WARMUP) * 999 / 1000))" | head -n1
+					$latencies
+				liat`"
+				counter="$((counter + ITERATIONS))"
+			done
+			puts
+		done
+		;;
+	-u)
+		filter_latencies
+		cat >"$usfile" <<-tac
+			$latencies
+		tac
+		continue
+		;;
+	*)
+		puts "WARNING: Skipping unrecognized switch: '$arg'" >&2
+		;;
+	esac
+	puts
+done
