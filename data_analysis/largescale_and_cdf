@@ -1,6 +1,6 @@
 #!/bin/sh
 
-readonly SERIES="baseline contention allocation"
+readonly SERIES="baseline basealloc contention allocation"
 readonly INDICES="`seq 0 2`"
 
 set -e
@@ -17,6 +17,7 @@ readonly seethef="$3"
 [ -x "$seethef" ]
 
 mkdir "$name"
+#mkdir "${name}_overhead"
 counter="1"
 for suffix in "" #"_overhead"
 do
@@ -25,6 +26,7 @@ do
 		for series in $SERIES
 		do
 			filename="$name$suffix/data_$series-$index.csv"
+			#"./$jaguar" get "$name-raw.json" "data.$series$suffix.samples[$index].round_trip_time" | sed -e 's/\[\(.*\)\]/\1/' -e 's/, /\n/g' >"$filename"
 			tail -n+"$counter" "$name.log" | head -n30000000 | tail -n20000000 >"$filename"
 
 			gnuplot <<-tolpung
@@ -50,7 +52,8 @@ do
 			set logscale x
 			plot "$name$suffix/data_`echo "$SERIES" | cut -d" " -f1`-$index.csv-cdf" with lines, \
 			     "$name$suffix/data_`echo "$SERIES" | cut -d" " -f2`-$index.csv-cdf" with lines, \
-			     "$name$suffix/data_`echo "$SERIES" | cut -d" " -f3`-$index.csv-cdf" with lines
+			     "$name$suffix/data_`echo "$SERIES" | cut -d" " -f3`-$index.csv-cdf" with lines, \
+			     "$name$suffix/data_`echo "$SERIES" | cut -d" " -f4`-$index.csv-cdf" with lines
 		tolpung
 	done
 done
