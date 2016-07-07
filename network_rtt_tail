@@ -1,6 +1,6 @@
 #!/bin/sh
 
-readonly NUM_ITERATIONS="3000"
+readonly NUM_ITERATIONS="30000000"
 readonly NUM_WARMUP="10000000"
 readonly DEFAULT_CLIENT_SLEEP="100000"
 readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
@@ -8,7 +8,7 @@ readonly DEFAULT_ZIPF_ALPHA="0.99"
 readonly DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
 readonly DEFAULT_MICA_WAYS="0x003"
 readonly DEFAULT_MICA_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff 0x7ff 0xfff"
-readonly DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2" #0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
+readonly DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
@@ -87,11 +87,11 @@ fi
 
 localrev="`git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2`"
 remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2"`"
-if [ "$localrev" != "$remoterev" ]
-then
-	echo "ERROR: Version mismatch between systems!" >&2
-	exit 2
-fi
+#if [ "$localrev" != "$remoterev" ]
+#then
+	#echo "ERROR: Version mismatch between systems!" >&2
+	#exit 2
+#fi
 
 remotemod="`ssh "$foreign_client" "cd '$remote_path'; git diff --exit-code HEAD >/dev/null; echo \\$?"`"
 if [ "$remotemod" -ne 0 ]
@@ -102,7 +102,6 @@ fi
 
 sudo killall server 2>/dev/null
 sudo killall square_evictions 2>/dev/null
-../mica2-catbench/script/setup.sh 16384 0
 
 if [ "$independent" = "client_sleep" ]
 then
@@ -197,6 +196,7 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
+	../mica2-catbench/script/setup.sh 16384 0
 	( cd ../mica2-catbench/build && sudo ./server >../../catbench/rtt_server ) &
 	waitforalloc 1024
 	sleep 3
@@ -261,6 +261,14 @@ recordtrial() {
 	rtt_99="`grep "99-th" rtt_client | cut -d" " -f2`"
 	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
 	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95"
+	echo "============================================="
+	echo $independent
+	echo $tput
+	echo $avg
+	echo $rtt_999
+	echo $rtt_99
+	echo $rtt_95
+	echo "============================================="
 }
 
 #echo -n "Remote sudo password? "
@@ -295,7 +303,6 @@ do
 		mica_tput_limit="$MICA_TPUT_LIMIT"
 	fi
 	eval $independent=$input
-	echo "$independent"
 	if [ "$independent" = "contender_ways" ]
 	then
 		mica_ways="$contender_ways"
