@@ -1,0 +1,336 @@
+#!/bin/sh
+
+readonly NUM_ITERATIONS="3000"
+readonly NUM_WARMUP="10000000"
+readonly DEFAULT_CLIENT_SLEEP="100000"
+readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
+readonly DEFAULT_ZIPF_ALPHA="0.99"
+readonly DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
+readonly DEFAULT_MICA_WAYS="0x003"
+readonly DEFAULT_MICA_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff 0x7ff 0xfff"
+readonly DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2" #0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
+
+readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+readonly LOCKSERVER_MASK="0x003"
+readonly MICA_GET_RATIO="0.5"
+readonly MICA_NUM_ITEMS="131072"
+readonly MICA_TPUT_LIMIT="3.0"
+readonly NUM_TRASH="7"
+readonly PERF_CORES="0"
+readonly TRASH_ALLOC="800"
+
+usage() {
+	cat <<-tac
+		USAGE: $0 <-s|-t|-m|-c> <host on which to run client process> <path to repo on remote system>
+
+		-s: Vary sleep and fix zipf alpha at $DEFAULT_ZIPF_ALPHA
+		-t: Vary zipf alpha and fix the sleep at $DEFAULT_CLIENT_SLEEP s
+		-m: Vary the number of ways allocated to Mica
+		-c: Vary the number of ways allocated to Trash
+		-l: Vary the Mica throughput limit
+	tac
+}
+
+client_sleep="$DEFAULT_CLIENT_SLEEP"
+zipf_alpha="$DEFAULT_ZIPF_ALPHA"
+understood="true"
+while "$understood"
+do
+	case "$1"
+	in
+		-s)
+			independent="client_sleep"
+			iterator="$DEFAULT_CLIENT_SLEEP_LOOP"
+			;;
+		-t)
+			independent="zipf_alpha"
+			iterator="$DEFAULT_ZIPF_ALPHA_LOOP"
+			;;
+		-m)
+			independent="mica_ways"
+			iterator="$DEFAULT_MICA_WAYS_LOOP"
+			;;
+		-c)
+			independent="contender_ways"
+			iterator="$DEFAULT_MICA_WAYS_LOOP"
+			;;
+		-l)
+			independent="mica_tput_limit"
+			iterator="$DEFAULT_MICA_TPUT_LIMIT_LOOP"
+			;;
+		*)
+			understood="false"
+			;;
+	esac
+
+	if "$understood"
+	then
+		shift
+	fi
+done
+if [ -z "$independent" -o $# -ne 2 ]
+then
+	usage
+	exit 1
+fi
+foreign_client="$1"
+remote_path="$2"
+
+logfilename="$CATBENCH_JAGFILE"
+if [ -z "$logfilename" ]
+then
+	cat >&2 <<-tac
+		$0: should be invoked via driver
+	tac
+	exit 1
+fi
+
+localrev="`git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2`"
+remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2"`"
+if [ "$localrev" != "$remoterev" ]
+then
+	echo "ERROR: Version mismatch between systems!" >&2
+	exit 2
+fi
+
+remotemod="`ssh "$foreign_client" "cd '$remote_path'; git diff --exit-code HEAD >/dev/null; echo \\$?"`"
+if [ "$remotemod" -ne 0 ]
+then
+	echo "ERROR: Remote repository state uncommitted!" >&2
+	exit 3
+fi
+
+sudo killall server 2>/dev/null
+sudo killall square_evictions 2>/dev/null
+../mica2-catbench/script/setup.sh 16384 0
+
+if [ "$independent" = "client_sleep" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.description string "Delay between client requests"
+	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.unit string "us"
+elif [ "$independent" = "zipf_alpha" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.description string "Alpha parameter of zipf distribution"
+	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.unit string ""
+elif [ "$independent" = "mica_ways" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.description string "#ways allocated exclusively to Mica"
+	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.unit string ""
+elif [ "$independent" = "contender_ways" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.description string "#ways allocated to contenders (shared with Mica)"
+	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.unit string ""
+elif [ "$independent" = "mica_tput_limit" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.mica_tput_limit.description string "Mica throughput limit"
+	jaguar/jaguar set "$logfilename" legend.samples.mica_tput_limit.unit string "mops"
+else
+	echo "Internal ERROR, invalid independent variable. (Perhaps you forgot to add a jaguar entry for this independent variable?" >&2
+	exit 4
+fi
+jaguar/jaguar set "$logfilename" legend.samples.mica_throughput.description string "Mica Throughput"
+jaguar/jaguar set "$logfilename" legend.samples.mica_throughput.unit string "mops"
+
+jaguar/jaguar set "$logfilename" legend.samples.mean.description string "Mean RTT"
+jaguar/jaguar set "$logfilename" legend.samples.mean.unit string "us"
+
+jaguar/jaguar set "$logfilename" legend.samples.999_tail_latency.description string "99.9th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.999_tail_latency.unit string "us"
+
+jaguar/jaguar set "$logfilename" legend.samples.99_tail_latency.description string "99th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.99_tail_latency.unit string "us"
+
+jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.description string "95th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.unit string "us"
+#base64 -w0 ../mica2-catbench/build/server | jaguar/jaguar set "$logfilename" meta.server_binary string -
+
+setdefaultmask() {
+	groupname="$1"
+	groupmask="$2"
+
+	sudo mkdir "$CGROUP_PATH/$groupname"
+	sudo sh -c "echo '$groupmask' >'$CGROUP_PATH/$groupname/intel_rdt.l3_cbm'"
+	sudo sh -c "echo $$ >'$CGROUP_PATH/$groupname/tasks'"
+}
+
+unsetmask() {
+	sudo sh -c "echo $$ >'$CGROUP_PATH/tasks'"
+}
+
+countfreepages() {
+	sed -n 's/HugePages_Free:[[:space:]]\+\([[:digit:]]\)/\1/p' /proc/meminfo
+}
+
+waitforalloc() {
+	numpages="$1"
+	# Wait for the number of free hugepages to drop.
+	orig="`countfreepages`"
+	while [ "`countfreepages`" -eq "$orig" -a "$orig" -ne "$numpages" ]; do :; done
+
+	# Now wait for it to stabilize!
+	while [ "`sed -n 's/HugePages_Free:[[:space:]]\+\([[:digit:]]\)/\1/p' /proc/meminfo`" -ne "$orig" ]
+	do
+		orig="`countfreepages`"
+		sleep 1
+	done
+}
+
+waitforexit() {
+	arg0="$1"
+	while (ps -eo args | cut -d" " -f1 | grep -x "$arg0" >/dev/null 2>&1); do :; done
+}
+
+runtrial() {
+	alpha="$1"
+	contenders="0"
+	if [ -n "$2" ]
+	then
+		contenders="$2"
+	fi
+	mask="$3"
+	tlim="$4"
+	echo "$tlim"
+
+	if [ -n "$mask" ] && [ "$independent" != "contender_ways" ]
+	then
+		echo "NETWORK_RTT: Setting mask to $mask..."
+		setdefaultmask lockserver "$mask"
+	fi
+	echo "NETWORK_RTT: Spawning server..."
+	( cd ../mica2-catbench/build && sudo ./server >../../catbench/rtt_server ) &
+	waitforalloc 1024
+	sleep 3
+
+	if [ "$contenders" -ne 0 -a -n "$mask" ] && [ "$independent" != "contender_ways" ]
+	then
+		invmask="`printf '%#x\n' $((0xfff - mask))`"
+		echo "NETWORK_RTT: Setting mask to $invmask..."
+		setdefaultmask trash "$invmask"
+	fi
+	if [ -n "$mask" ] && [ "$independent" = "contender_ways" ]
+	then
+		echo "NETWORK_RTT: Setting contender mask to $mask..."
+		setdefaultmask trash "$mask"
+	fi
+	for contender in `seq "$contenders"`
+	do
+		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
+		taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
+	done
+
+	if [ -n "$mask" ]
+	then
+		echo "NETWORK_RTT: Unsetting mask..."
+		unsetmask
+	fi
+	if [ "$independent" = "mica_tput_limit" ]
+	then
+		num_iter=`perl -e "print int($NUM_ITERATIONS * $tlim / 3)"`
+		num_warm=`perl -e "print int($num_iter / 3)"`
+	else
+		num_iter=$NUM_ITERATIONS
+		num_warm=$NUM_WARMUP
+	fi
+	while ! grep '^tput' rtt_server >/dev/null 2>&1; do sleep 1; done
+	echo "NETWORK_RTT: Spawning client..."
+	echo "No need to enter your password at this prompt!"
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client rtt_latencies; cd '../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench -n "$num_iter" -w "$num_warm" -o '../../$remote_path/rtt_latencies' '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$tlim' | tee '../../$remote_path/rtt_client' | grep -F --line-buffered 'tput='" | ( grep -Fm1 "tput=" && cat ) >/dev/null
+	sudo killall server
+	waitforexit ./server
+	#cat rtt_server >>"$CATBENCH_LOGFILE"
+
+	echo "NETWORK_RTT: Cleaning up..."
+	killall square_evictions
+	if [ -n "$mask" ]
+	then
+		sudo cgdelete intel_rdt:lockserver
+		sudo cgdelete intel_rdt:trash
+	fi
+	scp -C "$foreign_client:$remote_path/rtt_client" "$foreign_client:$remote_path/rtt_latencies" .
+	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
+}
+
+recordtrial() {
+	var="$1"
+	shift
+
+	runtrial "$@"
+	tput="`grep "tput=" rtt_client | tail -n2 | head -n1 | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/'`"
+	avg="`grep "Average:" rtt_client | cut -d" " -f2`"
+	rtt_999="`grep "99.9-th" rtt_client | cut -d" " -f2`"
+	rtt_99="`grep "99-th" rtt_client | cut -d" " -f2`"
+	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95"
+}
+
+#echo -n "Remote sudo password? "
+#stty -echo
+#read passwd
+#stty echo
+#echo
+passwd="hunter2"
+
+header="fraction,fraction,fraction,fraction,fraction,fraction\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency"
+if [ "$independent" = "mica_ways" ] || [ "$independent" = "contender_ways" ]
+then
+	header="string,fraction,fraction,fraction,fraction,fraction\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency"
+fi
+jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
+jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
+jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
+jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
+baseline="$header"
+basealloc="$header"
+contention="$header"
+allocation="$header"
+sudo -l >/dev/null
+for input in $iterator
+do
+	if [ "$independent" != "mica_ways" ] && [ "$independent" != "contender_ways" ]
+	then
+		mica_ways="$LOCKSERVER_MASK"
+	fi
+	if [ "$independent" != "mica_tput_limit" ]
+	then
+		mica_tput_limit="$MICA_TPUT_LIMIT"
+	fi
+	eval $independent=$input
+	echo "$independent"
+	if [ "$independent" = "contender_ways" ]
+	then
+		mica_ways="$contender_ways"
+	fi
+	eval cat <<-tac
+
+		=================
+
+		RUNNING ITERATION: $input
+
+	tac
+	recordtrial baseline "$zipf_alpha" 0 "" "$mica_tput_limit"
+	eval cat <<-tac
+
+		RUNNING TRIAL: $input basealloc
+
+	tac
+	recordtrial basealloc "$zipf_alpha" 0 "$mica_ways" "$mica_tput_limit"
+	eval cat <<-tac
+
+		RUNNING TRIAL: $input contention
+
+	tac
+	recordtrial contention "$zipf_alpha" "$NUM_TRASH" "" "$mica_tput_limit"
+	eval cat <<-tac
+
+		RUNNING TRIAL: $input allocation
+
+	tac
+	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$mica_ways" "$mica_tput_limit"
+done
+echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
+echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
+echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
+echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
+rm rtt_client
+rm rtt_server
+rm rtt_latencies
