@@ -234,7 +234,7 @@ runtrial() {
 	while ! grep '^tput' rtt_server >/dev/null 2>&1; do sleep 1; done
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client rtt_latencies; cd '../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench -n "$num_iter" -w "$num_warm" -o '../../$remote_path/rtt_latencies' '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$tlim' | tee '../../$remote_path/rtt_client' | grep -F --line-buffered 'tput='" | ( grep -Fm1 "tput=" && cat ) >/dev/null
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client rtt_latencies; cd '../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench -n "$num_iter" -w "$num_warm" -o '../../$remote_path/rtt_latencies' -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$tlim' | tee '../../$remote_path/rtt_client' | grep -F --line-buffered 'tput='" | ( grep -Fm1 "tput=" && cat ) >/dev/null
 	sudo killall server
 	waitforexit ./server
 	#cat rtt_server >>"$CATBENCH_LOGFILE"
