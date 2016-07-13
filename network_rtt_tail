@@ -6,7 +6,7 @@ readonly DEFAULT_CLIENT_SLEEP="100000"
 readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
 readonly DEFAULT_ZIPF_ALPHA="0.99"
 readonly DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
-readonly DEFAULT_MICA_WAYS="0x003"
+readonly DEFAULT_MICA_WAYS="0x00f"
 readonly DEFAULT_MICA_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff 0x7ff 0xfff"
 readonly DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
 
@@ -233,11 +233,11 @@ runtrial() {
 		num_warm=$NUM_WARMUP
 	fi
 	while ! grep '^tput' rtt_server >/dev/null 2>&1; do sleep 1; done
-	./onmycommand ./cacheperf "$PERF_CORES" &
+	./onmycommand ./cacheperf "$PERF_CORES" 2>rtt_perf_duration &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client rtt_latencies; cd '../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench -n "$num_iter" -w "$num_warm" -o '../../$remote_path/rtt_latencies' -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$tlim' | tee '../../$remote_path/rtt_client' | grep -F --line-buffered 'tput='" | ( grep -Fm1 "tput=" && killall -USR1 onmycommand && cat ) >/dev/null
-	./cacheperf end
+	./cacheperf end >rtt_perf
 	killall onmycommand
 	sudo killall server
 	waitforexit ./server
@@ -252,6 +252,8 @@ runtrial() {
 	fi
 	scp -C "$foreign_client:$remote_path/rtt_client" "$foreign_client:$remote_path/rtt_latencies" .
 	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
+	cat rtt_perf_duration >>"$CATBENCH_LOGFILE"
+	cat rtt_perf >>"$CATBENCH_LOGFILE"
 }
 
 recordtrial() {
@@ -265,7 +267,16 @@ recordtrial() {
 	rtt_999="`grep "99.9-th" rtt_client | cut -d" " -f2`"
 	rtt_99="`grep "99-th" rtt_client | cut -d" " -f2`"
 	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`'"
+	if [ -n "$header" ]
+	then
+		header="fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | paste -sd,`"
+	fi
+	if [ "$independent" = "mica_ways" ] || [ "$independent" = "contender_ways" ]
+	then
+		header="string,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | paste -sd,`"
+	fi
+	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
 	echo "============================================="
 	echo $success
 	echo $tput
@@ -283,11 +294,9 @@ recordtrial() {
 #echo
 passwd="hunter2"
 
-header="fraction,fraction,fraction,fraction,fraction,fraction,string\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data"
-if [ "$independent" = "mica_ways" ] || [ "$independent" = "contender_ways" ]
-then
-	header="string,fraction,fraction,fraction,fraction,fraction,string\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data"
-fi
+header=""
+#TODO fix this
+
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
@@ -346,3 +355,5 @@ echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples ar
 rm rtt_client
 rm rtt_server
 rm rtt_latencies
+rm rtt_perf_duration
+rm rtt_perf
