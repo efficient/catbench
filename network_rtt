@@ -225,11 +225,11 @@ runtrial() {
 		echo "NETWORK_RTT: Unsetting mask..."
 		unsetmask
 	fi
-	./onmycommand ./cacheperf "$PERF_CORES" &
+	./onmycommand ./cacheperf "$PERF_CORES" 2>rtt_perf_duration &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
 	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep' | tee '$remote_path/rtt_client' | grep -F --line-buffered 'Initialization complete!'" | ( grep -Fm1 "Initialization complete!" && killall -USR1 onmycommand && cat ) >/dev/null
-	./cacheperf end
+	./cacheperf end >rtt_perf
 	killall onmycommand
 	sudo killall lockserver-ng
 	waitforexit clients/lockserver-ng
@@ -244,6 +244,8 @@ runtrial() {
 	fi
 	scp -C "$foreign_client:$remote_path/rtt_client" .
 	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
+	cat rtt_perf_duration >>"$CATBENCH_LOGFILE"
+	cat rtt_perf >>"$CATBENCH_LOGFILE"
 }
 
 recordtrial() {
@@ -266,7 +268,16 @@ recordtrial() {
 	rtt_95="`extracttaillatency "$ct" 95 <<-ycnetalliattcartxe
 			$all
 		ycnetalliattcartxe`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`'"
+	if [ -n "$header" ]
+	then
+		header="fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | paste -sd,`"
+	fi
+	if [ "$independent" = "mite_ways" ] || [ "$independent" = "contender_ways" ]
+	then
+		header="string,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | paste -sd,`"
+	fi
+	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
 	echo "============================================="
 	echo $tput
 	echo $avg
@@ -282,11 +293,9 @@ read passwd
 stty echo
 echo
 
-header="fraction,fraction,fraction,fraction,fraction,fraction,string\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data"
-if [ "$independent" = "mite_ways" ] || [ "$independent" = "contender_ways" ]
-then
-	header="string,fraction,fraction,fraction,fraction,fraction,string\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data"
-fi
+header=""
+#TODO fix this
+
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
@@ -340,3 +349,5 @@ echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples ar
 echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
 rm rtt_client
 rm rtt_server
+rm rtt_perf_duration
+rm rtt_perf
