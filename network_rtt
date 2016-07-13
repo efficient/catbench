@@ -269,7 +269,6 @@ recordtrial() {
 		ycnetalliattcartxe`"
 	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`'"
 	echo "============================================="
-	echo $independent
 	echo $tput
 	echo $avg
 	echo $rtt_999
