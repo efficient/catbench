@@ -8,7 +8,6 @@ readonly DEFAULT_MITE_WAYS="0x003"
 readonly DEFAULT_MITE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
-readonly LOCKSERVER_MASK="0x003"
 readonly NUM_TRASH="7"
 readonly PERF_CORES="0"
 readonly TRASH_ALLOC="800"
@@ -301,7 +300,7 @@ for input in $iterator
 do
 	if [ "$independent" != "mite_ways" ] && [ "$independent" != "contender_ways" ]
 	then
-		mite_ways="$LOCKSERVER_MASK"
+		mite_ways="$DEFAULT_MITE_WAYS"
 	fi
 	eval $independent=$input
 	if [ "$independent" = "contender_ways" ]
