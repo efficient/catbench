@@ -11,7 +11,6 @@ readonly DEFAULT_MICA_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff
 readonly DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
-readonly LOCKSERVER_MASK="0x003"
 readonly MICA_GET_RATIO="0.5"
 readonly MICA_NUM_ITEMS="131072"
 readonly MICA_TPUT_LIMIT="3.0"
@@ -297,7 +296,7 @@ for input in $iterator
 do
 	if [ "$independent" != "mica_ways" ] && [ "$independent" != "contender_ways" ]
 	then
-		mica_ways="$LOCKSERVER_MASK"
+		mica_ways="$DEFAULT_MICA_WAYS"
 	fi
 	if [ "$independent" != "mica_tput_limit" ]
 	then
