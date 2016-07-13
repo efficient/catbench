@@ -255,6 +255,7 @@ recordtrial() {
 	shift
 
 	runtrial "$@"
+	success="`grep "success_rate=" rtt_client | tail -n2 | head -n1 | cut -d"=" -f3 | perl -nle 'print $1 if /\s+(\S+)%/'`"
 	tput="`grep "tput=" rtt_client | tail -n2 | head -n1 | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/'`"
 	avg="`grep "Average:" rtt_client | cut -d" " -f2`"
 	rtt_999="`grep "99.9-th" rtt_client | cut -d" " -f2`"
@@ -262,6 +263,7 @@ recordtrial() {
 	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
 	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95"
 	echo "============================================="
+	echo $success
 	echo $tput
 	echo $avg
 	echo $rtt_999
