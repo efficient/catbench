@@ -140,7 +140,9 @@ jaguar/jaguar set "$logfilename" legend.samples.99_tail_latency.unit string "us"
 
 jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.description string "95th percentile tail RTT"
 jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.unit string "us"
-#base64 -w0 ../mica2-catbench/build/server | jaguar/jaguar set "$logfilename" meta.server_binary string -
+jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
+jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
+base64 -w0 ../mica2-catbench/build/server | jaguar/jaguar set "$logfilename" meta.server_binary string -
 
 setdefaultmask() {
 	groupname="$1"
@@ -231,9 +233,12 @@ runtrial() {
 		num_warm=$NUM_WARMUP
 	fi
 	while ! grep '^tput' rtt_server >/dev/null 2>&1; do sleep 1; done
+	./onmycommand ./cacheperf "$PERF_CORES" &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client rtt_latencies; cd '../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench -n "$num_iter" -w "$num_warm" -o '../../$remote_path/rtt_latencies' -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$tlim' | tee '../../$remote_path/rtt_client' | grep -F --line-buffered 'tput='" | ( grep -Fm1 "tput=" && cat ) >/dev/null
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client rtt_latencies; cd '../mica2-catbench/build' && echo '$passwd' | sudo -S ./netbench -n "$num_iter" -w "$num_warm" -o '../../$remote_path/rtt_latencies' -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$tlim' | tee '../../$remote_path/rtt_client' | grep -F --line-buffered 'tput='" | ( grep -Fm1 "tput=" && killall -USR1 onmycommand && cat ) >/dev/null
+	./cacheperf end
+	killall onmycommand
 	sudo killall server
 	waitforexit ./server
 	#cat rtt_server >>"$CATBENCH_LOGFILE"
@@ -260,7 +265,7 @@ recordtrial() {
 	rtt_999="`grep "99.9-th" rtt_client | cut -d" " -f2`"
 	rtt_99="`grep "99-th" rtt_client | cut -d" " -f2`"
 	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`'"
 	echo "============================================="
 	echo $success
 	echo $tput
@@ -278,10 +283,10 @@ recordtrial() {
 #echo
 passwd="hunter2"
 
-header="fraction,fraction,fraction,fraction,fraction,fraction\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency"
+header="fraction,fraction,fraction,fraction,fraction,fraction,string\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data"
 if [ "$independent" = "mica_ways" ] || [ "$independent" = "contender_ways" ]
 then
-	header="string,fraction,fraction,fraction,fraction,fraction\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency"
+	header="string,fraction,fraction,fraction,fraction,fraction,string\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data"
 fi
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
