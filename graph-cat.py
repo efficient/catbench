@@ -200,6 +200,7 @@ def graph_cdf(filename, slabels, xlabel, ypoints, title, outfile):
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
+    ax.xaxis.set_major_formatter(mtick.FormatStrFormatter('%.1'))
     fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort):
@@ -209,22 +210,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     ax = fig.add_subplot(1,1,1);
     ax.ticklabel_format(useOffset=False);
     colors = [
-        "#a6cee3",
-        "#1f78b4",
-        "#b2df8a",
-        "#33a02c",
-        "#fb9a99",
-        "#e31a1c",
-        "#fdbf6f",
-        "#ff7f00",
-        "#cab2d6",
-        "#6a3d9a",
-        "#ffff99",
-        "#b15928",
-        "#000000",
-        "#ff0000",
-        "#00ff00",
-        "#0000ff"
+    	'b', 'g', 'r', 'm' ,'y', 'k'
     ]
     ax.set_color_cycle(colors);
 
@@ -259,10 +245,10 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                 continue;
             xy = map(list, zip(*val2));
             line_label = val["description"];
-            line.append((ax.plot(xy[0], xy[1], label=line_label))); #+ str(key2[1])))[0]);
+            line.append((ax.plot(xy[0], xy[1], 'o', label=line_label, alpha=0.3))); #+ str(key2[1])))[0]);
             print val["order"];
             temp.append((line[len(line) - 1][0], val["order"], line_label));
-            ax.scatter(xy[0], xy[1]);
+            #ax.scatter(xy[0], xy[1]);
         if(max(xy[0]) > cur_xmax):
             cur_xmax = max(xy[0]);
             x_copy = xy[0];
@@ -273,28 +259,21 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         ax.set_xscale('log');
     if(logy):
         ax.set_yscale('log');
-    min_dist = cur_xmax / 16;
+    min_dist = 0.1;
     idx = 0;
     if(x_copy[0] > 0):
         x_copy.insert(0, 0);
-    #while(idx + 1 < len(x_copy)):
-        #if(x_copy[idx] + min_dist > x_copy[idx+1]):
-            #x_copy.pop(idx+1);
-            #continue;
-        #idx += 1;
+    while(idx + 1 < len(x_copy)):
+        if(x_copy[idx] + min_dist > x_copy[idx+1]):
+            x_copy.pop(idx+1);
+            continue;
+        idx += 1;
     if(logx == logy == smart_x == False):
         plt.xticks(x_copy);
     ax.set_title(title);
     ax.title.set_position((0.5, 1.08));
 
     handles, labels = ax.get_legend_handles_labels()
-    print handles;
-    print temp[0][0];
-    print handles == temp[0][0];
-    print "DSFJLSDJFKS"
-    print temp[0][2];
-    print labels[0];
-    print labels == temp[0][2];
 
     import operator
     handles2 = None;
@@ -314,7 +293,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 
     cur_ymax = cur_ymax * 1.75;
     plt.xlim(xmin=0);
-    plt.setp(ax.get_xticklabels(), fontsize=10, rotation=30)
+    plt.setp(ax.get_xticklabels(), fontsize=10, rotation=90)
     if(logy == False):
         if(user_ymin == None and fit == False and user_ymax == None):
             plt.ylim(ymin=0,ymax=cur_ymax);
@@ -340,8 +319,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         plt.xticks(xticks);
     #ax.axis("tight");
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
-    ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
