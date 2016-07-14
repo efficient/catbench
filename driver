@@ -26,7 +26,7 @@ shell_quoted_arguments() {
 		then
 			delim='"'
 		fi
-		printf %s " $delim$arg$delim"
+		printf %s " $delim$arg$delim" | sed 's/"\([^=]*=\)/\1"/g'
 	done | cut -d" " -f2-
 }
 
@@ -76,7 +76,7 @@ jaguar/jaguar set "$CATBENCH_JAGFILE" meta.submodule "`git submodule status`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.uname "`uname -a`"
 
 printf "%s\n" "$ $args"
-"$@"
+eval "$args"
 status="$?"
 echo "Command exited with status: $status"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.exit "$status"
