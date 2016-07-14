@@ -53,7 +53,16 @@ then
 	exit 127
 fi
 
-prefix="catbench-`basename $1`_`date +%F_%H-%M-%S_%z`"
+for word in "$@"
+do
+	if printf %s "$word" | grep -v = >/dev/null
+	then
+		cmd="$word"
+		break
+	fi
+done
+
+prefix="catbench-`basename $cmd`_`date +%F_%H-%M-%S_%z`"
 export CATBENCH_JAGFILE="$prefix.json"
 export CATBENCH_LOGFILE="$prefix.log"
 if [ -e "$CATBENCH_JAGFILE" ]
