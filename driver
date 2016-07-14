@@ -24,9 +24,9 @@ shell_quoted_arguments() {
 		local delim=""
 		if [ -z "$arg" ] || shell_needs_protection "$arg"
 		then
-			delim='"'
+			delim="'"
 		fi
-		printf %s " $delim$arg$delim" | sed 's/"\([^=]*=\)/\1"/g'
+		printf %s " $delim$arg$delim" | sed "s/'\([^=]*=\)/\1'/g"
 	done | cut -d" " -f2-
 }
 
