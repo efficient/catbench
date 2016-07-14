@@ -281,10 +281,11 @@ recordtrial() {
 	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
 	if [ -z "$header" ]
 	then
-		header="fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
 		if [ "$independent" = "mica_ways" ] || [ "$independent" = "contender_ways" ]
 		then
 			header="string,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+		else
+			header="fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
 		fi
 		echo "$header"
 		baseline="$header"
