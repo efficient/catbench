@@ -1,17 +1,29 @@
 #!/bin/sh
 
-readonly DEFAULT_CLIENT_SLEEP="100000"
-readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
-readonly DEFAULT_TABLE_ENTRIES="10000"
-readonly DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
-readonly DEFAULT_MITE_WAYS="0x003"
-readonly DEFAULT_MITE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
+# Pseudo-modifier for variable declarations.
+# Creates a constant with the specified default value, unless a specialization is found in the environment.
+const() {
+	local varname="`printf %s "$1" | cut -d= -f1`"
+	local vardef="`printf %s "$1" | cut -d= -f2-`"
+	if eval [ -z '"$'"$varname"'"' ]
+	then
+		eval "$varname"='"'"$vardef"'"'
+	fi
+	eval readonly "$varname"
+}
 
-readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
-readonly NUM_TRASH="7"
-readonly PERF_CORES="0"
-readonly TRASH_ALLOC="800"
-readonly WARMUP="600"
+const DEFAULT_CLIENT_SLEEP="100000"
+const DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
+const DEFAULT_TABLE_ENTRIES="10000"
+const DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
+const DEFAULT_MITE_WAYS="0x003"
+const DEFAULT_MITE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
+
+const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+const NUM_TRASH="7"
+const PERF_CORES="0"
+const TRASH_ALLOC="800"
+const WARMUP="600"
 
 usage() {
 	cat <<-tac
