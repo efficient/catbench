@@ -60,6 +60,8 @@ jaguar/jaguar set "$CATBENCH_JAGFILE" meta.uname "`uname -a`"
 echo "$ $@"
 "$@"
 status="$?"
+echo "Command exited with status: $status"
+jaguar/jaguar set "$CATBENCH_JAGFILE" meta.exit "$status"
 
 logging_cleanup
 pack="base64 -w0 '$prefix.log'"
