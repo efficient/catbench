@@ -13,6 +13,23 @@ logging_cleanup() {
 	rm "$prefix.tmp"
 }
 
+shell_needs_protection() {
+	local thing_that_might_need_protection="$1"
+	[ "`eval printf '"%s\n"' "$thing_that_might_need_protection"`" != "$thing_that_might_need_protection" ]
+}
+
+shell_quoted_arguments() {
+	for arg in "$@"
+	do
+		local delim=""
+		if [ -z "$arg" ] || shell_needs_protection "$arg"
+		then
+			delim="'"
+		fi
+		printf %s " $delim$arg$delim" | sed "s/'\([^=]*=\)/\1'/g"
+	done | cut -d" " -f2-
+}
+
 if [ $# -lt 1 ]
 then
 	cat <<-tac
@@ -48,7 +65,8 @@ fi
 logging_commence
 
 cp jaguar/template.json "$CATBENCH_JAGFILE"
-jaguar/jaguar set "$CATBENCH_JAGFILE" meta.command "$*"
+args="`shell_quoted_arguments "$@"`"
+jaguar/jaguar set "$CATBENCH_JAGFILE" meta.command "$args"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.commit "`git log --oneline --abbrev-commit --no-decorate -1`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.date "`date "+%F %T %z"`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.message "`git log --no-abbrev-commit --decorate -1`"
@@ -57,9 +75,11 @@ jaguar/jaguar set "$CATBENCH_JAGFILE" meta.status "`git status -uno`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.submodule "`git submodule status`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.uname "`uname -a`"
 
-echo "$ $@"
-"$@"
+printf "%s\n" "$ $args"
+eval "$args"
 status="$?"
+echo "Command exited with status: $status"
+jaguar/jaguar set "$CATBENCH_JAGFILE" meta.exit "$status"
 
 logging_cleanup
 pack="base64 -w0 '$prefix.log'"

@@ -8,6 +8,7 @@
 		"command": "",
 		"commit": "",
 		"date": "",
+		"exit": -1,
 		"log": "",
 		"message": "",
 		"patch": "",
