@@ -22,7 +22,7 @@ shell_quoted_arguments() {
 	for arg in "$@"
 	do
 		local delim=""
-		if shell_needs_protection "$arg"
+		if [ -z "$arg" ] || shell_needs_protection "$arg"
 		then
 			delim='"'
 		fi
