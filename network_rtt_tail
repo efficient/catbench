@@ -1,22 +1,34 @@
 #!/bin/sh
 
-readonly NUM_ITERATIONS="30000000"
-readonly NUM_WARMUP="10000000"
-readonly DEFAULT_CLIENT_SLEEP="100000"
-readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
-readonly DEFAULT_ZIPF_ALPHA="0.99"
-readonly DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
-readonly DEFAULT_MICA_WAYS="0x00f"
-readonly DEFAULT_MICA_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff 0x7ff 0xfff"
-readonly DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
+# Pseudo-modifier for variable declarations.
+# Creates a constant with the specified default value, unless a specialization is found in the environment.
+const() {
+	local varname="`printf %s "$1" | cut -d= -f1`"
+	local vardef="`printf %s "$1" | cut -d= -f2-`"
+	if eval [ -z '"$'"$varname"'"' ]
+	then
+		eval "$varname"='"'"$vardef"'"'
+	fi
+	eval readonly "$varname"
+}
 
-readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
-readonly MICA_GET_RATIO="0.5"
-readonly MICA_NUM_ITEMS="131072"
-readonly MICA_TPUT_LIMIT="3.0"
-readonly NUM_TRASH="7"
-readonly PERF_CORES="0"
-readonly TRASH_ALLOC="800"
+const NUM_ITERATIONS="30000000"
+const NUM_WARMUP="10000000"
+const DEFAULT_CLIENT_SLEEP="100000"
+const DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
+const DEFAULT_ZIPF_ALPHA="0.99"
+const DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
+const DEFAULT_MICA_WAYS="0x00f"
+const DEFAULT_MICA_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff 0x7ff 0xfff"
+const DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
+
+const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+const MICA_GET_RATIO="0.5"
+const MICA_NUM_ITEMS="131072"
+const MICA_TPUT_LIMIT="3.0"
+const NUM_TRASH="7"
+const PERF_CORES="0"
+const TRASH_ALLOC="800"
 
 usage() {
 	cat <<-tac
