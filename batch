@@ -1,0 +1,154 @@
+#!/bin/sh
+
+if [ $# -ne 1 ]
+then
+	cat <<-tac
+		USAGE: $0 <filename>
+
+		<filename> names a job list file, each line of which consists of a set of arguments to the driver script.
+
+		NB: "arguments to the driver script" means you should NOT start the lines with '`dirname "$0"`/driver'!
+
+		Note that, although this file may be modified while experiments are running, lines
+		corresponding to completed or currently-running jobs should not be removed,
+		reordered, or otherwise displaced in this case.  Such lines are identifiable by
+		the progress comments automatically added at the end of their lines.
+	tac
+	exit 1
+fi
+file="$1"
+set -e
+
+confirm() {
+	if [ $# -ne 2 ]
+	then
+		return 2
+	fi
+	local prompt="$1"
+	local default="$2"
+	set -e
+	
+	case "$default" in
+	y)
+		local suffix=" (Y/n)"
+		;;
+	n)
+		local suffix=" (y/N)"
+		;;
+	*)
+		false
+		;;
+	esac
+
+	while true
+	do
+		printf %s "$prompt$suffix? "
+		read response
+		case "$response" in
+		"")
+			return "`[ "$default" = "y" ] && echo 0 || echo 1`"
+			;;
+		[yY])
+			return 0
+			;;
+		[nN])
+			return 1
+			;;
+		esac
+	done
+}
+
+oneline() {
+	if [ $# -lt 1 -o $# -gt 2 ]
+	then
+		return 1
+	fi
+	local linenum="$1"
+	local mode="-n"
+	local after=";p"
+	if [ $# -eq 2 ]
+	then
+		mode="-i"
+		after=""
+		if [ -n "$2" ]
+		then
+			after=";s/$/ # $2/"
+		fi
+	fi
+	set -e
+
+	sed "$mode" "$linenum{s/ \?#.*//$after}" "$file"
+}
+
+timestamp() {
+	date +"%F at %H:%M:%S %Z"
+}
+
+if [ ! -e "$file" ]
+then
+	echo "$file: No such batch file" >&2
+	exit 2
+fi
+
+if grep "#" "$file" >/dev/null
+then
+	cat <<-tac
+		+-----------------------------------------------------------------------------------------+
+		|                                                                                         |
+		| IMPORTANT: That batch queue already has commented lines, indicating that it may already |
+		|            be running or have been run!  Please take a moment to confirm your intent:   |
+		|                                                                                         |
+		+-----------------------------------------------------------------------------------------+
+
+	tac
+
+	if confirm "Do you want to abort" y
+	then
+		exit 3
+	elif confirm "Do you want me to remove all comments from the file" n
+	then
+		sed -i 's/ \?#.*//' "$file"
+	fi
+fi
+
+cat <<-tac
+	------------------------
+	STARTING BATCH RUN FROM: $file
+	------------------------
+
+tac
+
+line="1"
+while [ "$line" -le "`wc -l "$file" | cut -d" " -f1`" ]
+do
+	args="`oneline "$line"`"
+	cat <<-tac
+
+
+		---------------------
+		STARTING BATCH JOB $line: ./driver $args
+		---------------------
+
+	tac
+
+	comment="launching"
+	for time in `seq 3`
+	do
+		comment="$comment."
+		oneline "$line" "$comment"
+		sleep 2
+	done
+
+	oneline "$line" "running since `timestamp`"
+	eval '"'"`dirname "$0"`/driver"'"' $args || true
+
+	oneline "$line" "completed at `timestamp`"
+	line="$((line + 1))"
+done
+
+cat <<-tac
+
+	------------------------
+	COMPLETED BATCH FUN RUN!
+	------------------------
+tac
