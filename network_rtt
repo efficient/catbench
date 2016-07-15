@@ -4,8 +4,8 @@ readonly DEFAULT_CLIENT_SLEEP="100000"
 readonly DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
 readonly DEFAULT_TABLE_ENTRIES="10000"
 readonly DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
-readonly DEFAULT_MICA_WAYS="0x003"
-readonly DEFAULT_MICA_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
+readonly DEFAULT_MITE_WAYS="0x003"
+readonly DEFAULT_MITE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
 readonly CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 readonly LOCKSERVER_MASK="0x003"
@@ -19,7 +19,7 @@ usage() {
 
 		-s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
 		-t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
-		-m: Vary the number of ways allocated to Mica
+		-m: Vary the number of ways allocated to the mite
 	tac
 }
 
@@ -39,8 +39,8 @@ do
 			iterator="$DEFAULT_TABLE_ENTRIES_LOOP"
 			;;
 		-m)
-			independent="mica_ways"
-			iterator="$DEFAULT_MICA_WAYS_LOOP"
+			independent="mite_ways"
+			iterator="$DEFAULT_MITE_WAYS_LOOP"
 			;;
 		*)
 			understood="false"
@@ -96,10 +96,10 @@ elif [ "$independent" = "table_entries" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
-elif [ "$independent" = "mica_ways" ]
+elif [ "$independent" = "mite_ways" ]
 then
-	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.description string "#ways allocated exclusively to Mica"
-	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.unit string ""
+	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.description string "#ways allocated exclusively to the mite"
+	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.unit string ""
 else
 	echo "Internal ERROR" >&2
 	exit 4
@@ -219,7 +219,7 @@ stty echo
 echo
 
 header="integer,fraction,string\n$independent,round_trip_time,perf_data"
-if [ "$independent" = "mica_ways" ]
+if [ "$independent" = "mite_ways" ]
 then
 	header="string,fraction,string\n$independent,round_trip_time,perf_data"
 fi
@@ -234,9 +234,9 @@ allocation="$header"
 sudo -l >/dev/null
 for input in $iterator
 do
-	if [ "$independent" != "mica_ways" ]
+	if [ "$independent" != "mite_ways" ]
 	then
-		mica_ways="$LOCKSERVER_MASK"
+		mite_ways="$LOCKSERVER_MASK"
 	fi
 	eval $independent=$input
 	eval cat <<-tac
@@ -252,7 +252,7 @@ do
 		RUNNING TRIAL: $input basealloc
 
 	tac
-	recordtrial basealloc "$table_entries" 0 "$mica_ways"
+	recordtrial basealloc "$table_entries" 0 "$mite_ways"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
@@ -264,7 +264,7 @@ do
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$table_entries" "$NUM_TRASH" "$mica_ways"
+	recordtrial allocation "$table_entries" "$NUM_TRASH" "$mite_ways"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
