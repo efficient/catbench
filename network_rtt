@@ -164,7 +164,9 @@ runtrial() {
 	fi
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep'" | sed -u 's/^/remote: /' | tee rtt_client
+	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep' >'$remote_path/rtt_client'"
+	scp "$foreign_client:$remote_path/rtt_client" .
+	sed -u 's/^/remote: /' rtt_client
 	sudo killall lockserver-ng
 	waitforexit clients/lockserver-ng
 	cat rtt_server
@@ -183,7 +185,7 @@ recordtrial() {
 	shift
 
 	runtrial "$@"
-	num="`grep "Average:" rtt_client | cut -d" " -f3`"
+	num="`grep "Average:" rtt_client | cut -d" " -f2`"
 	eval $var="\$$var\\\\n\$$independent,\$num"
 }
 
