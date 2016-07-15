@@ -1,6 +1,6 @@
 #!/bin/sh
 
-readonly SERIES="baseline contention allocation"
+readonly SERIES="baseline basealloc contention allocation"
 readonly INDICES="`seq 0 5`"
 
 set -e

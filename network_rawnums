@@ -4,7 +4,7 @@ readonly DATA_POINT_DELIM_REGEX='RUNNING [A-Z]\+:'
 readonly            FIELDS_LIST="table_entries round_trip_time"
 readonly    SAMPLE_REGEX_CLIENT='.*remote: Completed after: \([0-9]\+\) us.*'
 readonly    SAMPLE_REGEX_SERVER='.*Computed in: \([0-9]\+\) us.*'
-readonly     SERIES_LIST_CLIENT="baseline contention allocation"
+readonly     SERIES_LIST_CLIENT="baseline basealloc contention allocation"
 readonly   SERIES_SUFFIX_SERVER="_overhead"
 
 set -e
