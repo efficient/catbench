@@ -16,8 +16,8 @@ const DEFAULT_CLIENT_SLEEP="100000"
 const DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
 const DEFAULT_TABLE_ENTRIES="10000"
 const DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
-const DEFAULT_MITE_WAYS="0x003"
-const DEFAULT_MITE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
+const DEFAULT_CACHE_WAYS="0x003"
+const DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
 const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 const NUM_TRASH="7"
@@ -38,6 +38,8 @@ usage() {
 
 client_sleep="$DEFAULT_CLIENT_SLEEP"
 table_entries="$DEFAULT_TABLE_ENTRIES"
+cache_ways="$DEFAULT_CACHE_WAYS"
+cache_partition_mite="true"
 understood="true"
 while "$understood"
 do
@@ -52,12 +54,13 @@ do
 			iterator="$DEFAULT_TABLE_ENTRIES_LOOP"
 			;;
 		-m)
-			independent="mite_ways"
-			iterator="$DEFAULT_MITE_WAYS_LOOP"
+			independent="cache_ways"
+			iterator="$DEFAULT_CACHE_WAYS_LOOP"
 			;;
 		-c)
-			independent="contender_ways"
-			iterator="$DEFAULT_MICA_WAYS_LOOP"
+			cache_partition_mite="false"
+			independent="cache_ways"
+			iterator="$DEFAULT_CACHE_WAYS_LOOP"
 			;;
 		*)
 			understood="false"
@@ -113,14 +116,17 @@ elif [ "$independent" = "table_entries" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
-elif [ "$independent" = "mite_ways" ]
+elif [ "$independent" = "cache_ways" ]
 then
-	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.description string "#ways allocated exclusively to the mite"
-	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.unit string ""
-elif [ "$independent" = "contender_ways" ]
-then
-	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.description string "#ways allocated to contenders (shared with mite)"
-	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.unit string ""
+	if "$cache_partition_mite"
+	then
+		way_description="#ways allocated exclusively to the mite"
+	else
+		way_description="#ways allocated to contenders (shared with mite)"
+	fi
+	jaguar/jaguar set "$logfilename" legend.samples.cache_ways.description string "$way_description"
+	jaguar/jaguar set "$logfilename" legend.samples.cache_ways.unit string ""
+	unset way_description
 else
 	echo "Internal ERROR, invalid independent variable. (Perhaps you forgot to add a jaguar entry for this independent variable?" >&2
 	exit 4
@@ -206,7 +212,7 @@ runtrial() {
 	fi
 	mask="$3"
 
-	if [ -n "$mask" ] && [ "$independent" != "contender_ways" ]
+	if [ -n "$mask" ] && "$cache_partition_mite"
 	then
 		echo "NETWORK_RTT: Setting mask to $mask..."
 		setdefaultmask lockserver "$mask"
@@ -215,16 +221,17 @@ runtrial() {
 	sudo clients/lockserver-ng -l "$entries" -- -c 0x1 >rtt_server &
 	waitforalloc 0
 
-	if [ "$contenders" -ne 0 -a -n "$mask" ] && [ "$independent" != "contender_ways" ]
+	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
-		invmask="`printf '%#x\n' $((0xfff - mask))`"
-		echo "NETWORK_RTT: Setting mask to $invmask..."
-		setdefaultmask trash "$invmask"
-	fi
-	if [ -n "$mask" ] && [ "$independent" = "contender_ways" ]
-	then
-		echo "NETWORK_RTT: Setting contender mask to $mask..."
-		setdefaultmask trash "$mask"
+		if "$cache_partition_mite"
+		then
+			trashmask="`printf '%#x\n' $((0xfffff - mask))`"
+		else
+			trashmask="$mask"
+		fi
+		echo "NETWORK_RTT: Setting mask to $trashmask..."
+		setdefaultmask trash "$trashmask"
+		unset trashmask
 	fi
 	for contender in `seq "$contenders"`
 	do
@@ -282,12 +289,13 @@ recordtrial() {
 		ycnetalliattcartxe`"
 	if [ -z "$header" ]
 	then
-		if [ "$independent" = "mite_ways" ] || [ "$independent" = "contender_ways" ]
+		if [ "$independent" = "cache_ways" ]
 		then
-			header="string,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+			header="string"
 		else
-			header="fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+			header="fraction"
 		fi
+		header="$header,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
 		baseline="$header"
 		basealloc="$header"
 		contention="$header"
@@ -322,15 +330,7 @@ jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
 sudo -l >/dev/null
 for input in $iterator
 do
-	if [ "$independent" != "mite_ways" ] && [ "$independent" != "contender_ways" ]
-	then
-		mite_ways="$DEFAULT_MITE_WAYS"
-	fi
 	eval $independent=$input
-	if [ "$independent" = "contender_ways" ]
-	then
-		mite_ways="$contender_ways"
-	fi
 	eval cat <<-tac
 
 		=================
@@ -344,7 +344,7 @@ do
 		RUNNING TRIAL: $input basealloc
 
 	tac
-	recordtrial basealloc "$table_entries" 0 "$mite_ways"
+	recordtrial basealloc "$table_entries" 0 "$cache_ways"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
@@ -356,7 +356,7 @@ do
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$table_entries" "$NUM_TRASH" "$mite_ways"
+	recordtrial allocation "$table_entries" "$NUM_TRASH" "$cache_ways"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
