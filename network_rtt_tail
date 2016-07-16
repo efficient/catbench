@@ -20,12 +20,12 @@ const DEFAULT_ZIPF_ALPHA="0.99"
 const DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
 const DEFAULT_CACHE_WAYS="0x00f"
 const DEFAULT_CACHE_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff 0x7ff 0xfff"
-const DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
+const DEFAULT_MITE_TPUT_LIMIT="3.0"
+const DEFAULT_MITE_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
 
 const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 const MICA_GET_RATIO="0.5"
 const MICA_NUM_ITEMS="131072"
-const MICA_TPUT_LIMIT="3.0"
 const NUM_TRASH="7"
 const PERF_CORES="0"
 const TRASH_ALLOC="800"
@@ -38,7 +38,7 @@ usage() {
 		-t: Vary zipf alpha and fix the sleep at $DEFAULT_CLIENT_SLEEP s
 		-m: Vary the number of ways allocated to the mite
 		-c: Vary the number of ways allocated to Trash
-		-l: Vary the Mica throughput limit
+		-l: Vary the mite throughput limit
 	tac
 }
 
@@ -46,6 +46,7 @@ client_sleep="$DEFAULT_CLIENT_SLEEP"
 zipf_alpha="$DEFAULT_ZIPF_ALPHA"
 cache_ways="$DEFAULT_CACHE_WAYS"
 cache_partition_mite="true"
+mite_tput_limit="$DEFAULT_MITE_TPUT_LIMIT"
 understood="true"
 while "$understood"
 do
@@ -69,8 +70,8 @@ do
 			iterator="$DEFAULT_CACHE_WAYS_LOOP"
 			;;
 		-l)
-			independent="mica_tput_limit"
-			iterator="$DEFAULT_MICA_TPUT_LIMIT_LOOP"
+			independent="mite_tput_limit"
+			iterator="$DEFAULT_MITE_TPUT_LIMIT_LOOP"
 			;;
 		*)
 			understood="false"
@@ -136,10 +137,10 @@ then
 	jaguar/jaguar set "$logfilename" legend.samples.cache_ways.description string "$way_description"
 	jaguar/jaguar set "$logfilename" legend.samples.cache_ways.unit string ""
 	unset way_description
-elif [ "$independent" = "mica_tput_limit" ]
+elif [ "$independent" = "mite_tput_limit" ]
 then
-	jaguar/jaguar set "$logfilename" legend.samples.mica_tput_limit.description string "Mica throughput limit"
-	jaguar/jaguar set "$logfilename" legend.samples.mica_tput_limit.unit string "mops"
+	jaguar/jaguar set "$logfilename" legend.samples.mite_tput_limit.description string "Mite throughput limit"
+	jaguar/jaguar set "$logfilename" legend.samples.mite_tput_limit.unit string "mops"
 else
 	echo "Internal ERROR, invalid independent variable. (Perhaps you forgot to add a jaguar entry for this independent variable?" >&2
 	exit 4
@@ -243,7 +244,7 @@ runtrial() {
 		echo "NETWORK_RTT: Unsetting mask..."
 		unsetmask
 	fi
-	if [ "$independent" = "mica_tput_limit" ]
+	if [ "$independent" = "mite_tput_limit" ]
 	then
 		num_iter=`perl -e "print int($NUM_ITERATIONS * $tlim / 3)"`
 		num_warm=`perl -e "print int($num_iter / 3)"`
@@ -331,10 +332,6 @@ jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
 sudo -l >/dev/null
 for input in $iterator
 do
-	if [ "$independent" != "mica_tput_limit" ]
-	then
-		mica_tput_limit="$MICA_TPUT_LIMIT"
-	fi
 	eval $independent=$input
 	eval cat <<-tac
 
@@ -343,25 +340,25 @@ do
 		RUNNING ITERATION: $input
 
 	tac
-	recordtrial baseline "$zipf_alpha" 0 "" "$mica_tput_limit"
+	recordtrial baseline "$zipf_alpha" 0 "" "$mite_tput_limit"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input basealloc
 
 	tac
-	recordtrial basealloc "$zipf_alpha" 0 "$cache_ways" "$mica_tput_limit"
+	recordtrial basealloc "$zipf_alpha" 0 "$cache_ways" "$mite_tput_limit"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
 
 	tac
-	recordtrial contention "$zipf_alpha" "$NUM_TRASH" "" "$mica_tput_limit"
+	recordtrial contention "$zipf_alpha" "$NUM_TRASH" "" "$mite_tput_limit"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$cache_ways" "$mica_tput_limit"
+	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$cache_ways" "$mite_tput_limit"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
