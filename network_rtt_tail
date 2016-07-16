@@ -18,8 +18,8 @@ const DEFAULT_CLIENT_SLEEP="100000"
 const DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
 const DEFAULT_ZIPF_ALPHA="0.99"
 const DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
-const DEFAULT_MICA_WAYS="0x00f"
-const DEFAULT_MICA_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff 0x7ff 0xfff"
+const DEFAULT_CACHE_WAYS="0x00f"
+const DEFAULT_CACHE_WAYS_LOOP="0x001 0x003 0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff 0x7ff 0xfff"
 const DEFAULT_MICA_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
 
 const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
@@ -36,7 +36,7 @@ usage() {
 
 		-s: Vary sleep and fix zipf alpha at $DEFAULT_ZIPF_ALPHA
 		-t: Vary zipf alpha and fix the sleep at $DEFAULT_CLIENT_SLEEP s
-		-m: Vary the number of ways allocated to Mica
+		-m: Vary the number of ways allocated to the mite
 		-c: Vary the number of ways allocated to Trash
 		-l: Vary the Mica throughput limit
 	tac
@@ -44,6 +44,8 @@ usage() {
 
 client_sleep="$DEFAULT_CLIENT_SLEEP"
 zipf_alpha="$DEFAULT_ZIPF_ALPHA"
+cache_ways="$DEFAULT_CACHE_WAYS"
+cache_partition_mite="true"
 understood="true"
 while "$understood"
 do
@@ -58,12 +60,13 @@ do
 			iterator="$DEFAULT_ZIPF_ALPHA_LOOP"
 			;;
 		-m)
-			independent="mica_ways"
-			iterator="$DEFAULT_MICA_WAYS_LOOP"
+			independent="cache_ways"
+			iterator="$DEFAULT_CACHE_WAYS_LOOP"
 			;;
 		-c)
-			independent="contender_ways"
-			iterator="$DEFAULT_MICA_WAYS_LOOP"
+			cache_partition_mite="false"
+			independent="cache_ways"
+			iterator="$DEFAULT_CACHE_WAYS_LOOP"
 			;;
 		-l)
 			independent="mica_tput_limit"
@@ -122,14 +125,17 @@ elif [ "$independent" = "zipf_alpha" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.description string "Alpha parameter of zipf distribution"
 	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.unit string ""
-elif [ "$independent" = "mica_ways" ]
+elif [ "$independent" = "cache_ways" ]
 then
-	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.description string "#ways allocated exclusively to Mica"
-	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.unit string ""
-elif [ "$independent" = "contender_ways" ]
-then
-	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.description string "#ways allocated to contenders (shared with Mica)"
-	jaguar/jaguar set "$logfilename" legend.samples.mica_ways.unit string ""
+	if "$cache_partition_mite"
+	then
+		way_description="#ways allocated exclusively to the mite"
+	else
+		way_description="#ways allocated to contenders (shared with mite)"
+	fi
+	jaguar/jaguar set "$logfilename" legend.samples.cache_ways.description string "$way_description"
+	jaguar/jaguar set "$logfilename" legend.samples.cache_ways.unit string ""
+	unset way_description
 elif [ "$independent" = "mica_tput_limit" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.mica_tput_limit.description string "Mica throughput limit"
@@ -203,7 +209,7 @@ runtrial() {
 	tlim="$4"
 	echo "$tlim"
 
-	if [ -n "$mask" ] && [ "$independent" != "contender_ways" ]
+	if [ -n "$mask" ] && "$cache_partition_mite"
 	then
 		echo "NETWORK_RTT: Setting mask to $mask..."
 		setdefaultmask lockserver "$mask"
@@ -214,16 +220,17 @@ runtrial() {
 	waitforalloc 1024
 	sleep 3
 
-	if [ "$contenders" -ne 0 -a -n "$mask" ] && [ "$independent" != "contender_ways" ]
+	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
-		invmask="`printf '%#x\n' $((0xfffff - mask))`"
-		echo "NETWORK_RTT: Setting mask to $invmask..."
-		setdefaultmask trash "$invmask"
-	fi
-	if [ -n "$mask" ] && [ "$independent" = "contender_ways" ]
-	then
-		echo "NETWORK_RTT: Setting contender mask to $mask..."
-		setdefaultmask trash "$mask"
+		if "$cache_partition_mite"
+		then
+			trashmask="`printf '%#x\n' $((0xfffff - mask))`"
+		else
+			trashmask="$mask"
+		fi
+		echo "NETWORK_RTT: Setting mask to $trashmask..."
+		setdefaultmask trash "$trashmask"
+		unset trashmask
 	fi
 	for contender in `seq "$contenders"`
 	do
@@ -281,12 +288,13 @@ recordtrial() {
 	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
 	if [ -z "$header" ]
 	then
-		if [ "$independent" = "mica_ways" ] || [ "$independent" = "contender_ways" ]
+		if [ "$independent" = "cache_ways" ]
 		then
-			header="string,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+			header="string"
 		else
-			header="fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+			header="fraction"
 		fi
+		header="$header,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mica_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
 		baseline="$header"
 		basealloc="$header"
 		contention="$header"
@@ -323,19 +331,11 @@ jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
 sudo -l >/dev/null
 for input in $iterator
 do
-	if [ "$independent" != "mica_ways" ] && [ "$independent" != "contender_ways" ]
-	then
-		mica_ways="$DEFAULT_MICA_WAYS"
-	fi
 	if [ "$independent" != "mica_tput_limit" ]
 	then
 		mica_tput_limit="$MICA_TPUT_LIMIT"
 	fi
 	eval $independent=$input
-	if [ "$independent" = "contender_ways" ]
-	then
-		mica_ways="$contender_ways"
-	fi
 	eval cat <<-tac
 
 		=================
@@ -349,7 +349,7 @@ do
 		RUNNING TRIAL: $input basealloc
 
 	tac
-	recordtrial basealloc "$zipf_alpha" 0 "$mica_ways" "$mica_tput_limit"
+	recordtrial basealloc "$zipf_alpha" 0 "$cache_ways" "$mica_tput_limit"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
@@ -361,7 +361,7 @@ do
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$mica_ways" "$mica_tput_limit"
+	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$cache_ways" "$mica_tput_limit"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
