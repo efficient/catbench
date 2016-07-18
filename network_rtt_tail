@@ -315,6 +315,46 @@ recordtrial() {
 	echo "============================================="
 }
 
+estimatetotalelapsed() {
+	start_time="$1"
+	trial_index="$2"
+	trial_count="$3"
+	current_time="$(date +%s)"
+	echo "$(((current_time - start_time) * trial_count / trial_index))"
+}
+
+estimateremaining() {
+	start_time="$1"
+	trial_index="$2"
+	trial_count="$3"
+	current_time="$(date +%s)"
+	echo "$(((current_time - start_time) * (trial_count - trial_index) / trial_index))"
+}
+
+formattime() {
+	t="$1"
+	s="$((t % 60))"
+	m="$((t / 60 % 60))"
+	h="$((t / 3600))"
+	printf "%d:%02d:%02d" "$h" "$m" "$s"
+}
+
+printprogress() {
+	start_time="$1"
+	trial_index="$2"
+	trial_count="$3"
+
+	printf "(%d/%d) " "$trial_index" "$trial_count"
+
+	t="`estimatetotalelapsed "$@"`"
+	formattime "$t"
+	echo -n " total; "
+
+	t=`estimateremaining "$@"`
+	formattime "$t"
+	echo " left"
+}
+
 #echo -n "Remote sudo password? "
 #stty -echo
 #read passwd
@@ -329,6 +369,11 @@ jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
 jaguar/jaguar set "$logfilename" data.contention.description string "Contention"
 jaguar/jaguar set "$logfilename" data.allocation.description string "Allocation"
 
+start_time="$(date +%s)"
+trial_index=0
+iteration_count=0; for input in $iterator; do iteration_count="$((iteration_count + 1))"; done
+trial_count="$((iteration_count * 4))"
+
 sudo -l >/dev/null
 for input in $iterator
 do
@@ -341,24 +386,28 @@ do
 
 	tac
 	recordtrial baseline "$zipf_alpha" 0 "" "$mite_tput_limit"
+	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input basealloc
 
 	tac
 	recordtrial basealloc "$zipf_alpha" 0 "$cache_ways" "$mite_tput_limit"
+	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
 
 	tac
 	recordtrial contention "$zipf_alpha" "$NUM_TRASH" "" "$mite_tput_limit"
+	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input allocation
 
 	tac
 	recordtrial allocation "$zipf_alpha" "$NUM_TRASH" "$cache_ways" "$mite_tput_limit"
+	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
