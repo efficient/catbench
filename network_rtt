@@ -12,6 +12,7 @@ readonly LOCKSERVER_MASK="0x003"
 readonly NUM_TRASH="7"
 readonly PERF_CORES="0"
 readonly TRASH_ALLOC="800"
+readonly WARMUP="600"
 
 usage() {
 	cat <<-tac
@@ -134,6 +135,21 @@ jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur ba
 
 base64 -w0 clients/lockserver-ng | jaguar/jaguar set "$logfilename" meta.server_binary string -
 
+extractavelatency() {
+	grep -F 'Average:' rtt_client | cut -d" " -f2
+}
+
+extractalllatencies() {
+	grep -F 'Completed after:' rtt_client | cut -d" " -f3
+}
+
+extracttaillatency() {
+	entries="$1"
+	percentile="$2"
+
+	sed -n "`echo "$entries * $percentile / 100" | bc`{p;q}"
+}
+
 setdefaultmask() {
 	groupname="$1"
 	groupmask="$2"
@@ -237,11 +253,21 @@ recordtrial() {
 
 	runtrial "$@"
 	tput="`grep "tput=" rtt_client | tail -n2 | head -n1 | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/'`"
-	avg="`grep "Average:" rtt_client | cut -d" " -f2`"
-	rtt_999="`grep "99.9-th" rtt_client | cut -d" " -f2`"
-	rtt_99="`grep "99-th" rtt_client | cut -d" " -f2`"
-	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95"
+	avg="`extractavelatency`"
+	all="`extractalllatencies | tail -n+"$((WARMUP + 1))" | sort -n`"
+	ct="`wc -l <<-cw | cut -d" " -f1
+			$all
+		cw`"
+	rtt_999="`extracttaillatency "$ct" 99.9 <<-ycnetalliattcartxe
+			$all
+		ycnetalliattcartxe`"
+	rtt_99="`extracttaillatency "$ct" 99 <<-ycnetalliattcartxe
+			$all
+		ycnetalliattcartxe`"
+	rtt_95="`extracttaillatency "$ct" 95 <<-ycnetalliattcartxe
+			$all
+		ycnetalliattcartxe`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`'"
 	echo "============================================="
 	echo $independent
 	echo $tput
