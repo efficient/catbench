@@ -350,7 +350,7 @@ printprogress() {
 	formattime "$t"
 	echo -n " total; "
 
-	t=`estimateremaining "$@"`
+	t="`estimateremaining "$@"`"
 	formattime "$t"
 	echo " left"
 }
