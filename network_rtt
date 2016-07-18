@@ -15,11 +15,12 @@ readonly TRASH_ALLOC="800"
 
 usage() {
 	cat <<-tac
-		USAGE: $0 <-s|-t|-m> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
+		USAGE: $0 <-s|-t|-m|-c> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
 
 		-s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
 		-t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
 		-m: Vary the number of ways allocated to the mite
+		-c: Vary the number of ways allocated to Trash
 	tac
 }
 
@@ -41,6 +42,10 @@ do
 		-m)
 			independent="mite_ways"
 			iterator="$DEFAULT_MITE_WAYS_LOOP"
+			;;
+		-c)
+			independent="contender_ways"
+			iterator="$DEFAULT_MICA_WAYS_LOOP"
 			;;
 		*)
 			understood="false"
@@ -100,12 +105,30 @@ elif [ "$independent" = "mite_ways" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.description string "#ways allocated exclusively to the mite"
 	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.unit string ""
+elif [ "$independent" = "contender_ways" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.description string "#ways allocated to contenders (shared with mite)"
+	jaguar/jaguar set "$logfilename" legend.samples.mite_ways.unit string ""
 else
-	echo "Internal ERROR" >&2
+	echo "Internal ERROR, invalid independent variable. (Perhaps you forgot to add a jaguar entry for this independent variable?" >&2
 	exit 4
 fi
-jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.description string "Round trip time from client perspective"
-jaguar/jaguar set "$logfilename" legend.samples.round_trip_time.unit string "us"
+
+jaguar/jaguar set "$logfilename" legend.samples.mite_throughput.description string "Mite Throughput"
+jaguar/jaguar set "$logfilename" legend.samples.mite_throughput.unit string "mops"
+
+jaguar/jaguar set "$logfilename" legend.samples.mean.description string "Mean RTT"
+jaguar/jaguar set "$logfilename" legend.samples.mean.unit string "us"
+
+jaguar/jaguar set "$logfilename" legend.samples.999_tail_latency.description string "99.9th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.999_tail_latency.unit string "us"
+
+jaguar/jaguar set "$logfilename" legend.samples.99_tail_latency.description string "99th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.99_tail_latency.unit string "us"
+
+jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.description string "95th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.unit string "us"
+
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
 
@@ -156,7 +179,7 @@ runtrial() {
 	fi
 	mask="$3"
 
-	if [ -n "$mask" ]
+	if [ -n "$mask" ] && [ "$independent" != "contender_ways" ]
 	then
 		echo "NETWORK_RTT: Setting mask to $mask..."
 		setdefaultmask lockserver "$mask"
@@ -165,11 +188,16 @@ runtrial() {
 	sudo clients/lockserver-ng -l "$entries" -- -c 0x1 >rtt_server &
 	waitforalloc 0
 
-	if [ "$contenders" -ne 0 -a -n "$mask" ]
+	if [ "$contenders" -ne 0 -a -n "$mask" ] && [ "$independent" != "contender_ways" ]
 	then
-		invmask="`printf '%#x\n' $((0xfffff - mask))`"
+		invmask="`printf '%#x\n' $((0xfff - mask))`"
 		echo "NETWORK_RTT: Setting mask to $invmask..."
 		setdefaultmask trash "$invmask"
+	fi
+	if [ -n "$mask" ] && [ "$independent" = "contender_ways" ]
+	then
+		echo "NETWORK_RTT: Setting contender mask to $mask..."
+		setdefaultmask trash "$mask"
 	fi
 	for contender in `seq "$contenders"`
 	do
@@ -208,8 +236,12 @@ recordtrial() {
 	shift
 
 	runtrial "$@"
-	num="`grep "Average:" rtt_client | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$num,'`base64 -w0 perf.data`'"
+	tput="`grep "tput=" rtt_client | tail -n2 | head -n1 | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/'`"
+	avg="`grep "Average:" rtt_client | cut -d" " -f2`"
+	rtt_999="`grep "99.9-th" rtt_client | cut -d" " -f2`"
+	rtt_99="`grep "99-th" rtt_client | cut -d" " -f2`"
+	rtt_95="`grep "95-th" rtt_client | cut -d" " -f2`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95"
 }
 
 echo -n "Remote sudo password? "
@@ -218,10 +250,10 @@ read passwd
 stty echo
 echo
 
-header="integer,fraction,string\n$independent,round_trip_time,perf_data"
-if [ "$independent" = "mite_ways" ]
+header="fraction,fraction,fraction,fraction,fraction,fraction,string\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data"
+if [ "$independent" = "mite_ways" ] || [ "$independent" = "contender_ways" ]
 then
-	header="string,fraction,string\n$independent,round_trip_time,perf_data"
+	header="string,fraction,fraction,fraction,fraction,fraction,string\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data"
 fi
 jaguar/jaguar set "$logfilename" data.baseline.description string "Baseline"
 jaguar/jaguar set "$logfilename" data.basealloc.description string "Basealloc"
@@ -234,11 +266,16 @@ allocation="$header"
 sudo -l >/dev/null
 for input in $iterator
 do
-	if [ "$independent" != "mite_ways" ]
+	if [ "$independent" != "mite_ways" ] && [ "$independent" != "contender_ways" ]
 	then
 		mite_ways="$LOCKSERVER_MASK"
 	fi
 	eval $independent=$input
+	echo "$independent"
+	if [ "$independent" = "contender_ways" ]
+	then
+		mite_ways="$contender_ways"
+	fi
 	eval cat <<-tac
 
 		=================
