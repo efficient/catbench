@@ -315,7 +315,7 @@ recordtrial() {
 	echo "============================================="
 }
 
-estimatetotalelapsed() {
+estimatetotal() {
 	start_time="$1"
 	trial_index="$2"
 	trial_count="$3"
@@ -346,7 +346,7 @@ printprogress() {
 
 	printf "(%d/%d) " "$trial_index" "$trial_count"
 
-	t="`estimatetotalelapsed "$@"`"
+	t="`estimatetotal "$@"`"
 	formattime "$t"
 	echo -n " total; "
 
