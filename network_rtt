@@ -252,7 +252,7 @@ recordtrial() {
 	shift
 
 	runtrial "$@"
-	tput="`grep "tput=" rtt_client | tail -n2 | head -n1 | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/'`"
+	tput="0.0"
 	avg="`extractavelatency`"
 	all="`extractalllatencies | tail -n+"$((WARMUP + 1))" | sort -n`"
 	ct="`wc -l <<-cw | cut -d" " -f1
