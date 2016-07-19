@@ -219,7 +219,7 @@ runtrial() {
 	fi
 	echo "NETWORK_RTT: Spawning server..."
 	sudo sh -c "echo 16384 >/proc/sys/vm/nr_hugepages"
-	sudo clients/lockserver-ng -l "$entries" -- -c 0x1 >rtt_server &
+	( cd clients; sudo ./lockserver-ng -l "$entries" -- -c 0x1 >../rtt_server ) &
 	waitforalloc 0
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
@@ -252,7 +252,7 @@ runtrial() {
 	./cacheperf end >rtt_perf
 	killall onmycommand
 	sudo killall lockserver-ng
-	waitforexit clients/lockserver-ng
+	waitforexit ./lockserver-ng
 	cat rtt_server >>"$CATBENCH_LOGFILE"
 
 	echo "NETWORK_RTT: Cleaning up..."
