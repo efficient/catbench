@@ -208,7 +208,6 @@ runtrial() {
 	fi
 	mask="$3"
 	tlim="$4"
-	echo "$tlim"
 
 	if [ -n "$mask" ] && "$cache_partition_mite"
 	then
