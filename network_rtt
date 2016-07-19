@@ -27,13 +27,17 @@ const WARMUP="600"
 
 usage() {
 	cat <<-tac
-		USAGE: $0 <-s|-t|-m|-c> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
+		USAGE: $0 <mode> <plugin> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
 
-		-s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
-		-t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
-		-m: Vary the number of ways allocated to the mite
-		-c: Vary the number of ways allocated to Trash
+		<mode> is one of:
+		 -s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
+		 -t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
+		 -m: Vary the number of ways allocated to the mite
+		 -c: Vary the number of ways allocated to Trash
+
+		<plugin> is one of:
 	tac
+	ls networked/*.sh | sed 's/.*\/\([^/]*\).sh/ \1/'
 }
 
 client_sleep="$DEFAULT_CLIENT_SLEEP"
@@ -72,16 +76,24 @@ do
 		shift
 	fi
 done
-if [ -z "$independent" -o $# -ne 3 ]
+if [ -z "$independent" -o $# -ne 4 ]
 then
 	usage
 	exit 1
 fi
-foreign_client="$1"
-remote_path="$2"
-local_macaddr="$3"
+plugin="$1"
+foreign_client="$2"
+remote_path="$3"
+local_macaddr="$4"
 
 logfilename="$CATBENCH_JAGFILE"
+if [ -z "$plugin" -o ! -e "networked/$plugin.sh" ]
+then
+	echo "$plugin: Unrecognized software system plugin!" >&2
+	exit 1
+fi
+. "networked/$plugin.sh"
+. networked/.sh
 if [ -z "$logfilename" ]
 then
 	cat >&2 <<-tac
@@ -111,9 +123,9 @@ read passwd
 stty echo
 echo
 
-sudo killall lockserver-ng 2>/dev/null
-ssh "$foreign_client" "echo '$passwd' | sudo -S killall lockclient 2>/dev/null"
-sudo killall square_evictions 2>/dev/null
+sudo killall "$SERVER_BIN" 2>/dev/null
+ssh "$foreign_client" "echo '$passwd' | sudo -S killall '$CLIENT_BIN' 2>/dev/null"
+sudo killall "$CONTENDER_BIN" 2>/dev/null
 sudo killall onmycommand 2>/dev/null
 
 if [ "$independent" = "client_sleep" ]
@@ -158,22 +170,7 @@ jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.unit string "us"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
 
-base64 -w0 clients/lockserver-ng | jaguar/jaguar set "$logfilename" meta.server_binary string -
-
-extractavelatency() {
-	grep -F 'Average:' rtt_client | cut -d" " -f2
-}
-
-extractalllatencies() {
-	grep -F 'Completed after:' rtt_client | cut -d" " -f3
-}
-
-extracttaillatency() {
-	entries="$1"
-	percentile="$2"
-
-	sed -n "`echo "$entries * $percentile / 100" | bc`{p;q}"
-}
+base64 -w0 "$SERVER_DIR/$SERVER_BIN" | jaguar/jaguar set "$logfilename" meta.server_binary string -
 
 setdefaultmask() {
 	groupname="$1"
@@ -226,9 +223,9 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
-	sudo sh -c "echo 16384 >/proc/sys/vm/nr_hugepages"
-	eval "( cd clients; sudo ./lockserver-ng -l '$entries' -- -c 0x1 >'$PWD/rtt_server' )" &
-	waitforalloc 0
+	prephugepages
+	eval "( cd '$SERVER_DIR'; sudo './$SERVER_BIN' `genserverargs` >'$PWD/rtt_server' )" &
+	awaitserverinit
 
 	if [ "$contenders" -ne 0 -a -n "$mask" ]
 	then
@@ -245,7 +242,7 @@ runtrial() {
 	for contender in `seq "$contenders"`
 	do
 		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" clients/square_evictions -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr >/dev/null &
+		taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >/dev/null &
 	done
 
 	if [ -n "$mask" ]
@@ -256,15 +253,15 @@ runtrial() {
 	./onmycommand ./cacheperf "$PERF_CORES" >rtt_perf_duration &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; cd clients; echo '$passwd' | sudo -S ./lockclient -m '$local_macaddr' -s '$client_sleep' | tee ~/'$remote_path/rtt_client' | grep -F --line-buffered 'Initialization complete!'" | ( grep -Fm1 "Initialization complete!" && killall -USR1 onmycommand && cat ) >/dev/null
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; cd '$CLIENT_DIR'; echo '$passwd' | sudo -S './$CLIENT_BIN' `genclientargs` | tee ~/'$remote_path/rtt_client' | grep -F --line-buffered '$PERF_INIT_PHRASE'" | ( grep -Fm1 "$PERF_INIT_PHRASE" && killall -USR1 onmycommand && cat ) >/dev/null
 	./cacheperf end >rtt_perf
 	killall onmycommand
-	sudo killall lockserver-ng
-	waitforexit ./lockserver-ng
+	sudo killall "$SERVER_BIN"
+	waitforexit "./$SERVER_BIN"
 	cat rtt_server >>"$CATBENCH_LOGFILE"
 
 	echo "NETWORK_RTT: Cleaning up..."
-	killall square_evictions
+	killall "$CONTENDER_BIN"
 	if [ -n "$mask" ]
 	then
 		sudo cgdelete intel_rdt:lockserver
@@ -281,7 +278,7 @@ recordtrial() {
 	shift
 
 	runtrial "$@"
-	tput="0.0"
+	tput="`extracttput`"
 	avg="`extractavelatency`"
 	all="`extractalllatencies | tail -n+"$((WARMUP + 1))" | sort -n`"
 	ct="`wc -l <<-cw | cut -d" " -f1
