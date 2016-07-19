@@ -303,7 +303,6 @@ recordtrial() {
 	fi
 
 	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
-	echo "$total_time"
 	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
 	echo "============================================="
 	echo $tput
