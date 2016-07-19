@@ -218,6 +218,7 @@ runtrial() {
 		setdefaultmask lockserver "$mask"
 	fi
 	echo "NETWORK_RTT: Spawning server..."
+	sudo sh -c "echo 16384 >/proc/sys/vm/nr_hugepages"
 	sudo clients/lockserver-ng -l "$entries" -- -c 0x1 >rtt_server &
 	waitforalloc 0
 
