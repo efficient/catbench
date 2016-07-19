@@ -248,7 +248,7 @@ runtrial() {
 	./onmycommand ./cacheperf "$PERF_CORES" >rtt_perf_duration &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "echo '$passwd' | sudo -S '$remote_path/clients/lockclient' -m '$local_macaddr' -s '$client_sleep' | tee '$remote_path/rtt_client' | grep -F --line-buffered 'Initialization complete!'" | ( grep -Fm1 "Initialization complete!" && killall -USR1 onmycommand && cat ) >/dev/null
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; cd clients; echo '$passwd' | sudo -S ./lockclient -m '$local_macaddr' -s '$client_sleep' | tee ../rtt_client | grep -F --line-buffered 'Initialization complete!'" | ( grep -Fm1 "Initialization complete!" && killall -USR1 onmycommand && cat ) >/dev/null
 	./cacheperf end >rtt_perf
 	killall onmycommand
 	sudo killall lockserver-ng
