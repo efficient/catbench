@@ -69,7 +69,7 @@ do
 		;;
 	gencontenderargs)
 		eval "$fun()" '{
-			printf %s -c "$TRASH_ALLOC" -e "$TRASH_ALLOC" -uhr
+			printf "%s %s %s" -c"$TRASH_ALLOC" -e"$TRASH_ALLOC" -uhr
 		}'
 		;;
 	prephugepages)
