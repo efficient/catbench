@@ -89,12 +89,12 @@ do
 		;;
 	extractavelatency)
 		eval "$fun()" '{
-			grep -F 'Average:' rtt_client | cut -d" " -f2
+			grep -F "Average:" rtt_client | cut -d" " -f2
 		}'
 		;;
 	extractalllatencies)
 		eval "$fun()" '{
-			grep -F 'Completed after:' rtt_client | cut -d" " -f3
+			grep -F "Completed after:" rtt_client | cut -d" " -f3
 		}'
 		;;
 	extracttaillatency)
