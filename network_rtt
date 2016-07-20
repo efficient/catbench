@@ -107,6 +107,7 @@ fi
 
 sudo killall lockserver-ng 2>/dev/null
 sudo killall square_evictions 2>/dev/null
+sudo killall onmycommand 2>/dev/null
 
 if [ "$independent" = "client_sleep" ]
 then
