@@ -115,7 +115,15 @@ then
 	exit 3
 fi
 
+#echo -n "Remote sudo password? "
+#stty -echo
+#read passwd
+#stty echo
+#echo
+passwd="hunter2"
+
 sudo killall server 2>/dev/null
+ssh "$foreign_client" "echo '$passwd' | sudo -S killall netbench 2>/dev/null"
 sudo killall square_evictions 2>/dev/null
 sudo killall onmycommand 2>/dev/null
 
@@ -353,13 +361,6 @@ printprogress() {
 	formattime "$t"
 	echo " left"
 }
-
-#echo -n "Remote sudo password? "
-#stty -echo
-#read passwd
-#stty echo
-#echo
-passwd="hunter2"
 
 header=""
 
