@@ -9,7 +9,7 @@ inherit_default_init="SERVER_DIR CLIENT_DIR CONTENDER_DIR CONTENDER_BIN"
 inherit_default_impl="gencontenderargs prephugepages extractavelatency extractalllatencies extracttaillatency"
 
 genserverargs() {
-	echo "-l '$entries' -- -c 0x1"
+	echo "-l '$table_entries' -- -c 0x1"
 }
 
 genclientargs() {

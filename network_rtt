@@ -209,13 +209,12 @@ waitforexit() {
 }
 
 runtrial() {
-	entries="$1"
 	contenders="0"
-	if [ -n "$2" ]
+	if [ -n "$1" ]
 	then
-		contenders="$2"
+		contenders="$1"
 	fi
-	mask="$3"
+	mask="$2"
 
 	if [ -n "$mask" ] && "$cache_partition_mite"
 	then
@@ -382,28 +381,28 @@ do
 		RUNNING ITERATION: $input
 
 	tac
-	recordtrial baseline "$table_entries"
+	recordtrial baseline
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input basealloc
 
 	tac
-	recordtrial basealloc "$table_entries" 0 "$cache_ways"
+	recordtrial basealloc 0 "$cache_ways"
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
 
 	tac
-	recordtrial contention "$table_entries" "$NUM_TRASH"
+	recordtrial contention "$NUM_TRASH"
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$table_entries" "$NUM_TRASH" "$cache_ways"
+	recordtrial allocation "$NUM_TRASH" "$cache_ways"
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
