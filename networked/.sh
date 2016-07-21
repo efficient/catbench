@@ -3,6 +3,12 @@
 readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN CLIENT_DIR CLIENT_BIN CONTENDER_DIR CONTENDER_BIN PERF_INIT_PHRASE"
 readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency"
 
+if ! echo "$INDEPENDENT_VAR_WHITELIST" | grep "\<$independent\>" >/dev/null
+then
+	echo "$plugin: Module does not support varying parameter '$independent'!" >&2
+	exit 1
+fi
+
 uhoh="false"
 
 isfun() {

@@ -1,6 +1,8 @@
 SERVER_BIN="lockserver-ng"
 CLIENT_BIN="lockclient"
 
+INDEPENDENT_VAR_WHITELIST="cache_ways client_sleep table_entries"
+
 PERF_INIT_PHRASE="Initialization complete!"
 
 inherit_default_init="SERVER_DIR CLIENT_DIR CONTENDER_DIR CONTENDER_BIN"
