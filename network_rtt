@@ -257,7 +257,7 @@ runtrial() {
 	then
 		if "$cache_partition_mite"
 		then
-			trashmask="`printf '%#x\n' $((0xfffff - mask))`"
+			trashmask="`printf '%#x\n' $((((1 << $(cat /sys/devices/system/cpu/cpu0/cache/index3/ways_of_associativity)) - 1) - mask))`"
 		else
 			trashmask="$mask"
 		fi
