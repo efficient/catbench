@@ -1,0 +1,3 @@
+#!/bin/sh
+
+git log --cherry --oneline cachenice_netintegration...cachenice_mica2 | eval sed `git log 8c81986..cachenice_netintegration | sed -n 's/.*cherry picked from commit \(.......\).*/-e"s\/+ \1\/≈ \1\/"/p'`
