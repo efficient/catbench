@@ -3,6 +3,7 @@
 readonly COUNTERS="`echo "
 	cpu-cycles:cpu-cycles
 	instructions:instructions
+	cpu/event=0x0e,umask=0x01,cmask=0x01,inv,any/:stalled-cycles (UOPS_ISSUED.ANY)
 	L1-dcache-load-misses:L1-dcache-load-misses (L1D.REPLACEMENT)
 	L1-icache-load-misses:L1-icache-load-misses (ICACHE.MISSES)
 	dTLB-load-misses:dTLB-load-misses (DTLB_LOAD_MISSES.MISS_CAUSES_A_WALK)
