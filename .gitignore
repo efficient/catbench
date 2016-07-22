@@ -1,5 +1,6 @@
 *.o
 
+/.network_rtt_pw
 /catbench
 /dist_a
 /locksmith

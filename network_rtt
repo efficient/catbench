@@ -136,11 +136,16 @@ then
 	exit 3
 fi
 
-echo -n "Remote sudo password? "
-stty -echo
-read passwd
-stty echo
-echo
+if [ -e .network_rtt_pw ]
+then
+	passwd="`cat .network_rtt_pw`"
+else
+	echo -n "Remote sudo password? "
+	stty -echo
+	read passwd
+	stty echo
+	echo
+fi
 
 sudo killall "$SERVER_BIN" 2>/dev/null
 ssh "$foreign_client" "echo '$passwd' | sudo -S killall '$CLIENT_BIN' 2>/dev/null"
