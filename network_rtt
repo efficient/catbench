@@ -16,10 +16,17 @@ const DEFAULT_CLIENT_SLEEP="100000"
 const DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
 const DEFAULT_TABLE_ENTRIES="10000"
 const DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
+const DEFAULT_ZIPF_ALPHA="0.99"
+const DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
+const DEFAULT_MITE_TPUT_LIMIT="3.0"
+const DEFAULT_MITE_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 2.4 2.6 2.8 3.0 3.2 3.4 3.6 3.8 4.0"
 const DEFAULT_CACHE_WAYS="0x003"
 const DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
 const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+const MICA_GET_RATIO="0.5"
+const MICA_NUM_ITEMS="131072"
+const MICA_NUM_ITERATIONS="30000000"
 const NUM_TRASH="7"
 const PERF_CORES="0"
 const TRASH_ALLOC="800"
@@ -32,6 +39,8 @@ usage() {
 		<mode> is one of:
 		 -s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
 		 -t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
+		 -z: Vary zipf alpha
+		 -l: Vary the mite throughput limit
 		 -m: Vary the number of ways allocated to the mite
 		 -c: Vary the number of ways allocated to Trash
 
@@ -42,6 +51,8 @@ usage() {
 
 client_sleep="$DEFAULT_CLIENT_SLEEP"
 table_entries="$DEFAULT_TABLE_ENTRIES"
+zipf_alpha="$DEFAULT_ZIPF_ALPHA"
+mite_tput_limit="$DEFAULT_MITE_TPUT_LIMIT"
 cache_ways="$DEFAULT_CACHE_WAYS"
 cache_partition_mite="true"
 understood="true"
@@ -56,6 +67,14 @@ do
 		-t)
 			independent="table_entries"
 			iterator="$DEFAULT_TABLE_ENTRIES_LOOP"
+			;;
+		-z)
+			independent="zipf_alpha"
+			iterator="$DEFAULT_ZIPF_ALPHA_LOOP"
+			;;
+		-l)
+			independent="mite_tput_limit"
+			iterator="$DEFAULT_MITE_TPUT_LIMIT_LOOP"
 			;;
 		-m)
 			independent="cache_ways"
@@ -136,6 +155,14 @@ elif [ "$independent" = "table_entries" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
+elif [ "$independent" = "zipf_alpha" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.description string "Alpha parameter of zipf distribution"
+	jaguar/jaguar set "$logfilename" legend.samples.zipf_alpha.unit string ""
+elif [ "$independent" = "mite_tput_limit" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.mite_tput_limit.description string "Mite throughput limit"
+	jaguar/jaguar set "$logfilename" legend.samples.mite_tput_limit.unit string "Mops"
 elif [ "$independent" = "cache_ways" ]
 then
 	if "$cache_partition_mite"
