@@ -1,0 +1,32 @@
+#!/bin/sh
+
+hash=""
+seen="false"
+for arg in "$@"
+do
+	case "$arg" in
+	-*x*)
+		seen="true"
+		;;
+	-*)
+		;;
+	*)
+		if [ -n "$hash" ]
+		then
+			echo "$arg: Unexpected argument!" >&2
+			exit 1
+		fi
+		hash="$arg"
+		;;
+	esac
+done
+
+if ! "$seen"
+then
+	echo "Missing -x switch!" >&2
+	exit 2
+fi
+
+git cherry-pick "$@"
+git rm network_rtt_tail
+git diff "$hash~" "$hash" | sed 's/network_rtt_tail/network_rtt/' | git apply -3
