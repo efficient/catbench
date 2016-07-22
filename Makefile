@@ -11,7 +11,7 @@ all: catbench-setcap dist_a slowbro locksmith
 
 .PHONY: clean
 clean:
-	git clean -fX
+	git clean -fX $(wildcard *)
 
 .PHONY: clean-recursive
 clean-recursive: clean
