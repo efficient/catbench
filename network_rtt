@@ -292,6 +292,9 @@ recordtrial() {
 	rtt_95="`extracttaillatency "$ct" 95 <<-ycnetalliattcartxe
 			$all
 		ycnetalliattcartxe`"
+	rtt_50="`extracttaillatency "$ct" 50 <<-ycnetalliattcartxe
+			$all
+		ycnetalliattcartxe`"
 	if [ -z "$header" ]
 	then
 		if [ "$independent" = "cache_ways" ]
@@ -300,7 +303,7 @@ recordtrial() {
 		else
 			header="fraction"
 		fi
-		header="$header,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
 		baseline="$header"
 		basealloc="$header"
 		contention="$header"
@@ -308,7 +311,7 @@ recordtrial() {
 	fi
 
 	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
 	echo "============================================="
 	echo $tput
 	echo $avg
