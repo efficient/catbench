@@ -105,7 +105,14 @@ then
 	exit 3
 fi
 
+echo -n "Remote sudo password? "
+stty -echo
+read passwd
+stty echo
+echo
+
 sudo killall lockserver-ng 2>/dev/null
+ssh "$foreign_client" "echo '$passwd' | sudo -S killall lockclient 2>/dev/null"
 sudo killall square_evictions 2>/dev/null
 sudo killall onmycommand 2>/dev/null
 
@@ -314,12 +321,6 @@ recordtrial() {
 	echo $rtt_95
 	echo "============================================="
 }
-
-echo -n "Remote sudo password? "
-stty -echo
-read passwd
-stty echo
-echo
 
 estimatetotal() {
 	start_time="$1"
