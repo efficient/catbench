@@ -1,6 +1,6 @@
 #!/bin/sh
 
-readonly SERIES="baseline contention allocation"
+readonly SERIES="baseline basealloc contention allocation"
 readonly INDICES="`seq 0 5`"
 
 set -e
@@ -16,9 +16,15 @@ readonly seethef="$3"
 [ -x "$jaguar" ]
 [ -x "$seethef" ]
 
+maybe_overhead=""
+if jaguar/jaguar get "$name-raw.json" "data.`echo "$SERIES" | cut -d" " -f1`_overhead.description" >/dev/null 2>&1
+then
+	maybe_overhead="_overhead"
+fi
+
 mkdir "$name"
-mkdir "${name}_overhead"
-for suffix in "" "_overhead"
+[ -n "$maybe_overhead" ] && mkdir "${name}_overhead"
+for suffix in "" $maybe_overhead
 do
 	for index in $INDICES
 	do

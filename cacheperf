@@ -1,0 +1,52 @@
+#!/bin/sh
+
+readonly COUNTERS="`echo "
+	cpu-cycles:cpu-cycles
+	instructions:instructions
+	cpu/event=0x0e,umask=0x01,cmask=0x01,inv,any/:stalled-cycles (UOPS_ISSUED.ANY)
+	L1-dcache-load-misses:L1-dcache-load-misses (L1D.REPLACEMENT)
+	L1-icache-load-misses:L1-icache-load-misses (ICACHE.MISSES)
+	dTLB-load-misses:dTLB-load-misses (DTLB_LOAD_MISSES.MISS_CAUSES_A_WALK)
+	iTLB-load-misses:iTLB-load-misses (ITLB_MISSES.MISS_CAUSES_A_WALK)
+	r81d0:MEM_UOPS_RETIRED.ALL_LOADS (i.e. L1-dcache-loads, dTLB-load-misses)
+	r08d1:MEM_LOAD_UOPS_RETIRED.L1_MISS
+	r10d1:MEM_LOAD_UOPS_RETIRED.L2_MISS
+	r20d1:MEM_LOAD_UOPS_RETIRED.L3_MISS (BDE70)
+	r2124:L2_RQSTS.DEMAND_DATA_RD_MISS
+	re124:L2_RQSTS.ALL_DEMAND_DATA_RD
+	re424:L2_RQSTS.ALL_CODE_RD
+	r01f0:L2_TRANS.DEMAND_DATA_RD
+	r04f0:L2_TRANS.CODE_RD
+	r2424:L2_RQSTS.CODE_RD_MISS (HSW)
+	r2724:L2_RQSTS.ALL_DEMAND_MISS (HSW)
+	re724:L2_RQSTS.ALL_DEMAND_REFERENCES (HSW)
+	r3f24:L2_RQSTS.MISS (HSW)
+	rff24:L2_RQSTS.REFERENCES (HSW)
+	r4f2e:LLC_REFERENCE (BDE70)
+	r412e:LLC_MISS (BDE70)
+	" | tail -n+2 | tr -d '\t'`"
+
+if [ $# -ne 1 ]
+then
+	cat <<-tac
+		USAGE: $0 <<list,of,cores> | end>
+
+		Records cache-related performance counters on the specified cores
+		until called again with the 'end' argument.
+		Multiple invocations "stack."
+	tac
+	exit 1
+fi
+cores="$1"
+set -e
+
+if [ "$cores" = "end" ]
+then
+	sudo kill -int "`ps -eopid,cmd | tr -s " " | sed -n 's/^ \?\([[:digit:]]\+\) \<sleep\> \<inf\>.*/\1/p' | tail -n1`" 2>/dev/null || echo "No instances left to end"
+	while [ "`ps -e | grep '\<perf\>$' | tail -n+2 | wc -l`" -ne "0" ]; do :; done
+	sudo chown "`whoami`:" perf.data
+	perf report --stdio | grep -A1 '^# Samples:' | grep -v -- -- | sed "s/'//g" | rev | cut -d" " -f1 | rev | paste - - | eval sed `echo "$COUNTERS" | sed 's|.*|-e"s:&:"|'`
+else
+	rm -f perf.data
+	sudo perf record -se"`echo "$COUNTERS" | cut -d: -f1 | paste -sd,`" --call-graph lbr -aC"$cores" -o perf.data time -f" %e seconds time elapsed" sleep inf 2>&1 &
+fi

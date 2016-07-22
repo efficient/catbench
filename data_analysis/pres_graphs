@@ -28,12 +28,13 @@ modfile() {
 	jaguar/jaguar set "$filename" legend.samples.contender_throughput.unit "M accesses/s"
 
 	jaguar/jaguar set "$filename" data.baseline.description "No contenders"
+	jaguar/jaguar set "$filename" data.basealloc.description "No contenders+CAT"
 	jaguar/jaguar set "$filename" data.contention.description "Contenders"
 	jaguar/jaguar set "$filename" data.allocation.description "Contenders+CAT"
 	jaguar/jaguar get "$filename" data.contention_throughput.description | sed 's/Contention/Contenders/' | tr -d '\n' | jaguar/jaguar set "$filename" data.contention_throughput.description -
 	jaguar/jaguar get "$filename" data.allocation_throughput.description | sed 's/Allocation/Contenders+CAT/' | tr -d '\n' | jaguar/jaguar set "$filename" data.allocation_throughput.description -
 
-	for series in baseline contention allocation
+	for series in baseline basealloc contention allocation
 	do
 		local csv=""
 		while [ "`printf '%s\n' "$csv" | head -n1`" != "round_trip_time,table_entries" ]
@@ -61,6 +62,7 @@ moddelay() {
 
 	jaguar/jaguar set "$(filename -delay.json)" legend.samples.round_trip_time.description "End-to-end round trip time"
 	jaguar/jaguar set "$(filename -delay.json)" data.baseline.description "No contenders"
+	jaguar/jaguar set "$(filename -delay.json)" data.basealloc.description "No contenders+CAT"
 	jaguar/jaguar set "$(filename -delay.json)" data.contention.description "Contenders"
 	jaguar/jaguar set "$(filename -delay.json)" data.allocation.description "Contenders+CAT"
 }
@@ -126,7 +128,7 @@ filename="$1"
 filepresent "$filename" && ./graph-cat.py -n \
 	-t "Mite response latency vs. mite working set size" \
 	--log-x -x table_entries --log-y -y round_trip_time --grid-y \
-	-s baseline contention allocation --nosort \
+	-s baseline basealloc contention allocation --nosort \
 	--legend-x 0.45 --legend-y 0.8 \
 	-i "$filename" -o "$(filename .png)"
 filepresent "$filename" && ./graph-cat.py -n \
@@ -166,7 +168,7 @@ then
 	filepresent "$(filename -delay.json)" && ./graph-cat.py -n \
 	-t "Mite response latency vs. request interval" \
 	--log-x -x client_sleep -y round_trip_time --grid-y --ymax 300 \
-	-s baseline contention allocation --nosort \
+	-s baseline basealloc contention allocation --nosort \
 	--legend-x 0.45 --legend-y 0.8 \
 	-i "$(filename -delay.json)" -o "$(filename -delay.png)"
 fi

@@ -4,7 +4,7 @@ readonly DATA_POINT_DELIM_REGEX='RUNNING [A-Z]\+:'
 readonly            FIELDS_LIST="table_entries round_trip_time"
 readonly    SAMPLE_REGEX_CLIENT='.*remote: Completed after: \([0-9]\+\) us.*'
 readonly    SAMPLE_REGEX_SERVER='.*Computed in: \([0-9]\+\) us.*'
-readonly     SERIES_LIST_CLIENT="baseline contention allocation"
+readonly     SERIES_LIST_CLIENT="baseline basealloc contention allocation"
 readonly   SERIES_SUFFIX_SERVER="_overhead"
 
 set -e
@@ -112,26 +112,41 @@ do
 done
 echo
 
+has_overheads="true"
 echo -n "Copying series labels"
 for series in $SERIES_LIST_CLIENT $series_list_server
 do
+	if grep -v "\<$series\>" "$SERIES_LIST_CLIENT" >/dev/null && ! jaguar/jaguar get "$infile" "data.$series.description" >/dev/null 2>&1
+	then
+		has_overheads="false"
+		break
+	fi
+
 	reuse "data.$series.description" string
 	echo -n .
 done
 echo
 
-echo "Computing network overheads..."
-calculateoh log_client log_server
+if "$has_overheads"
+then
+	echo "Computing network overheads..."
+	calculateoh log_client log_server
+else
+	echo "No network overhead information found; skipping extraction!"
+fi
 
 for index in `seq 0 "$((points_per_series - 1))"`
 do
 	echo -n "Processing record index: $index..."
 
-	echo -n "(client)"
+	"$has_overheads" && echo -n "(client)"
 	copyseries "$SERIES_LIST_CLIENT" "$index" log_client
 
-	echo -n "(server)"
-	copyseries "$series_list_server" "$index" log_server
+	if "$has_overheads"
+	then
+		echo -n "(server)"
+		copyseries "$series_list_server" "$index" log_server
+	fi
 
 	echo
 done
