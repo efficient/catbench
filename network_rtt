@@ -34,7 +34,7 @@ const WARMUP="600"
 
 usage() {
 	cat <<-tac
-		USAGE: $0 <mode> <plugin> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
+		USAGE: $0 <mode> <plugins> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
 
 		<mode> is one of:
 		 -s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
@@ -44,7 +44,7 @@ usage() {
 		 -m: Vary the number of ways allocated to the mite
 		 -c: Vary the number of ways allocated to Trash
 
-		<plugin> is one of:
+		<plugins> is a comma-separated list of:
 	tac
 	ls networked/*.sh | sed 's/.*\/\([^/]*\).sh/ \1/'
 }
@@ -100,19 +100,24 @@ then
 	usage
 	exit 1
 fi
-plugin="$1"
+plugins="$1"
 foreign_client="$2"
 remote_path="$3"
 local_macaddr="$4"
 
 logfilename="$CATBENCH_JAGFILE"
-if [ -z "$plugin" -o ! -e "networked/$plugin.sh" ]
-then
-	echo "$plugin: Unrecognized software system plugin!" >&2
-	exit 1
-fi
-. "networked/$plugin.sh"
+
+for plugin in $(echo "$plugins" | sed -n 1'p' | tr ',' '\n')
+do
+	if [ -z "$plugin" -o ! -e "networked/$plugin.sh" ]
+	then
+		echo "$plugin: Unrecognized software system plugin!" >&2
+		exit 1
+	fi
+	. "networked/$plugin.sh"
+done
 . networked/.sh
+
 if [ -z "$logfilename" ]
 then
 	cat >&2 <<-tac

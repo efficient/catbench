@@ -35,7 +35,7 @@ do
 		eval "$var"='"clients"'
 		;;
 	CONTENDER_BIN)
-		eval "$var"='"square_evictions"'
+		eval "$var"='"true"'
 		;;
 	*)
 		echo "Internal error: Module requested nonexistant default initialization for constant '$var'!" >&2
@@ -75,7 +75,7 @@ do
 		;;
 	gencontenderargs)
 		eval "$fun()" '{
-			printf "%s %s %s" -c"$TRASH_ALLOC" -e"$TRASH_ALLOC" -uhr
+			true
 		}'
 		;;
 	prephugepages)
