@@ -7,3 +7,10 @@
 /onmycommand
 /perfexpl
 /slowbro
+/rtt_client
+/rtt_server
+/rtt_perf
+/rtt_perf_duration
+/rtt_client_pipe_in
+/rtt_client_pipe_out
+/perf.data*
