@@ -26,7 +26,6 @@ const DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 const MICA_GET_RATIO="0.5"
 const MICA_NUM_ITEMS="131072"
-const MICA_NUM_ITERATIONS="30000000"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
 const PERF_CORES="0"
 const TRASH_ALLOC="800"
@@ -155,7 +154,6 @@ fi
 sudo killall "$SERVER_BIN" 2>/dev/null
 ssh "$foreign_client" "echo '$passwd' | sudo -S killall '$CLIENT_BIN' 2>/dev/null"
 sudo killall "$CONTENDER_BIN" 2>/dev/null
-sudo killall onmycommand 2>/dev/null
 
 if [ "$independent" = "client_sleep" ]
 then
@@ -286,17 +284,68 @@ runtrial() {
 		echo "NETWORK_RTT: Unsetting mask..."
 		unsetmask
 	fi
-	./onmycommand ./cacheperf "$PERF_CORES" >rtt_perf_duration &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; cd '$CLIENT_DIR'; echo '$passwd' | sudo -S './$CLIENT_BIN' `genclientargs` | tee ~/'$remote_path/rtt_client' | grep -F --line-buffered '$PERF_INIT_PHRASE'" | ( grep -Fm1 "$PERF_INIT_PHRASE" && killall -USR1 onmycommand && cat ) >/dev/null
-	./cacheperf end >rtt_perf
-	killall onmycommand
+
+
+	# set up remote pipes
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client_pipe_in rtt_client_pipe_out; mkfifo rtt_client_pipe_in rtt_client_pipe_out"
+
+	# set up local pipes
+	rm -f rtt_client_pipe_in rtt_client_pipe_out; mkfifo rtt_client_pipe_in rtt_client_pipe_out
+
+	# connect pipes
+	ssh "$foreign_client" "cd '$remote_path'; cat > rtt_client_pipe_in" <rtt_client_pipe_in &
+	rtt_cient_pipe_in_pid=$!
+	ssh "$foreign_client" "cd '$remote_path'; cat rtt_client_pipe_out" >rtt_client_pipe_out &
+	rtt_cient_pipe_out_pid=$!
+
+	# run a dummy input to allow writing to the piped input multiple times
+	sleep 1h > rtt_client_pipe_in &
+	dummy_in_pid=$!
+
+	# launch remote client
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; echo '$passwd' | sudo -S -v;
+		sudo './$CLIENT_BIN' `genclientargs` <rtt_client_pipe_in | tee rtt_client | (
+			grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready >rtt_client_pipe_out &&
+			cat
+		) >/dev/null" &
+	client_pid=$!
+
+	# listen to client output
+	state="initial"
+	while read -r line <rtt_client_pipe_out
+	do
+		if [ "$line" != "ready" ]; then echo "ERROR: Unexpected output from pipe: %line"; exit 1; fi
+
+		# warm up
+		echo "NETWORK_RTT: Warming up... ($WARMUP_DURATION)"
+		sleep "$WARMUP_DURATION"
+
+		# main processing
+		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
+		echo "r" >rtt_client_pipe_in
+		./cacheperf "$PERF_CORES" >rtt_perf_duration &
+		sleep "$MAIN_DURATION"
+
+		# stop
+		echo "NETWORK_RTT: Stopping..."
+		./cacheperf end >rtt_perf
+		echo "s" >rtt_client_pipe_in
+		wait $client_pid
+
+		break
+	done
+
+	echo "NETWORK_RTT: Cleaning up..."
+
 	sudo killall "$SERVER_BIN"
 	waitforexit "./$SERVER_BIN"
 	cat rtt_server >>"$CATBENCH_LOGFILE"
 
-	echo "NETWORK_RTT: Cleaning up..."
+	kill $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
+	wait $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
+
 	killall "$CONTENDER_BIN"
 	if [ -n "$mask" ]
 	then

@@ -1,6 +1,6 @@
 # Validates system plugins to ensure they override the appropriate functions.
 
-readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN CLIENT_DIR CLIENT_BIN CONTENDER_DIR CONTENDER_BIN PERF_INIT_PHRASE"
+readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN CLIENT_DIR CLIENT_BIN CONTENDER_DIR CONTENDER_BIN PERF_INIT_PHRASE WARMUP_DURATION MAIN_DURATION"
 readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency"
 
 if ! echo "$INDEPENDENT_VAR_WHITELIST" | grep "\<$independent\>" >/dev/null
@@ -36,6 +36,12 @@ do
 		;;
 	CONTENDER_BIN)
 		eval "$var"='"true"'
+		;;
+	WARMUP_DURATION)
+		eval "$var"='"3s"'
+		;;
+	MAIN_DURATION)
+		eval "$var"='"10s"'
 		;;
 	*)
 		echo "Internal error: Module requested nonexistant default initialization for constant '$var'!" >&2
