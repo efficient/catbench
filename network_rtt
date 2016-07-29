@@ -151,6 +151,9 @@ else
 	echo
 fi
 
+# terminate background processes if this script exits
+trap 'trap - TERM && kill 0' INT TERM EXIT
+
 sudo killall "$SERVER_BIN" 2>/dev/null
 ssh "$foreign_client" "echo '$passwd' | sudo -S killall '$CLIENT_BIN' 2>/dev/null"
 sudo killall "$CONTENDER_BIN" 2>/dev/null
