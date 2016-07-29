@@ -307,13 +307,12 @@ runtrial() {
 	# launch remote client
 	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; echo '$passwd' | sudo -S -v;
 		sudo './$CLIENT_BIN' `genclientargs` <rtt_client_pipe_in | tee rtt_client | (
-			grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready >rtt_client_pipe_out &&
-			cat
-		) >/dev/null" &
+			grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready &&
+			cat >/dev/null
+		) >rtt_client_pipe_out" &
 	client_pid=$!
 
 	# listen to client output
-	state="initial"
 	while read -r line <rtt_client_pipe_out
 	do
 		if [ "$line" != "ready" ]; then echo "ERROR: Unexpected output from pipe: %line"; exit 1; fi
