@@ -5,7 +5,7 @@ INDEPENDENT_VAR_WHITELIST="cache_ways client_sleep table_entries"
 
 PERF_INIT_PHRASE="Initialization complete!"
 
-inherit_default_init="$inherit_default_init SERVER_DIR CLIENT_DIR WARMUP_DURATION MAIN_DURATION"
+inherit_default_init="$inherit_default_init SERVER_DIR CLIENT_DIR"
 inherit_default_impl="$inherit_default_impl prephugepages extractavelatency extractalllatencies extracttaillatency"
 
 genserverargs() {

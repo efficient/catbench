@@ -246,6 +246,40 @@ waitforexit() {
 	while (ps -eo args | cut -d" " -f1 | grep -x "$arg0" >/dev/null 2>&1); do :; done
 }
 
+spawncontenders() {
+	contenders="$1"
+	mask="$2"
+
+	contender_pids=""
+
+	if [ "$contenders" -ne 0 -a -n "$mask" ]
+	then
+		if "$cache_partition_mite"
+		then
+			trashmask="`printf '%#x\n' $((((1 << $(cat /sys/devices/system/cpu/cpu0/cache/index3/ways_of_associativity)) - 1) - mask))`"
+		else
+			trashmask="$mask"
+		fi
+		echo "NETWORK_RTT: Setting mask to $trashmask..."
+		setdefaultmask trash "$trashmask"
+		unset trashmask
+	fi
+	for contender in `seq "$contenders"`
+	do
+		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
+		time -p taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_$((contender - 1)) 2>&1 &
+		contender_pids="$contender_pids $!"
+	done
+
+	if [ -n "$mask" ]
+	then
+		echo "NETWORK_RTT: Unsetting mask..."
+		unsetmask
+	fi
+
+	echo "$contender_pids" >rtt_contender_pids
+}
+
 runtrial() {
 	contenders="0"
 	if [ -n "$1" ]
@@ -264,29 +298,6 @@ runtrial() {
 	eval "( cd '$SERVER_DIR'; sudo './$SERVER_BIN' `genserverargs` >'$PWD/rtt_server' )" &
 	awaitserverinit
 
-	if [ "$contenders" -ne 0 -a -n "$mask" ]
-	then
-		if "$cache_partition_mite"
-		then
-			trashmask="`printf '%#x\n' $((((1 << $(cat /sys/devices/system/cpu/cpu0/cache/index3/ways_of_associativity)) - 1) - mask))`"
-		else
-			trashmask="$mask"
-		fi
-		echo "NETWORK_RTT: Setting mask to $trashmask..."
-		setdefaultmask trash "$trashmask"
-		unset trashmask
-	fi
-	for contender in `seq "$contenders"`
-	do
-		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >/dev/null &
-	done
-
-	if [ -n "$mask" ]
-	then
-		echo "NETWORK_RTT: Unsetting mask..."
-		unsetmask
-	fi
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
 
@@ -298,7 +309,7 @@ runtrial() {
 	rm -f rtt_client_pipe_in rtt_client_pipe_out; mkfifo rtt_client_pipe_in rtt_client_pipe_out
 
 	# connect pipes
-	ssh "$foreign_client" "cd '$remote_path'; cat > rtt_client_pipe_in" <rtt_client_pipe_in &
+	ssh "$foreign_client" "cd '$remote_path'; cat >rtt_client_pipe_in" <rtt_client_pipe_in &
 	rtt_cient_pipe_in_pid=$!
 	ssh "$foreign_client" "cd '$remote_path'; cat rtt_client_pipe_out" >rtt_client_pipe_out &
 	rtt_cient_pipe_out_pid=$!
@@ -315,20 +326,25 @@ runtrial() {
 		) >rtt_client_pipe_out" &
 	client_pid=$!
 
+	if [ "$SPAWNCONTENDERS" = "oninit" ]; then spawncontenders "$contenders" "$mask"; fi
+	oninit
+
 	# listen to client output
 	while read -r line <rtt_client_pipe_out
 	do
 		if [ "$line" != "ready" ]; then echo "ERROR: Unexpected output from pipe: %line"; exit 1; fi
 
 		# warm up
+		if [ "$SPAWNCONTENDERS" = "onwarmup" ]; then spawncontenders "$contenders" "$mask"; fi
 		echo "NETWORK_RTT: Warming up... ($WARMUP_DURATION)"
-		sleep "$WARMUP_DURATION"
+		onwarmup
 
 		# main processing
+		if [ "$SPAWNCONTENDERS" = "onmainprocessing" ]; then spawncontenders "$contenders" "$mask"; fi
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
 		echo "r" >rtt_client_pipe_in
 		./cacheperf "$PERF_CORES" >rtt_perf_duration &
-		sleep "$MAIN_DURATION"
+		onmainprocessing
 
 		# stop
 		echo "NETWORK_RTT: Stopping..."
@@ -383,6 +399,7 @@ recordtrial() {
 	rtt_50="`extracttaillatency "$ct" 50 <<-ycnetalliattcartxe
 			$all
 		ycnetalliattcartxe`"
+	contender_tput="`extractcontendertput`"
 	if [ -z "$header" ]
 	then
 		if [ "$independent" = "cache_ways" ]
@@ -391,7 +408,7 @@ recordtrial() {
 		else
 			header="fraction"
 		fi
-		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
 		baseline="$header"
 		basealloc="$header"
 		contention="$header"
@@ -399,13 +416,14 @@ recordtrial() {
 	fi
 
 	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
 	echo "============================================="
 	echo $tput
 	echo $avg
 	echo $rtt_999
 	echo $rtt_99
 	echo $rtt_95
+	echo $contender_tput
 	echo "============================================="
 }
 
