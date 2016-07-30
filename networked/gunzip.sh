@@ -1,13 +1,13 @@
-CONTENDER_DIR="/bin"
-CONTENDER_BIN="gunzip"
+CONTENDER_DIR="."
+CONTENDER_BIN="gzip_wrapper.sh"
 
 inherit_default_init="$inherit_default_init"
 inherit_default_impl="$inherit_default_impl"
 
-GZ_FILENAME="linux-4.7.tar"
+GZ_FILENAME="linux-4.7.tar.gz"
 
 gencontenderargs() {
-	echo "-kf $GZ_FILENAME.gz"
+	echo "$GZ_FILENAME /dev/null -d"
 }
 
 extractcontendertput() {
@@ -20,7 +20,7 @@ extractcontendertput() {
 		do
 			in_file="rtt_contender_$((contender - 1))"
 
-			filesize=$(stat --printf="%s" "$GZ_FILENAME")
+			filesize="$(grep 'output size: ' $in_file | sed -e 's/output size: \(.*\)/\1/')"
 			total_filesize="$((total_filesize + filesize))"
 
 			# parse the real elapsed time from "time -p"
