@@ -1,5 +1,5 @@
 CONTENDER_DIR="/bin"
-CONTENDER_BIN="gzip"
+CONTENDER_BIN="gunzip"
 
 inherit_default_init="$inherit_default_init"
 inherit_default_impl="$inherit_default_impl"
@@ -7,7 +7,7 @@ inherit_default_impl="$inherit_default_impl"
 GZ_FILENAME="linux-4.7.tar"
 
 gencontenderargs() {
-	echo "-d -kf $GZ_FILENAME.gz"
+	echo "-kf $GZ_FILENAME.gz"
 }
 
 extractcontendertput() {
