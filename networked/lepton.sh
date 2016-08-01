@@ -1,5 +1,5 @@
 CONTENDER_DIR="."
-CONTENDER_BIN="lepton_wrapper.sh"
+CONTENDER_BIN="lepton_wrapper"
 
 inherit_default_init="$inherit_default_init"
 inherit_default_impl="$inherit_default_impl"

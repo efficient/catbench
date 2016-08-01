@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# gzip_wrapper.sh IN-PATH OUT-PATH [GZIP-OPTIONS]
+# gzip_wrapper IN-PATH OUT-PATH [GZIP-OPTIONS]
 
 input_path=$1
 shift
