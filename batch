@@ -1,5 +1,7 @@
 #!/bin/sh
 
+trap "" TERM
+
 if [ $# -ne 1 ]
 then
 	cat <<-tac

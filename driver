@@ -1,5 +1,8 @@
 #!/bin/sh
 
+trap exit TERM INT QUIT
+trap "kill 0" EXIT
+
 logging_commence() {
 	mkfifo "$prefix.tmp"
 	tee "$prefix.log" <"$prefix.tmp" &
