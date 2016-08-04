@@ -1,0 +1,85 @@
+From patchwork Wed Jul 13 01:02:50 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [17/32] x86, intel_cacheinfo: Enable cache id in x86
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226313
+Message-Id: <1468371785-53231-18-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:50 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+Enable cache id in x86. Cache id comes from APIC ID and CPUID4.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+Acked-by: Borislav Petkov <bp@suse.com>
+---
+ arch/x86/kernel/cpu/intel_cacheinfo.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/intel_cacheinfo.c b/arch/x86/kernel/cpu/intel_cacheinfo.c
+index de6626c..8dc5720 100644
+--- a/arch/x86/kernel/cpu/intel_cacheinfo.c
++++ b/arch/x86/kernel/cpu/intel_cacheinfo.c
+@@ -153,6 +153,7 @@ struct _cpuid4_info_regs {
+ 	union _cpuid4_leaf_eax eax;
+ 	union _cpuid4_leaf_ebx ebx;
+ 	union _cpuid4_leaf_ecx ecx;
++	unsigned int id;
+ 	unsigned long size;
+ 	struct amd_northbridge *nb;
+ };
+@@ -894,6 +895,8 @@ static void __cache_cpumap_setup(unsigned int cpu, int index,
+ static void ci_leaf_init(struct cacheinfo *this_leaf,
+ 			 struct _cpuid4_info_regs *base)
+ {
++	this_leaf->id = base->id;
++	this_leaf->attributes = CACHE_ID;
+ 	this_leaf->level = base->eax.split.level;
+ 	this_leaf->type = cache_type_map[base->eax.split.type];
+ 	this_leaf->coherency_line_size =
+@@ -920,6 +923,22 @@ static int __init_cache_level(unsigned int cpu)
+ 	return 0;
+ }
+ 
++/*
++ * The max shared threads number comes from CPUID.4:EAX[25-14] with input
++ * ECX as cache index. Then right shift apicid by the number's order to get
++ * cache id for this cache node.
++ */
++static void get_cache_id(int cpu, struct _cpuid4_info_regs *id4_regs)
++{
++	struct cpuinfo_x86 *c = &cpu_data(cpu);
++	unsigned long num_threads_sharing;
++	int index_msb;
++
++	num_threads_sharing = 1 + id4_regs->eax.split.num_threads_sharing;
++	index_msb = get_count_order(num_threads_sharing);
++	id4_regs->id = c->apicid >> index_msb;
++}
++
+ static int __populate_cache_leaves(unsigned int cpu)
+ {
+ 	unsigned int idx, ret;
+@@ -931,6 +950,7 @@ static int __populate_cache_leaves(unsigned int cpu)
+ 		ret = cpuid4_cache_lookup_regs(idx, &id4_regs);
+ 		if (ret)
+ 			return ret;
++		get_cache_id(cpu, &id4_regs);
+ 		ci_leaf_init(this_leaf++, &id4_regs);
+ 		__cache_cpumap_setup(cpu, idx, &id4_regs);
+ 	}

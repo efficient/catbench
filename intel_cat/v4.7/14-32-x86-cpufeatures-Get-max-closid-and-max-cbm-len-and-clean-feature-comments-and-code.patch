@@ -1,0 +1,121 @@
+From patchwork Wed Jul 13 01:02:47 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [14/32] x86/cpufeatures: Get max closid and max cbm len and clean
+ feature comments and code
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226293
+Message-Id: <1468371785-53231-15-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:47 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+Define two new cpuid leaves for CAT and CDP. The leaves are used in
+x86_capability to avoid hard coded index.
+
+Clean comments for RDT, CAT_L3, and CDP_L3 cpufeatures.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/include/asm/cpufeature.h  |  2 ++
+ arch/x86/include/asm/cpufeatures.h |  6 +++---
+ arch/x86/include/asm/processor.h   |  6 +++---
+ arch/x86/kernel/cpu/common.c       | 11 +++++++----
+ 4 files changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/arch/x86/include/asm/cpufeature.h b/arch/x86/include/asm/cpufeature.h
+index 483fb54..cd3b0bd 100644
+--- a/arch/x86/include/asm/cpufeature.h
++++ b/arch/x86/include/asm/cpufeature.h
+@@ -28,6 +28,8 @@ enum cpuid_leafs
+ 	CPUID_8000_000A_EDX,
+ 	CPUID_7_ECX,
+ 	CPUID_8000_0007_EBX,
++	CPUID_10_0_EBX,
++	CPUID_10_1_ECX,
+ };
+ 
+ #ifdef CONFIG_X86_FEATURE_NAMES
+diff --git a/arch/x86/include/asm/cpufeatures.h b/arch/x86/include/asm/cpufeatures.h
+index 16489b3..588932a 100644
+--- a/arch/x86/include/asm/cpufeatures.h
++++ b/arch/x86/include/asm/cpufeatures.h
+@@ -220,7 +220,7 @@
+ #define X86_FEATURE_RTM		( 9*32+11) /* Restricted Transactional Memory */
+ #define X86_FEATURE_CQM		( 9*32+12) /* Cache QoS Monitoring */
+ #define X86_FEATURE_MPX		( 9*32+14) /* Memory Protection Extension */
+-#define X86_FEATURE_RDT		( 9*32+15) /* Resource Allocation */
++#define X86_FEATURE_RDT		( 9*32+15) /* Resource Director Technology */
+ #define X86_FEATURE_AVX512F	( 9*32+16) /* AVX-512 Foundation */
+ #define X86_FEATURE_AVX512DQ	( 9*32+17) /* AVX-512 DQ (Double/Quad granular) Instructions */
+ #define X86_FEATURE_RDSEED	( 9*32+18) /* The RDSEED instruction */
+@@ -289,10 +289,10 @@
+ #define X86_FEATURE_SMCA	(17*32+ 3) /* Scalable MCA */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000010:0 (ebx), word 18 */
+-#define X86_FEATURE_CAT_L3      (18*32+ 1) /* Cache Allocation L3 */
++#define X86_FEATURE_CAT_L3	(18*32+ 1) /* Cache Allocation L3 */
+ 
+ /* Intel-defined CPU QoS Sub-leaf, CPUID level 0x00000010:1 (ecx), word 19 */
+-#define X86_FEATURE_CDP_L3	(19*32+ 2) /* Code data prioritization L3 */
++#define X86_FEATURE_CDP_L3	(19*32+ 2) /* Code Data Prioritization L3 */
+ 
+ /*
+  * BUG word(s)
+diff --git a/arch/x86/include/asm/processor.h b/arch/x86/include/asm/processor.h
+index 598c9bc..308aa03 100644
+--- a/arch/x86/include/asm/processor.h
++++ b/arch/x86/include/asm/processor.h
+@@ -119,9 +119,9 @@ struct cpuinfo_x86 {
+ 	int			x86_cache_occ_scale;	/* scale to bytes */
+ 	int			x86_power;
+ 	unsigned long		loops_per_jiffy;
+-	/* Cache Allocation values: */
+-	u16			x86_cache_max_cbm_len;
+-	u16			x86_cache_max_closid;
++	/* Cache Allocation l3 values: */
++	u16			x86_l3_max_cbm_len;
++	u16			x86_l3_max_closid;
+ 	/* cpuid returned max cores value: */
+ 	u16			 x86_max_cores;
+ 	u16			apicid;
+diff --git a/arch/x86/kernel/cpu/common.c b/arch/x86/kernel/cpu/common.c
+index a695e58..e945e70 100644
+--- a/arch/x86/kernel/cpu/common.c
++++ b/arch/x86/kernel/cpu/common.c
+@@ -716,14 +716,17 @@ void get_cpu_cap(struct cpuinfo_x86 *c)
+ 		u32 eax, ebx, ecx, edx;
+ 
+ 		cpuid_count(0x00000010, 0, &eax, &ebx, &ecx, &edx);
+-		c->x86_capability[17] = ebx;
++		c->x86_capability[CPUID_10_0_EBX] = ebx;
+ 
+ 		if (cpu_has(c, X86_FEATURE_CAT_L3)) {
+ 
+ 			cpuid_count(0x00000010, 1, &eax, &ebx, &ecx, &edx);
+-			c->x86_cache_max_closid = edx + 1;
+-			c->x86_cache_max_cbm_len = eax + 1;
+-			c->x86_capability[18] = ecx;
++			c->x86_l3_max_closid = edx + 1;
++			c->x86_l3_max_cbm_len = eax + 1;
++			c->x86_capability[CPUID_10_1_ECX] = ecx;
++		} else {
++			c->x86_l3_max_closid = -1;
++			c->x86_l3_max_cbm_len = -1;
+ 		}
+ 	}
+ 

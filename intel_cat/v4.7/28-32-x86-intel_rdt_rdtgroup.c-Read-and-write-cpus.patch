@@ -1,0 +1,107 @@
+From patchwork Wed Jul 13 01:03:01 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [28/32] x86/intel_rdt_rdtgroup.c: Read and write cpus
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226297
+Message-Id: <1468371785-53231-29-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:03:01 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+Normally each task is associated with one rdtgroup and we use the schema
+for that rdtgroup whenever the task is running. The user can designate
+some cpus to always use the same schema, regardless of which task is
+running. To do that the user write a cpumask bit string to the "cpus"
+file.
+
+A cpu can only be listed in one rdtgroup. If the user specifies a cpu
+that is currently assigned to a different rdtgroup, it is removed
+from that rdtgroup.
+
+See Documentation/x86/intel_rdt_ui.txt
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/kernel/cpu/intel_rdt_rdtgroup.c | 54 ++++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c b/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
+index 91ea3509..b5f42f5 100644
+--- a/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
++++ b/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
+@@ -767,6 +767,60 @@ void rdtgroup_exit(struct task_struct *tsk)
+ 
+ static struct rdtgroup *rdtgroup_kn_lock_live(struct kernfs_node *kn);
+ static void rdtgroup_kn_unlock(struct kernfs_node *kn);
++static int rdtgroup_cpus_show(struct seq_file *s, void *v)
++{
++	struct kernfs_open_file *of = s->private;
++	struct rdtgroup *rdtgrp;
++
++	rdtgrp = rdtgroup_kn_lock_live(of->kn);
++	seq_printf(s, "%*pb\n", cpumask_pr_args(&rdtgrp->cpu_mask));
++	rdtgroup_kn_unlock(of->kn);
++
++	return 0;
++}
++
++static ssize_t rdtgroup_cpus_write(struct kernfs_open_file *of,
++			char *buf, size_t nbytes, loff_t off)
++{
++	struct rdtgroup *rdtgrp;
++	unsigned long bitmap[BITS_TO_LONGS(NR_CPUS)];
++	struct cpumask *cpumask;
++	int cpu;
++	struct list_head *l;
++	struct rdtgroup *r;
++
++	if (!buf)
++		return -EINVAL;
++
++	rdtgrp = rdtgroup_kn_lock_live(of->kn);
++	if (!rdtgrp)
++		return -ENODEV;
++
++	if (list_empty(&rdtgroup_lists))
++		goto end;
++
++	__bitmap_parse(buf, strlen(buf), 0, bitmap, nr_cpu_ids);
++
++	cpumask = to_cpumask(bitmap);
++
++	list_for_each(l, &rdtgroup_lists) {
++		r = list_entry(l, struct rdtgroup, rdtgroup_list);
++		if (r == rdtgrp)
++			continue;
++
++		for_each_cpu_and(cpu, &r->cpu_mask, cpumask)
++			cpumask_clear_cpu(cpu, &r->cpu_mask);
++	}
++
++	cpumask_copy(&rdtgrp->cpu_mask, cpumask);
++	for_each_cpu(cpu, cpumask)
++		per_cpu(cpu_rdtgroup, cpu) = rdtgrp;
++
++end:
++	rdtgroup_kn_unlock(of->kn);
++
++	return nbytes;
++}
+ 
+ static struct rftype rdtgroup_partition_base_files[] = {
+ 	{

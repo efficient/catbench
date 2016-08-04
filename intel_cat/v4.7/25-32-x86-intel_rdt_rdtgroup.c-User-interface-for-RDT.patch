@@ -1,0 +1,981 @@
+From patchwork Wed Jul 13 01:02:58 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [25/32] x86/intel_rdt_rdtgroup.c: User interface for RDT
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226339
+Message-Id: <1468371785-53231-26-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:58 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+We introduce a new rscctrl file system mounted under /sys/fs/rscctrl.
+User uses this file system to control resource allocation.
+
+Hiearchy of the file system is as follows:
+/sys/fs/rscctrl/info/info
+		    /<resource0>/<resource0 specific info files>
+		    /<resource1>/<resource1 specific info files>
+			....
+		/tasks
+		/cpus
+		/schemas
+		/sub-dir1
+		/sub-dir2
+		....
+
+User can specify which task uses which schemas for resource allocation.
+
+More details can be found in Documentation/x86/intel_rdt_ui.txt
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/include/asm/intel_rdt.h          |   3 +
+ arch/x86/include/asm/intel_rdt_rdtgroup.h |   3 +
+ arch/x86/kernel/cpu/intel_rdt.c           |   2 +
+ arch/x86/kernel/cpu/intel_rdt_rdtgroup.c  | 881 ++++++++++++++++++++++++++++++
+ 4 files changed, 889 insertions(+)
+ create mode 100644 arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
+
+diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
+index f2298f3..90b6047 100644
+--- a/arch/x86/include/asm/intel_rdt.h
++++ b/arch/x86/include/asm/intel_rdt.h
+@@ -42,6 +42,9 @@ struct cache_domain {
+ 	unsigned int shared_cache_id[MAX_CACHE_DOMAINS];
+ };
+ 
++extern struct cache_domain cache_domains[MAX_CACHE_LEAVES];
++
++
+ extern struct rdt_opts rdt_opts;
+ 
+ struct clos_cbm_table {
+diff --git a/arch/x86/include/asm/intel_rdt_rdtgroup.h b/arch/x86/include/asm/intel_rdt_rdtgroup.h
+index 797fed3..b0bcf72 100644
+--- a/arch/x86/include/asm/intel_rdt_rdtgroup.h
++++ b/arch/x86/include/asm/intel_rdt_rdtgroup.h
+@@ -205,6 +205,9 @@ struct rdtgroup_root {
+ 	char name[MAX_RDTGROUP_ROOT_NAMELEN];
+ };
+ 
++extern int __init rdtgroup_init(void);
++extern bool rdtgroup_mounted;
++
+ /* no synchronization, the result can only be used as a hint */
+ static inline bool rdtgroup_is_populated(struct rdtgroup *rdtgrp)
+ {
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index 901156d..e483a1d 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -803,6 +803,8 @@ static int __init intel_rdt_late_init(void)
+ 
+ 	cpu_notifier_register_done();
+ 
++	rdtgroup_init();
++
+ 	static_key_slow_inc(&rdt_enable_key);
+ 	pr_info("Intel cache allocation enabled\n");
+ 	if (cpu_has(c, X86_FEATURE_CDP_L3))
+diff --git a/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c b/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
+new file mode 100644
+index 0000000..e1936d2
+--- /dev/null
++++ b/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
+@@ -0,0 +1,881 @@
++/*
++ * Resource Director Technology(RDT)
++ * - User interface for Resource Alloction in RDT.
++ *
++ * Copyright (C) 2016 Intel Corporation
++ *
++ * 2016 Written by
++ *    Fenghua Yu <fenghua.yu@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * More information about RDT be found in the Intel (R) x86 Architecture
++ * Software Developer Manual.
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/cred.h>
++#include <linux/ctype.h>
++#include <linux/errno.h>
++#include <linux/init_task.h>
++#include <linux/kernel.h>
++#include <linux/list.h>
++#include <linux/magic.h>
++#include <linux/mm.h>
++#include <linux/mutex.h>
++#include <linux/mount.h>
++#include <linux/pagemap.h>
++#include <linux/proc_fs.h>
++#include <linux/rcupdate.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/percpu-rwsem.h>
++#include <linux/string.h>
++#include <linux/sort.h>
++#include <linux/pid_namespace.h>
++#include <linux/idr.h>
++#include <linux/vmalloc.h> /* TODO: replace with more sophisticated array */
++#include <linux/kthread.h>
++#include <linux/delay.h>
++#include <linux/atomic.h>
++#include <linux/cpumask.h>
++#include <linux/cacheinfo.h>
++#include <linux/cacheinfo.h>
++#include <net/sock.h>
++#include <asm/intel_rdt_rdtgroup.h>
++#include <asm/intel_rdt.h>
++
++/**
++ * kernfs_root - find out the kernfs_root a kernfs_node belongs to
++ * @kn: kernfs_node of interest
++ *
++ * Return the kernfs_root @kn belongs to.
++ */
++static inline struct kernfs_root *get_kernfs_root(struct kernfs_node *kn)
++{
++	/* if parent exists, it's always a dir; otherwise, @sd is a dir */
++	if (kn->parent)
++		kn = kn->parent;
++	return kn->dir.root;
++}
++
++/*
++ * Protects rdtgroup_idr so that IDs can be released without grabbing
++ * rdtgroup_mutex.
++ */
++static DEFINE_SPINLOCK(rdtgroup_idr_lock);
++
++struct percpu_rw_semaphore rdtgroup_threadgroup_rwsem;
++
++#define MAX_CPUMASK_CHAR_IN_HEX	(NR_CPUS/4)
++
++static struct rftype rdtgroup_root_base_files[];
++
++#define RDTGROUP_FILE_NAME_MAX		(MAX_RDTGROUP_TYPE_NAMELEN +	\
++					 MAX_RFTYPE_NAME + 2)
++static char *rdtgroup_file_name(const struct rftype *rft, char *buf)
++{
++	strncpy(buf, rft->name, RDTGROUP_FILE_NAME_MAX);
++	return buf;
++}
++
++/**
++ * rdtgroup_file_mode - deduce file mode of a control file
++ * @cft: the control file in question
++ *
++ * S_IRUGO for read, S_IWUSR for write.
++ */
++static umode_t rdtgroup_file_mode(const struct rftype *rft)
++{
++	umode_t mode = 0;
++
++	if (rft->read_u64 || rft->read_s64 || rft->seq_show)
++		mode |= S_IRUGO;
++
++	if (rft->write_u64 || rft->write_s64 || rft->write) {
++		if (rft->flags & RFTYPE_WORLD_WRITABLE)
++			mode |= S_IWUGO;
++		else
++			mode |= S_IWUSR;
++	}
++
++	return mode;
++}
++
++/* set uid and gid of rdtgroup dirs and files to that of the creator */
++static int rdtgroup_kn_set_ugid(struct kernfs_node *kn)
++{
++	struct iattr iattr = { .ia_valid = ATTR_UID | ATTR_GID,
++			       .ia_uid = current_fsuid(),
++			       .ia_gid = current_fsgid(), };
++
++	if (uid_eq(iattr.ia_uid, GLOBAL_ROOT_UID) &&
++	    gid_eq(iattr.ia_gid, GLOBAL_ROOT_GID))
++		return 0;
++
++	return kernfs_setattr(kn, &iattr);
++}
++
++struct rdtgroup *root_rdtgrp;
++static int rdtgroup_add_file(struct kernfs_node *parent_kn, struct rftype *rft)
++{
++	char name[RDTGROUP_FILE_NAME_MAX];
++	struct kernfs_node *kn;
++	struct lock_class_key *key = NULL;
++	int ret;
++
++	kn = __kernfs_create_file(parent_kn, rdtgroup_file_name(rft, name),
++				  rdtgroup_file_mode(rft), 0, rft->kf_ops, rft,
++				  NULL, key);
++	if (IS_ERR(kn))
++		return PTR_ERR(kn);
++
++	ret = rdtgroup_kn_set_ugid(kn);
++	if (ret) {
++		kernfs_remove(kn);
++		return ret;
++	}
++
++	return 0;
++}
++
++static void rdtgroup_rm_file(struct kernfs_node *kn, const struct rftype *rft)
++{
++	char name[RDTGROUP_FILE_NAME_MAX];
++
++	lockdep_assert_held(&rdtgroup_mutex);
++
++	kernfs_remove_by_name(kn, rdtgroup_file_name(rft, name));
++}
++
++static int rdtgroup_addrm_files(struct kernfs_node *kn, struct rftype rfts[],
++			      bool is_add)
++{
++	struct rftype *rft, *rft_end = NULL;
++	int ret;
++
++	lockdep_assert_held(&rdtgroup_mutex);
++
++restart:
++	for (rft = rfts; rft != rft_end && rft->name[0] != '\0'; rft++) {
++		if (is_add) {
++			ret = rdtgroup_add_file(kn, rft);
++			if (ret) {
++				pr_warn("%s: failed to add %s, err=%d\n",
++					__func__, rft->name, ret);
++				rft_end = rft;
++				is_add = false;
++				goto restart;
++			}
++		} else {
++			rdtgroup_rm_file(kn, rft);
++		}
++	}
++	return 0;
++}
++
++static enum resource_type get_kn_res_type(struct kernfs_node *kn)
++{
++	return RESOURCE_L3;
++}
++
++static int rdt_max_closid_show(struct seq_file *seq, void *v)
++{
++	struct kernfs_open_file *of = seq->private;
++	enum resource_type res_type;
++
++	res_type = get_kn_res_type(of->kn);
++
++	switch (res_type) {
++	case RESOURCE_L3:
++		seq_printf(seq, "%d\n",
++			boot_cpu_data.x86_l3_max_closid);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int rdt_max_cbm_len_show(struct seq_file *seq, void *v)
++{
++	struct kernfs_open_file *of = seq->private;
++	enum resource_type res_type;
++
++	res_type = get_kn_res_type(of->kn);
++	switch (res_type) {
++	case RESOURCE_L3:
++		seq_printf(seq, "%d\n",
++			boot_cpu_data.x86_l3_max_cbm_len);
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int get_shared_domain(int domain, int level)
++{
++	int sd;
++
++	for_each_cache_domain(sd, 0, shared_domain_num) {
++		if (cat_l3_enabled && level == CACHE_LEVEL3) {
++			if (shared_domain[sd].l3_domain == domain)
++				return sd;
++		}
++	}
++
++	return -1;
++}
++
++static int rdtgroup_populate_dir(struct kernfs_node *kn)
++{
++	struct rftype *rfts;
++
++	rfts = rdtgroup_root_base_files;
++	return rdtgroup_addrm_files(kn, rfts, true);
++}
++
++static struct rftype rdtgroup_partition_base_files[];
++static int rdtgroup_partition_populate_dir(struct kernfs_node *kn)
++{
++	struct rftype *rfts;
++
++	rfts = rdtgroup_partition_base_files;
++
++	return rdtgroup_addrm_files(kn, rfts, true);
++}
++
++static int rdtgroup_procs_write_permission(struct task_struct *task,
++					   struct kernfs_open_file *of)
++{
++	const struct cred *cred = current_cred();
++	const struct cred *tcred = get_task_cred(task);
++	int ret = 0;
++
++	/*
++	 * even if we're attaching all tasks in the thread group, we only
++	 * need to check permissions on one of them.
++	 */
++	if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
++	    !uid_eq(cred->euid, tcred->uid) &&
++	    !uid_eq(cred->euid, tcred->suid))
++		ret = -EACCES;
++
++	put_cred(tcred);
++	return ret;
++}
++
++bool use_rdtgroup_tasks;
++
++static void init_rdtgroup_housekeeping(struct rdtgroup *rdtgrp)
++{
++	init_waitqueue_head(&rdtgrp->offline_waitq);
++	rdtgrp->pset.self = rdtgrp;
++	INIT_LIST_HEAD(&rdtgrp->pset.task_iters);
++}
++
++static LIST_HEAD(rdtgroup_lists);
++static void init_rdtgroup_root(struct rdtgroup_root *root)
++{
++	struct rdtgroup *rdtgrp = &root->rdtgrp;
++
++	INIT_LIST_HEAD(&root->root_list);
++	INIT_LIST_HEAD(&rdtgrp->rdtgroup_list);
++	list_add_tail(&rdtgrp->rdtgroup_list, &rdtgroup_lists);
++	atomic_set(&root->nr_rdtgrps, 1);
++	rdtgrp->root = root;
++	init_rdtgroup_housekeeping(rdtgrp);
++	idr_init(&root->rdtgroup_idr);
++}
++
++static DEFINE_IDR(rdtgroup_hierarchy_idr);
++static int rdtgroup_init_root_id(struct rdtgroup_root *root)
++{
++	int id;
++
++	lockdep_assert_held(&rdtgroup_mutex);
++
++	id = idr_alloc_cyclic(&rdtgroup_hierarchy_idr, root, 0, 0, GFP_KERNEL);
++	if (id < 0)
++		return id;
++
++	root->hierarchy_id = id;
++	return 0;
++}
++
++static struct kernfs_syscall_ops rdtgroup_kf_syscall_ops;
++/* IDR wrappers which synchronize using rdtgroup_idr_lock */
++static int rdtgroup_idr_alloc(struct idr *idr, void *ptr, int start, int end,
++			    gfp_t gfp_mask)
++{
++	int ret;
++
++	idr_preload(gfp_mask);
++	spin_lock_bh(&rdtgroup_idr_lock);
++	ret = idr_alloc(idr, ptr, start, end, gfp_mask & ~__GFP_DIRECT_RECLAIM);
++	spin_unlock_bh(&rdtgroup_idr_lock);
++	idr_preload_end();
++	return ret;
++}
++
++/* hierarchy ID allocation and mapping, protected by rdtgroup_mutex */
++static void rdtgroup_exit_root_id(struct rdtgroup_root *root)
++{
++	lockdep_assert_held(&rdtgroup_mutex);
++
++	if (root->hierarchy_id) {
++		idr_remove(&rdtgroup_hierarchy_idr, root->hierarchy_id);
++		root->hierarchy_id = 0;
++	}
++}
++
++static struct rdtgroup *rdtgroup_kn_lock_live(struct kernfs_node *kn)
++{
++	struct rdtgroup *rdtgrp;
++
++	if (kernfs_type(kn) == KERNFS_DIR)
++		rdtgrp = kn->priv;
++	else
++		rdtgrp = kn->parent->priv;
++
++	kernfs_break_active_protection(kn);
++
++	mutex_lock(&rdtgroup_mutex);
++
++	return rdtgrp;
++}
++
++static void rdtgroup_kn_unlock(struct kernfs_node *kn)
++{
++	mutex_unlock(&rdtgroup_mutex);
++
++	kernfs_unbreak_active_protection(kn);
++}
++
++static char *res_info_dir_name(enum resource_type res_type, char *name)
++{
++	switch (res_type) {
++	case RESOURCE_L3:
++		strncpy(name, "l3", RDTGROUP_FILE_NAME_MAX);
++		break;
++	default:
++		break;
++	}
++
++	return name;
++}
++
++static int rdtgroup_setup_root(struct rdtgroup_root *root,
++			       unsigned long ss_mask)
++{
++	int ret;
++
++	root_rdtgrp = &root->rdtgrp;
++
++	lockdep_assert_held(&rdtgroup_mutex);
++
++	ret = rdtgroup_idr_alloc(&root->rdtgroup_idr, root_rdtgrp,
++				 1, 2, GFP_KERNEL);
++	if (ret < 0)
++		goto out;
++
++	root_rdtgrp->id = ret;
++	root_rdtgrp->ancestor_ids[0] = ret;
++
++	ret = rdtgroup_init_root_id(root);
++	if (ret)
++		goto cancel_ref;
++
++	root->kf_root = kernfs_create_root(&rdtgroup_kf_syscall_ops,
++					   KERNFS_ROOT_CREATE_DEACTIVATED,
++					   root_rdtgrp);
++	if (IS_ERR(root->kf_root)) {
++		ret = PTR_ERR(root->kf_root);
++		goto exit_root_id;
++	}
++	root_rdtgrp->kn = root->kf_root->kn;
++
++	ret = rdtgroup_populate_dir(root->kf_root->kn);
++	if (ret)
++		goto destroy_root;
++
++	/*
++	 * Link the root rdtgroup in this hierarchy into all the css_set
++	 * objects.
++	 */
++	WARN_ON(atomic_read(&root->nr_rdtgrps) != 1);
++
++	kernfs_activate(root_rdtgrp->kn);
++	ret = 0;
++	goto out;
++
++destroy_root:
++	kernfs_destroy_root(root->kf_root);
++	root->kf_root = NULL;
++exit_root_id:
++	rdtgroup_exit_root_id(root);
++cancel_ref:
++out:
++	return ret;
++}
++
++#define cache_leaves(cpu)       (get_cpu_cacheinfo(cpu)->num_leaves)
++
++struct cache_domain cache_domains[MAX_CACHE_LEAVES];
++
++static int get_shared_cache_id(int cpu, int level)
++{
++	struct cpuinfo_x86 *c;
++	int index_msb;
++	struct cpu_cacheinfo *this_cpu_ci;
++	struct cacheinfo *this_leaf;
++
++	this_cpu_ci = get_cpu_cacheinfo(cpu);
++
++	this_leaf = this_cpu_ci->info_list + level_to_leaf(level);
++	return this_leaf->id;
++	return c->apicid >> index_msb;
++}
++
++static __init void init_cache_domains(void)
++{
++	int cpu, domain;
++	struct cpu_cacheinfo *this_cpu_ci;
++	struct cacheinfo *this_leaf;
++	int leaves;
++	char buf[MAX_CPUMASK_CHAR_IN_HEX + 1];
++	unsigned int level;
++
++	for (leaves = 0; leaves < cache_leaves(0); leaves++) {
++		for_each_online_cpu(cpu) {
++			struct cpumask *mask;
++
++			this_cpu_ci = get_cpu_cacheinfo(cpu);
++			this_leaf = this_cpu_ci->info_list + leaves;
++			cache_domains[leaves].level = this_leaf->level;
++			mask = &this_leaf->shared_cpu_map;
++			cpumap_print_to_pagebuf(false, buf, mask);
++			for (domain = 0; domain < MAX_CACHE_DOMAINS; domain++) {
++				if (cpumask_test_cpu(cpu,
++				&cache_domains[leaves].shared_cpu_map[domain]))
++					break;
++			}
++			if (domain == MAX_CACHE_DOMAINS) {
++				domain =
++				  cache_domains[leaves].max_cache_domains_num++;
++
++				cache_domains[leaves].shared_cpu_map[domain] =
++					*mask;
++
++				level = cache_domains[leaves].level;
++				cache_domains[leaves].shared_cache_id[domain] =
++					get_shared_cache_id(cpu, level);
++			}
++		}
++	}
++}
++
++static ssize_t rdtgroup_tasks_write(struct kernfs_open_file *of,
++				  char *buf, size_t nbytes, loff_t off);
++
++DEFINE_SPINLOCK(rdtgroup_task_lock);
++
++void rdtgroup_exit(struct task_struct *tsk)
++{
++
++	spin_lock_irq(&rdtgroup_task_lock);
++	if (!list_empty(&tsk->rg_list)) {
++		struct rdtgroup *rdtgrp = tsk->rdtgroup;
++
++		list_del_init(&tsk->rg_list);
++		tsk->rdtgroup = NULL;
++		atomic_dec(&rdtgrp->pset.refcount);
++	}
++	spin_unlock_irq(&rdtgroup_task_lock);
++}
++
++static struct rdtgroup *rdtgroup_kn_lock_live(struct kernfs_node *kn);
++static void rdtgroup_kn_unlock(struct kernfs_node *kn);
++
++static struct rftype rdtgroup_partition_base_files[] = {
++	{
++		.name = "tasks",
++		.seq_show = rdtgroup_pidlist_show,
++		.write = rdtgroup_tasks_write,
++	},
++	{
++		.name = "cpus",
++		.write = rdtgroup_cpus_write,
++		.seq_show = rdtgroup_cpus_show,
++	},
++	{
++		.name = "schemas",
++		.write = rdtgroup_schemas_write,
++		.seq_show = rdtgroup_schemas_show,
++	},
++	{ }	/* terminate */
++};
++
++/* rdtgroup core interface files */
++static struct rftype rdtgroup_root_base_files[] = {
++	{
++		.name = "tasks",
++		.seq_show = rdtgroup_pidlist_show,
++		.write = rdtgroup_tasks_write,
++	},
++	{
++		.name = "cpus",
++		.write = rdtgroup_cpus_write,
++		.seq_show = rdtgroup_cpus_show,
++	},
++	{
++		.name = "schemas",
++		.write = rdtgroup_schemas_write,
++		.seq_show = rdtgroup_schemas_show,
++	},
++	{ }	/* terminate */
++};
++
++static void *rdtgroup_idr_replace(struct idr *idr, void *ptr, int id)
++{
++	void *ret;
++
++	spin_lock_bh(&rdtgroup_idr_lock);
++	ret = idr_replace(idr, ptr, id);
++	spin_unlock_bh(&rdtgroup_idr_lock);
++	return ret;
++}
++
++static int rdtgroup_destroy_locked(struct rdtgroup *rdtgrp)
++	__releases(&rdtgroup_mutex) __acquires(&rdtgroup_mutex)
++{
++	int shared_domain;
++	int closid;
++
++	lockdep_assert_held(&rdtgroup_mutex);
++
++	/*
++	 * Only migration can raise populated from zero and we're already
++	 * holding rdtgroup_mutex.
++	 */
++	if (rdtgroup_is_populated(rdtgrp))
++		return -EBUSY;
++
++	/* free closid occupied by this rdtgroup. */
++	for_each_cache_domain(shared_domain, 0, shared_domain_num) {
++		closid = rdtgrp->resource.closid[shared_domain];
++		closid_put(closid, shared_domain);
++	}
++
++	list_del_init(&rdtgrp->rdtgroup_list);
++
++	/*
++	 * Remove @rdtgrp directory along with the base files.  @rdtgrp has an
++	 * extra ref on its kn.
++	 */
++	kernfs_remove(rdtgrp->kn);
++
++	return 0;
++}
++
++static void rdtgroup_idr_remove(struct idr *idr, int id)
++{
++	spin_lock_bh(&rdtgroup_idr_lock);
++	idr_remove(idr, id);
++	spin_unlock_bh(&rdtgroup_idr_lock);
++}
++
++static int
++rdtgroup_move_task_all(struct rdtgroup *src_rdtgrp, struct rdtgroup *dst_rdtgrp)
++{
++	struct list_head *tasks;
++
++	tasks = &src_rdtgrp->pset.tasks;
++	while (!list_empty(tasks)) {
++		struct task_struct *tsk;
++		struct list_head *pos;
++		pid_t pid;
++		int ret;
++
++		pos = tasks->next;
++		tsk = list_entry(pos, struct task_struct, rg_list);
++		pid = tsk->pid;
++		ret = rdtgroup_move_task(pid, dst_rdtgrp, false, NULL);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++/*
++ * Remove all of subdirectories under root.
++ */
++static int rmdir_all_sub(void)
++{
++	struct rdtgroup *rdtgrp;
++	int cpu;
++	int ret = 0;
++	struct list_head *l;
++
++	while (!list_is_last(&root_rdtgrp->rdtgroup_list, &rdtgroup_lists)) {
++		l = rdtgroup_lists.next;
++		if (l == &root_rdtgrp->rdtgroup_list)
++			l = l->next;
++
++		rdtgrp = list_entry(l, struct rdtgroup, rdtgroup_list);
++		if (rdtgrp == root_rdtgrp)
++			continue;
++
++		rdtgroup_move_task_all(rdtgrp, root_rdtgrp);
++
++		for_each_cpu(cpu, &rdtgrp->cpu_mask)
++			per_cpu(cpu_rdtgroup, cpu) = 0;
++
++		ret = rdtgroup_destroy_locked(rdtgrp);
++		if (ret)
++			goto out;
++	}
++
++out:
++	return ret;
++}
++
++/*
++ * The default hierarchy.
++ */
++struct rdtgroup_root rdtgrp_dfl_root;
++EXPORT_SYMBOL_GPL(rdtgrp_dfl_root);
++
++static int parse_rdtgroupfs_options(char *data)
++{
++	char *token, *o = data;
++	int nr_opts = 0;
++
++	while ((token = strsep(&o, ",")) != NULL) {
++		nr_opts++;
++
++		if (!*token)
++			return -EINVAL;
++		if (!strcmp(token, "cdp")) {
++			/* Enable CDP */
++			rdt_opts.cdp_enabled = true;
++			continue;
++		}
++		if (!strcmp(token, "verbose")) {
++			rdt_opts.verbose = true;
++			continue;
++		}
++	}
++
++	return 0;
++}
++
++static void release_root_closid(void)
++{
++	int domain;
++	int closid;
++
++	if (!root_rdtgrp->resource.valid)
++		return;
++
++	for_each_cache_domain(domain, 0, shared_domain_num) {
++		/* Put closid in root rdtgrp's domain if valid. */
++		closid = root_rdtgrp->resource.closid[domain];
++		closid_put(closid, domain);
++	}
++}
++
++static void setup_task_rg_lists(struct rdtgroup *rdtgrp, bool enable)
++{
++	struct task_struct *p, *g;
++
++	spin_lock_irq(&rdtgroup_task_lock);
++	if (enable)
++		INIT_LIST_HEAD(&rdtgrp->pset.tasks);
++	use_rdtgroup_tasks = enable;
++
++	/*
++	 * We need tasklist_lock because RCU is not safe against
++	 * while_each_thread(). Besides, a forking task that has passed
++	 * rdtgroup_post_fork() without seeing use_task_css_set_links = 1
++	 * is not guaranteed to have its child immediately visible in the
++	 * tasklist if we walk through it with RCU.
++	 */
++	read_lock(&tasklist_lock);
++	do_each_thread(g, p) {
++		WARN_ON_ONCE(enable ? !list_empty(&p->rg_list) :
++			     list_empty(&p->rg_list));
++
++		/*
++		 * We should check if the process is exiting, otherwise
++		 * it will race with rdtgroup_exit() in that the list
++		 * entry won't be deleted though the process has exited.
++		 * Do it while holding siglock so that we don't end up
++		 * racing against rdtgroup_exit().
++		 */
++		spin_lock_irq(&p->sighand->siglock);
++		if (!(p->flags & PF_EXITING)) {
++			if (enable) {
++				list_add_tail(&p->rg_list, &rdtgrp->pset.tasks);
++				p->rdtgroup = rdtgrp;
++				atomic_inc(&rdtgrp->pset.refcount);
++			} else {
++				list_del_init(&p->rg_list);
++				p->rdtgroup = NULL;
++				atomic_dec(&rdtgrp->pset.refcount);
++			}
++		}
++		spin_unlock_irq(&p->sighand->siglock);
++	} while_each_thread(g, p);
++	read_unlock(&tasklist_lock);
++	spin_unlock_irq(&rdtgroup_task_lock);
++}
++
++/*
++ * The default hierarchy always exists but is hidden until mounted for the
++ * first time.  This is for backward compatibility.
++ */
++static bool rdtgrp_dfl_root_visible;
++
++static ssize_t rdtgroup_file_write(struct kernfs_open_file *of, char *buf,
++				 size_t nbytes, loff_t off)
++{
++	struct rftype *rft = of->kn->priv;
++
++	if (rft->write)
++		return rft->write(of, buf, nbytes, off);
++
++	return -EINVAL;
++}
++
++static void *rdtgroup_seqfile_start(struct seq_file *seq, loff_t *ppos)
++{
++	return seq_rft(seq)->seq_start(seq, ppos);
++}
++
++static void *rdtgroup_seqfile_next(struct seq_file *seq, void *v, loff_t *ppos)
++{
++	return seq_rft(seq)->seq_next(seq, v, ppos);
++}
++
++static void rdtgroup_seqfile_stop(struct seq_file *seq, void *v)
++{
++	seq_rft(seq)->seq_stop(seq, v);
++}
++
++static int rdtgroup_seqfile_show(struct seq_file *m, void *arg)
++{
++	struct rftype *rft = seq_rft(m);
++
++	if (rft->seq_show)
++		return rft->seq_show(m, arg);
++	return 0;
++}
++
++static struct kernfs_ops rdtgroup_kf_ops = {
++	.atomic_write_len	= PAGE_SIZE,
++	.write			= rdtgroup_file_write,
++	.seq_start		= rdtgroup_seqfile_start,
++	.seq_next		= rdtgroup_seqfile_next,
++	.seq_stop		= rdtgroup_seqfile_stop,
++	.seq_show		= rdtgroup_seqfile_show,
++};
++
++static struct kernfs_ops rdtgroup_kf_single_ops = {
++	.atomic_write_len	= PAGE_SIZE,
++	.write			= rdtgroup_file_write,
++	.seq_show		= rdtgroup_seqfile_show,
++};
++
++static void rdtgroup_exit_rftypes(struct rftype *rfts)
++{
++	struct rftype *rft;
++
++	for (rft = rfts; rft->name[0] != '\0'; rft++) {
++		/* free copy for custom atomic_write_len, see init_cftypes() */
++		if (rft->max_write_len && rft->max_write_len != PAGE_SIZE)
++			kfree(rft->kf_ops);
++		rft->kf_ops = NULL;
++
++		/* revert flags set by rdtgroup core while adding @cfts */
++		rft->flags &= ~(__RFTYPE_ONLY_ON_DFL | __RFTYPE_NOT_ON_DFL);
++	}
++}
++
++static int rdtgroup_init_rftypes(struct rftype *rfts)
++{
++	struct rftype *rft;
++
++	for (rft = rfts; rft->name[0] != '\0'; rft++) {
++		struct kernfs_ops *kf_ops;
++
++		if (rft->seq_start)
++			kf_ops = &rdtgroup_kf_ops;
++		else
++			kf_ops = &rdtgroup_kf_single_ops;
++
++		/*
++		 * Ugh... if @cft wants a custom max_write_len, we need to
++		 * make a copy of kf_ops to set its atomic_write_len.
++		 */
++		if (rft->max_write_len && rft->max_write_len != PAGE_SIZE) {
++			kf_ops = kmemdup(kf_ops, sizeof(*kf_ops), GFP_KERNEL);
++			if (!kf_ops) {
++				rdtgroup_exit_rftypes(rfts);
++				return -ENOMEM;
++			}
++			kf_ops->atomic_write_len = rft->max_write_len;
++		}
++
++		rft->kf_ops = kf_ops;
++	}
++
++	return 0;
++}
++
++static struct list_head rdtgroups;
++
++struct rdtgroup_root rdtgrp_dfl_root;
++/*
++ * rdtgroup_init - rdtgroup initialization
++ *
++ * Register rdtgroup filesystem, and initialize any subsystems that didn't
++ * request early init.
++ */
++int __init rdtgroup_init(void)
++{
++	WARN_ON(percpu_init_rwsem(&rdtgroup_threadgroup_rwsem));
++	WARN_ON(rdtgroup_init_rftypes(rdtgroup_root_base_files));
++
++	WARN_ON(rdtgroup_init_rftypes(res_info_files));
++	WARN_ON(rdtgroup_init_rftypes(info_files));
++
++	WARN_ON(rdtgroup_init_rftypes(rdtgroup_partition_base_files));
++	mutex_lock(&rdtgroup_mutex);
++
++	init_rdtgroup_root(&rdtgrp_dfl_root);
++	WARN_ON(rdtgroup_setup_root(&rdtgrp_dfl_root, 0));
++
++	mutex_unlock(&rdtgroup_mutex);
++
++	WARN_ON(sysfs_create_mount_point(fs_kobj, "rscctrl"));
++	WARN_ON(register_filesystem(&rdt_fs_type));
++	init_cache_domains();
++
++	INIT_LIST_HEAD(&rdtgroups);
++
++	return 0;
++}

@@ -1,0 +1,142 @@
+From patchwork Wed Jul 13 01:02:39 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [06/32] x86/intel_rdt: Hot cpu support for Cache Allocation
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226327
+Message-Id: <1468371785-53231-7-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:39 -0700
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+
+This patch adds hot plug cpu support for Intel Cache allocation. Support
+includes updating the cache bitmask MSRs IA32_L3_QOS_n when a new CPU
+package comes online or goes offline. The IA32_L3_QOS_n MSRs are one per
+Class of service on each CPU package. The new package's MSRs are
+synchronized with the values of existing MSRs. Also the software cache
+for IA32_PQR_ASSOC MSRs are reset during hot cpu notifications.
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/kernel/cpu/intel_rdt.c | 76 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 76 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index 8379df8..31f8588 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -24,6 +24,7 @@
+ 
+ #include <linux/slab.h>
+ #include <linux/err.h>
++#include <linux/cpu.h>
+ #include <linux/sched.h>
+ #include <asm/pqr_common.h>
+ #include <asm/intel_rdt.h>
+@@ -234,6 +235,75 @@ static inline bool rdt_cpumask_update(int cpu)
+ 	return false;
+ }
+ 
++/*
++ * cbm_update_msrs() - Updates all the existing IA32_L3_MASK_n MSRs
++ * which are one per CLOSid on the current package.
++ */
++static void cbm_update_msrs(void *dummy)
++{
++	int maxid = boot_cpu_data.x86_cache_max_closid;
++	struct rdt_remote_data info;
++	unsigned int i;
++
++	for (i = 0; i < maxid; i++) {
++		if (cctable[i].clos_refcnt) {
++			info.msr = CBM_FROM_INDEX(i);
++			info.val = cctable[i].l3_cbm;
++			msr_cpu_update(&info);
++		}
++	}
++}
++
++static inline void intel_rdt_cpu_start(int cpu)
++{
++	struct intel_pqr_state *state = &per_cpu(pqr_state, cpu);
++
++	state->closid = 0;
++	mutex_lock(&rdt_group_mutex);
++	if (rdt_cpumask_update(cpu))
++		smp_call_function_single(cpu, cbm_update_msrs, NULL, 1);
++	mutex_unlock(&rdt_group_mutex);
++}
++
++static void intel_rdt_cpu_exit(unsigned int cpu)
++{
++	int i;
++
++	mutex_lock(&rdt_group_mutex);
++	if (!cpumask_test_and_clear_cpu(cpu, &rdt_cpumask)) {
++		mutex_unlock(&rdt_group_mutex);
++		return;
++	}
++
++	cpumask_and(&tmp_cpumask, topology_core_cpumask(cpu), cpu_online_mask);
++	cpumask_clear_cpu(cpu, &tmp_cpumask);
++	i = cpumask_any(&tmp_cpumask);
++
++	if (i < nr_cpu_ids)
++		cpumask_set_cpu(i, &rdt_cpumask);
++	mutex_unlock(&rdt_group_mutex);
++}
++
++static int intel_rdt_cpu_notifier(struct notifier_block *nb,
++				  unsigned long action, void *hcpu)
++{
++	unsigned int cpu  = (unsigned long)hcpu;
++
++	switch (action) {
++	case CPU_DOWN_FAILED:
++	case CPU_ONLINE:
++		intel_rdt_cpu_start(cpu);
++		break;
++	case CPU_DOWN_PREPARE:
++		intel_rdt_cpu_exit(cpu);
++		break;
++	default:
++		break;
++	}
++
++	return NOTIFY_OK;
++}
++
+ static int __init intel_rdt_late_init(void)
+ {
+ 	struct cpuinfo_x86 *c = &boot_cpu_data;
+@@ -261,9 +331,15 @@ static int __init intel_rdt_late_init(void)
+ 		goto out_err;
+ 	}
+ 
++	cpu_notifier_register_begin();
++
+ 	for_each_online_cpu(i)
+ 		rdt_cpumask_update(i);
+ 
++	__hotcpu_notifier(intel_rdt_cpu_notifier, 0);
++
++	cpu_notifier_register_done();
++
+ 	static_key_slow_inc(&rdt_enable_key);
+ 	pr_info("Intel cache allocation enabled\n");
+ out_err:

@@ -1,0 +1,218 @@
+From patchwork Wed Jul 13 01:02:37 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [04/32] x86/intel_rdt: Add L3 cache capacity bitmask management
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226347
+Message-Id: <1468371785-53231-5-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:37 -0700
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+
+This patch adds different APIs to manage the L3 cache capacity bitmask.
+The capacity bit mask(CBM) needs to have only contiguous bits set. The
+current implementation has a global CBM for each class of service id.
+There are APIs added to update the CBM via MSR write to IA32_L3_MASK_n
+on all packages. Other APIs are to read and write entries to the
+clos_cbm_table.
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/include/asm/intel_rdt.h |   4 ++
+ arch/x86/kernel/cpu/intel_rdt.c  | 133 ++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 136 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
+index 88b7643..4f45dc8 100644
+--- a/arch/x86/include/asm/intel_rdt.h
++++ b/arch/x86/include/asm/intel_rdt.h
+@@ -3,6 +3,10 @@
+ 
+ #ifdef CONFIG_INTEL_RDT
+ 
++#define MAX_CBM_LENGTH			32
++#define IA32_L3_CBM_BASE		0xc90
++#define CBM_FROM_INDEX(x)		(IA32_L3_CBM_BASE + x)
++
+ struct clos_cbm_table {
+ 	unsigned long l3_cbm;
+ 	unsigned int clos_refcnt;
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index d79213a..6ad5b48 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -34,8 +34,22 @@ static struct clos_cbm_table *cctable;
+  * closid availability bit map.
+  */
+ unsigned long *closmap;
++/*
++ * Mask of CPUs for writing CBM values. We only need one CPU per-socket.
++ */
++static cpumask_t rdt_cpumask;
++/*
++ * Temporary cpumask used during hot cpu notificaiton handling. The usage
++ * is serialized by hot cpu locks.
++ */
++static cpumask_t tmp_cpumask;
+ static DEFINE_MUTEX(rdt_group_mutex);
+ 
++struct rdt_remote_data {
++	int msr;
++	u64 val;
++};
++
+ static inline void closid_get(u32 closid)
+ {
+ 	struct clos_cbm_table *cct = &cctable[closid];
+@@ -82,11 +96,126 @@ static void closid_put(u32 closid)
+ 		closid_free(closid);
+ }
+ 
++static bool cbm_validate(unsigned long var)
++{
++	u32 max_cbm_len = boot_cpu_data.x86_cache_max_cbm_len;
++	unsigned long first_bit, zero_bit;
++	u64 max_cbm;
++
++	if (bitmap_weight(&var, max_cbm_len) < 1)
++		return false;
++
++	max_cbm = (1ULL << max_cbm_len) - 1;
++	if (var & ~max_cbm)
++		return false;
++
++	first_bit = find_first_bit(&var, max_cbm_len);
++	zero_bit = find_next_zero_bit(&var, max_cbm_len, first_bit);
++
++	if (find_next_bit(&var, max_cbm_len, zero_bit) < max_cbm_len)
++		return false;
++
++	return true;
++}
++
++static int clos_cbm_table_read(u32 closid, unsigned long *l3_cbm)
++{
++	u32 maxid = boot_cpu_data.x86_cache_max_closid;
++
++	lockdep_assert_held(&rdt_group_mutex);
++
++	if (closid >= maxid)
++		return -EINVAL;
++
++	*l3_cbm = cctable[closid].l3_cbm;
++
++	return 0;
++}
++
++/*
++ * clos_cbm_table_update() - Update a clos cbm table entry.
++ * @closid: the closid whose cbm needs to be updated
++ * @cbm: the new cbm value that has to be updated
++ *
++ * This assumes the cbm is validated as per the interface requirements
++ * and the cache allocation requirements(through the cbm_validate).
++ */
++static int clos_cbm_table_update(u32 closid, unsigned long cbm)
++{
++	u32 maxid = boot_cpu_data.x86_cache_max_closid;
++
++	lockdep_assert_held(&rdt_group_mutex);
++
++	if (closid >= maxid)
++		return -EINVAL;
++
++	cctable[closid].l3_cbm = cbm;
++
++	return 0;
++}
++
++static bool cbm_search(unsigned long cbm, u32 *closid)
++{
++	u32 maxid = boot_cpu_data.x86_cache_max_closid;
++	u32 i;
++
++	for (i = 0; i < maxid; i++) {
++		if (cctable[i].clos_refcnt &&
++		    bitmap_equal(&cbm, &cctable[i].l3_cbm, MAX_CBM_LENGTH)) {
++			*closid = i;
++			return true;
++		}
++	}
++
++	return false;
++}
++
++static void closcbm_map_dump(void)
++{
++	u32 i;
++
++	pr_debug("CBMMAP\n");
++	for (i = 0; i < boot_cpu_data.x86_cache_max_closid; i++) {
++		pr_debug("l3_cbm: 0x%x,clos_refcnt: %u\n",
++		 (unsigned int)cctable[i].l3_cbm, cctable[i].clos_refcnt);
++	}
++}
++
++static void msr_cpu_update(void *arg)
++{
++	struct rdt_remote_data *info = arg;
++
++	wrmsrl(info->msr, info->val);
++}
++
++/*
++ * msr_update_all() - Update the msr for all packages.
++ */
++static inline void msr_update_all(int msr, u64 val)
++{
++	struct rdt_remote_data info;
++
++	info.msr = msr;
++	info.val = val;
++	on_each_cpu_mask(&rdt_cpumask, msr_cpu_update, &info, 1);
++}
++
++static inline bool rdt_cpumask_update(int cpu)
++{
++	cpumask_and(&tmp_cpumask, &rdt_cpumask, topology_core_cpumask(cpu));
++	if (cpumask_empty(&tmp_cpumask)) {
++		cpumask_set_cpu(cpu, &rdt_cpumask);
++		return true;
++	}
++
++	return false;
++}
++
+ static int __init intel_rdt_late_init(void)
+ {
+ 	struct cpuinfo_x86 *c = &boot_cpu_data;
+ 	u32 maxid, max_cbm_len;
+-	int err = 0, size;
++	int err = 0, size, i;
+ 
+ 	if (!cpu_has(c, X86_FEATURE_CAT_L3))
+ 		return -ENODEV;
+@@ -109,6 +238,8 @@ static int __init intel_rdt_late_init(void)
+ 		goto out_err;
+ 	}
+ 
++	for_each_online_cpu(i)
++		rdt_cpumask_update(i);
+ 	pr_info("Intel cache allocation enabled\n");
+ out_err:
+ 

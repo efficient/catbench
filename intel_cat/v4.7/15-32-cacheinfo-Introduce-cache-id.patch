@@ -1,0 +1,112 @@
+From patchwork Wed Jul 13 01:02:48 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [15/32] cacheinfo: Introduce cache id
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226323
+Message-Id: <1468371785-53231-16-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:48 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+Each cache is described by cacheinfo and is unique in the same index
+across the platform. But there is no id for a cache. We introduce cache
+ID to identify a cache.
+
+Intel Cache Allocation Technology (CAT) allows some control on the
+allocation policy within each cache that it controls. We need a unique
+cache ID for each cache level to allow the user to specify which
+controls are applied to which cache. Cache id is a concise way to specify
+a cache.
+
+Cache id is first enabled on x86. It can be enabled on other platforms
+as well. The cache id is not necessary contiguous.
+
+Add an "id" entry to /sys/devices/system/cpu/cpu*/cache/index*/
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+Acked-by: Borislav Petkov <bp@suse.com>
+---
+ drivers/base/cacheinfo.c  | 5 +++++
+ include/linux/cacheinfo.h | 3 +++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
+index e9fd32e..2a21c15 100644
+--- a/drivers/base/cacheinfo.c
++++ b/drivers/base/cacheinfo.c
+@@ -233,6 +233,7 @@ static ssize_t file_name##_show(struct device *dev,		\
+ 	return sprintf(buf, "%u\n", this_leaf->object);		\
+ }
+ 
++show_one(id, id);
+ show_one(level, level);
+ show_one(coherency_line_size, coherency_line_size);
+ show_one(number_of_sets, number_of_sets);
+@@ -314,6 +315,7 @@ static ssize_t write_policy_show(struct device *dev,
+ 	return n;
+ }
+ 
++static DEVICE_ATTR_RO(id);
+ static DEVICE_ATTR_RO(level);
+ static DEVICE_ATTR_RO(type);
+ static DEVICE_ATTR_RO(coherency_line_size);
+@@ -327,6 +329,7 @@ static DEVICE_ATTR_RO(shared_cpu_list);
+ static DEVICE_ATTR_RO(physical_line_partition);
+ 
+ static struct attribute *cache_default_attrs[] = {
++	&dev_attr_id.attr,
+ 	&dev_attr_type.attr,
+ 	&dev_attr_level.attr,
+ 	&dev_attr_shared_cpu_map.attr,
+@@ -350,6 +353,8 @@ cache_default_attrs_is_visible(struct kobject *kobj,
+ 	const struct cpumask *mask = &this_leaf->shared_cpu_map;
+ 	umode_t mode = attr->mode;
+ 
++	if ((attr == &dev_attr_id.attr) && this_leaf->attributes & CACHE_ID)
++		return mode;
+ 	if ((attr == &dev_attr_type.attr) && this_leaf->type)
+ 		return mode;
+ 	if ((attr == &dev_attr_level.attr) && this_leaf->level)
+diff --git a/include/linux/cacheinfo.h b/include/linux/cacheinfo.h
+index 2189935..cf6984d 100644
+--- a/include/linux/cacheinfo.h
++++ b/include/linux/cacheinfo.h
+@@ -18,6 +18,7 @@ enum cache_type {
+ 
+ /**
+  * struct cacheinfo - represent a cache leaf node
++ * @id: This cache's id. ID is unique in the same index on the platform.
+  * @type: type of the cache - data, inst or unified
+  * @level: represents the hierarchy in the multi-level cache
+  * @coherency_line_size: size of each cache line usually representing
+@@ -44,6 +45,7 @@ enum cache_type {
+  * keeping, the remaining members form the core properties of the cache
+  */
+ struct cacheinfo {
++	unsigned int id;
+ 	enum cache_type type;
+ 	unsigned int level;
+ 	unsigned int coherency_line_size;
+@@ -61,6 +63,7 @@ struct cacheinfo {
+ #define CACHE_WRITE_ALLOCATE	BIT(3)
+ #define CACHE_ALLOCATE_POLICY_MASK	\
+ 	(CACHE_READ_ALLOCATE | CACHE_WRITE_ALLOCATE)
++#define CACHE_ID		BIT(4)
+ 
+ 	struct device_node *of_node;
+ 	bool disable_sysfs;

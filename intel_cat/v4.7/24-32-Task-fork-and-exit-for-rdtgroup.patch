@@ -1,0 +1,130 @@
+From patchwork Wed Jul 13 01:02:57 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [24/32] Task fork and exit for rdtgroup
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226303
+Message-Id: <1468371785-53231-25-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:57 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+When a task is forked, it inherites its parent rdtgroup. The task
+can be moved to other rdtgroup during its run time.
+
+When the task exits, it's deleted from it's current rdtgroup's task
+list.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/include/asm/intel_rdt.h |  1 +
+ arch/x86/kernel/cpu/intel_rdt.c  | 22 ++++++++++++++++++++++
+ kernel/exit.c                    |  2 ++
+ kernel/fork.c                    |  4 ++++
+ 4 files changed, 29 insertions(+)
+
+diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
+index 5aacc4a..f2298f3 100644
+--- a/arch/x86/include/asm/intel_rdt.h
++++ b/arch/x86/include/asm/intel_rdt.h
+@@ -22,6 +22,7 @@ enum resource_type {
+ DECLARE_PER_CPU_READ_MOSTLY(int, cpu_l3_domain);
+ DECLARE_PER_CPU_READ_MOSTLY(struct rdtgroup *, cpu_rdtgroup);
+ 
++extern spinlock_t rdtgroup_task_lock;
+ extern struct static_key rdt_enable_key;
+ void __intel_rdt_sched_in(void *dummy);
+ extern bool use_rdtgroup_tasks;
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index 017c833..901156d 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -812,3 +812,25 @@ static int __init intel_rdt_late_init(void)
+ }
+ 
+ late_initcall(intel_rdt_late_init);
++
++void rdtgroup_fork(struct task_struct *child)
++{
++	INIT_LIST_HEAD(&child->rg_list);
++	child->rdtgroup = NULL;
++}
++
++void rdtgroup_post_fork(struct task_struct *child)
++{
++	if (!use_rdtgroup_tasks)
++		return;
++
++	spin_lock_irq(&rdtgroup_task_lock);
++	if (list_empty(&child->rg_list)) {
++		struct rdtgroup *rdtgrp = current->rdtgroup;
++
++		list_add_tail(&child->rg_list, &rdtgrp->pset.tasks);
++		child->rdtgroup = rdtgrp;
++		atomic_inc(&rdtgrp->pset.refcount);
++	}
++	spin_unlock_irq(&rdtgroup_task_lock);
++}
+diff --git a/kernel/exit.c b/kernel/exit.c
+index 9e6e135..04346b6 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -59,6 +59,7 @@
+ #include <asm/unistd.h>
+ #include <asm/pgtable.h>
+ #include <asm/mmu_context.h>
++#include <asm/intel_rdt.h>
+ 
+ static void __unhash_process(struct task_struct *p, bool group_dead)
+ {
+@@ -757,6 +758,7 @@ void do_exit(long code)
+ 	perf_event_exit_task(tsk);
+ 
+ 	cgroup_exit(tsk);
++	rdtgroup_exit(tsk);
+ 
+ 	/*
+ 	 * FIXME: do that only when needed, using sched_exit tracepoint
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 4a7ec0c..d9bb373 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -84,6 +84,8 @@
+ #include <asm/cacheflush.h>
+ #include <asm/tlbflush.h>
+ 
++#include <asm/intel_rdt.h>
++
+ #include <trace/events/sched.h>
+ 
+ #define CREATE_TRACE_POINTS
+@@ -1408,6 +1410,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
+ 	p->audit_context = NULL;
+ 	threadgroup_change_begin(current);
+ 	cgroup_fork(p);
++	rdtgroup_fork(p);
+ #ifdef CONFIG_NUMA
+ 	p->mempolicy = mpol_dup(p->mempolicy);
+ 	if (IS_ERR(p->mempolicy)) {
+@@ -1647,6 +1650,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
+ 
+ 	proc_fork_connector(p);
+ 	cgroup_post_fork(p);
++	rdtgroup_post_fork(p);
+ 	threadgroup_change_end(current);
+ 	perf_event_fork(p);
+ 

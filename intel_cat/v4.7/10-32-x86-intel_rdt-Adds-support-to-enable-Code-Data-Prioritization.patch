@@ -1,0 +1,237 @@
+From patchwork Wed Jul 13 01:02:43 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [10/32] x86/intel_rdt: Adds support to enable Code Data Prioritization
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226329
+Message-Id: <1468371785-53231-11-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:43 -0700
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+
+On Intel SKUs that support Code Data Prioritization(CDP), intel_rdt
+operates in 2 modes - legacy cache allocation mode/default or CDP mode.
+
+When CDP is enabled, the number of available CLOSids is halved. Hence the
+enabling is done when less than half the number of CLOSids available are
+used. When CDP is enabled each CLOSid maps to a
+data cache mask and an instruction cache mask. The enabling itself is done
+by writing to the IA32_PQOS_CFG MSR and can dynamically be enabled or
+disabled.
+
+CDP is disabled when for each (dcache_cbm,icache_cbm) pair, the
+dcache_cbm = icache_cbm.
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/include/asm/intel_rdt.h |  7 +++++
+ arch/x86/kernel/cpu/intel_rdt.c  | 66 ++++++++++++++++++++++++++--------------
+ 2 files changed, 51 insertions(+), 22 deletions(-)
+
+diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
+index 6e20314..f2cb91d 100644
+--- a/arch/x86/include/asm/intel_rdt.h
++++ b/arch/x86/include/asm/intel_rdt.h
+@@ -8,6 +8,7 @@
+ #define MAX_CBM_LENGTH			32
+ #define IA32_L3_CBM_BASE		0xc90
+ #define CBM_FROM_INDEX(x)		(IA32_L3_CBM_BASE + x)
++#define MSR_IA32_PQOS_CFG		0xc81
+ 
+ extern struct static_key rdt_enable_key;
+ void __intel_rdt_sched_in(void *dummy);
+@@ -17,6 +18,12 @@ struct clos_cbm_table {
+ 	unsigned int clos_refcnt;
+ };
+ 
++struct clos_config {
++	unsigned long *closmap;
++	u32 max_closid;
++	u32 closids_used;
++};
++
+ /*
+  * intel_rdt_sched_in() - Writes the task's CLOSid to IA32_PQR_MSR
+  *
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index 5fa0f9d..14b9011 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -34,10 +34,6 @@
+  */
+ static struct clos_cbm_table *cctable;
+ /*
+- * closid availability bit map.
+- */
+-unsigned long *closmap;
+-/*
+  * Minimum bits required in Cache bitmask.
+  */
+ static unsigned int min_bitmask_len = 1;
+@@ -52,6 +48,11 @@ static cpumask_t rdt_cpumask;
+ static cpumask_t tmp_cpumask;
+ static DEFINE_MUTEX(rdt_group_mutex);
+ struct static_key __read_mostly rdt_enable_key = STATIC_KEY_INIT_FALSE;
++static struct clos_config cconfig;
++static bool cdp_enabled;
++
++#define __DCBM_TABLE_INDEX(x)	(x << 1)
++#define __ICBM_TABLE_INDEX(x)	((x << 1) + 1)
+ 
+ struct rdt_remote_data {
+ 	int msr;
+@@ -147,22 +148,28 @@ static int closid_alloc(u32 *closid)
+ 
+ 	lockdep_assert_held(&rdt_group_mutex);
+ 
+-	maxid = boot_cpu_data.x86_cache_max_closid;
+-	id = find_first_zero_bit(closmap, maxid);
++	maxid = cconfig.max_closid;
++	id = find_first_zero_bit(cconfig.closmap, maxid);
+ 	if (id == maxid)
+ 		return -ENOSPC;
+ 
+-	set_bit(id, closmap);
++	set_bit(id, cconfig.closmap);
+ 	closid_get(id);
+ 	*closid = id;
++	cconfig.closids_used++;
+ 
+ 	return 0;
+ }
+ 
+ static inline void closid_free(u32 closid)
+ {
+-	clear_bit(closid, closmap);
++	clear_bit(closid, cconfig.closmap);
+ 	cctable[closid].l3_cbm = 0;
++
++	if (WARN_ON(!cconfig.closids_used))
++		return;
++
++	cconfig.closids_used--;
+ }
+ 
+ static void closid_put(u32 closid)
+@@ -199,45 +206,45 @@ static bool cbm_validate(unsigned long var)
+ 	return true;
+ }
+ 
+-static int clos_cbm_table_read(u32 closid, unsigned long *l3_cbm)
++static int clos_cbm_table_read(u32 index, unsigned long *l3_cbm)
+ {
+-	u32 maxid = boot_cpu_data.x86_cache_max_closid;
++	u32 orig_maxid = boot_cpu_data.x86_cache_max_closid;
+ 
+ 	lockdep_assert_held(&rdt_group_mutex);
+ 
+-	if (closid >= maxid)
++	if (index >= orig_maxid)
+ 		return -EINVAL;
+ 
+-	*l3_cbm = cctable[closid].l3_cbm;
++	*l3_cbm = cctable[index].l3_cbm;
+ 
+ 	return 0;
+ }
+ 
+ /*
+  * clos_cbm_table_update() - Update a clos cbm table entry.
+- * @closid: the closid whose cbm needs to be updated
++ * @index: index of the table entry whose cbm needs to be updated
+  * @cbm: the new cbm value that has to be updated
+  *
+  * This assumes the cbm is validated as per the interface requirements
+  * and the cache allocation requirements(through the cbm_validate).
+  */
+-static int clos_cbm_table_update(u32 closid, unsigned long cbm)
++static int clos_cbm_table_update(u32 index, unsigned long cbm)
+ {
+-	u32 maxid = boot_cpu_data.x86_cache_max_closid;
++	u32 orig_maxid = boot_cpu_data.x86_cache_max_closid;
+ 
+ 	lockdep_assert_held(&rdt_group_mutex);
+ 
+-	if (closid >= maxid)
++	if (index >= orig_maxid)
+ 		return -EINVAL;
+ 
+-	cctable[closid].l3_cbm = cbm;
++	cctable[index].l3_cbm = cbm;
+ 
+ 	return 0;
+ }
+ 
+ static bool cbm_search(unsigned long cbm, u32 *closid)
+ {
+-	u32 maxid = boot_cpu_data.x86_cache_max_closid;
++	u32 maxid = cconfig.max_closid;
+ 	u32 i;
+ 
+ 	for (i = 0; i < maxid; i++) {
+@@ -281,6 +288,21 @@ static inline void msr_update_all(int msr, u64 val)
+ 	on_each_cpu_mask(&rdt_cpumask, msr_cpu_update, &info, 1);
+ }
+ 
++static bool code_data_mask_equal(void)
++{
++	int i, dindex, iindex;
++
++	for (i = 0; i < cconfig.max_closid; i++) {
++		dindex = __DCBM_TABLE_INDEX(i);
++		iindex = __ICBM_TABLE_INDEX(i);
++		if (cctable[dindex].clos_refcnt &&
++		     (cctable[dindex].l3_cbm != cctable[iindex].l3_cbm))
++			return false;
++	}
++
++	return true;
++}
++
+ static inline bool rdt_cpumask_update(int cpu)
+ {
+ 	cpumask_and(&tmp_cpumask, &rdt_cpumask, topology_core_cpumask(cpu));
+@@ -298,7 +320,7 @@ static inline bool rdt_cpumask_update(int cpu)
+  */
+ static void cbm_update_msrs(void *dummy)
+ {
+-	int maxid = boot_cpu_data.x86_cache_max_closid;
++	int maxid = cconfig.max_closid;
+ 	struct rdt_remote_data info;
+ 	unsigned int i;
+ 
+@@ -306,7 +328,7 @@ static void cbm_update_msrs(void *dummy)
+ 		if (cctable[i].clos_refcnt) {
+ 			info.msr = CBM_FROM_INDEX(i);
+ 			info.val = cctable[i].l3_cbm;
+-			msr_cpu_update(&info);
++			msr_cpu_update((void *) &info);
+ 		}
+ 	}
+ }
+@@ -381,8 +403,8 @@ static int __init intel_rdt_late_init(void)
+ 	}
+ 
+ 	size = BITS_TO_LONGS(maxid) * sizeof(long);
+-	closmap = kzalloc(size, GFP_KERNEL);
+-	if (!closmap) {
++	cconfig.closmap = kzalloc(size, GFP_KERNEL);
++	if (!cconfig.closmap) {
+ 		kfree(cctable);
+ 		err = -ENOMEM;
+ 		goto out_err;

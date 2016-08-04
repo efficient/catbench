@@ -1,0 +1,61 @@
+From patchwork Wed Jul 13 01:02:49 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [16/32] Documentation, ABI: Add a document entry for cache id
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226321
+Message-Id: <1468371785-53231-17-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:49 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+Add an ABI document entry for /sys/devices/system/cpu/cpu*/cache/index*/id.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+Acked-by: Borislav Petkov <bp@suse.com>
+---
+ Documentation/ABI/testing/sysfs-devices-system-cpu | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/Documentation/ABI/testing/sysfs-devices-system-cpu b/Documentation/ABI/testing/sysfs-devices-system-cpu
+index 1650133..ecd82e4 100644
+--- a/Documentation/ABI/testing/sysfs-devices-system-cpu
++++ b/Documentation/ABI/testing/sysfs-devices-system-cpu
+@@ -272,6 +272,23 @@ Description:	Parameters for the CPU cache attributes
+ 				     the modified cache line is written to main
+ 				     memory only when it is replaced
+ 
++
++What:		/sys/devices/system/cpu/cpu*/cache/index*/id
++Date:		July 2016
++Contact:	Linux kernel mailing list <linux-kernel@vger.kernel.org>
++Description:	Cache id
++
++		The id identifies a hardware cache of the system within a given
++		cache index in a set of cache indices. The "index" name is
++		simply a nomenclature from CPUID's leaf 4 which enumerates all
++		caches on the system by referring to each one as a cache index.
++		The (cache index, cache id) pair is unique for the whole
++		system.
++
++		Currently id is implemented on x86. On other platforms, id is
++		not enabled yet.
++
++
+ What:		/sys/devices/system/cpu/cpuX/cpufreq/throttle_stats
+ 		/sys/devices/system/cpu/cpuX/cpufreq/throttle_stats/turbo_stat
+ 		/sys/devices/system/cpu/cpuX/cpufreq/throttle_stats/sub_turbo_stat

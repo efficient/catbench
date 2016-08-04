@@ -1,0 +1,312 @@
+From patchwork Wed Jul 13 01:02:46 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [13/32] Documentation,
+ x86: Documentation for Intel resource allocation user interface
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226325
+Message-Id: <1468371785-53231-14-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:46 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+The documentation describes user interface of how to allocate resource
+in Intel RDT.
+
+Please note that the documentation covers generic user interface. Current
+patch set code only implemente CAT L3. CAT L2 code will be sent later.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ Documentation/x86/intel_rdt_ui.txt | 268 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 268 insertions(+)
+ create mode 100644 Documentation/x86/intel_rdt_ui.txt
+
+diff --git a/Documentation/x86/intel_rdt_ui.txt b/Documentation/x86/intel_rdt_ui.txt
+new file mode 100644
+index 0000000..c52baf5
+--- /dev/null
++++ b/Documentation/x86/intel_rdt_ui.txt
+@@ -0,0 +1,268 @@
++User Interface for Resource Allocation in Intel Resource Director Technology
++
++Copyright (C) 2016 Intel Corporation
++
++Fenghua Yu <fenghua.yu@intel.com>
++
++We create a new file system rscctrl in /sys/fs as user interface for Cache
++Allocation Technology (CAT) and future resource allocations in Intel
++Resource Director Technology (RDT). User can allocate cache or other
++resources to tasks or cpus through this interface.
++
++CONTENTS
++========
++
++	1. Terms
++	2. Mount rscctrl file system
++	3. Hierarchy in rscctrl
++	4. Create and remove sub-directory
++	5. Add/remove a task in a partition
++	6. Add/remove a CPU in a partition
++	7. Some usage examples
++
++
++1. Terms
++========
++
++We use the following terms and concepts in this documentation.
++
++RDT: Intel Resoure Director Technology
++
++CAT: Cache Allocation Technology
++
++CDP: Code and Data Prioritization
++
++CBM: Cache Bit Mask
++
++Cache ID: A cache identification. It is unique in one cache index on the
++platform. User can find cache ID in cache sysfs interface:
++/sys/devices/system/cpu/cpu*/cache/index*/id
++
++Share resource domain: A few different resources can share same QoS mask
++MSRs array. For example, one L2 cache can share QoS MSRs with its next level
++L3 cache. A domain number represents the L2 cache, the L3 cache, the L2
++cache's shared cpumask, and the L3 cache's shared cpumask.
++
++2. Mount rscctrl file system
++============================
++
++Like other file systems, the rscctrl file system needs to be mounted before
++it can be used.
++
++mount -t rscctrl rscctrl <-o cdp,verbose> /sys/fs/rscctrl
++
++This command mounts the rscctrl file system under /sys/fs/rscctrl.
++
++Options are optional:
++
++cdp: Enable Code and Data Prioritization (CDP). Without the option, CDP
++is disabled.
++
++verbose: Output more info in the "info" file under info directory and in
++dmesg. This is mainly for debug.
++
++
++3. Hierarchy in rscctrl
++=======================
++
++The initial hierarchy of the rscctrl file system is as follows after mount:
++
++/sys/fs/rscctrl/info/info
++		    /<resource0>/<resource0 specific info files>
++		    /<resource1>/<resource1 specific info files>
++			....
++	       /tasks
++	       /cpus
++	       /schemas
++
++There are a few files and sub-directories in the hierarchy.
++
++3.1. info
++---------
++
++The read-only sub-directory "info" in root directory has RDT related
++system info.
++
++The "info" file under the info sub-directory shows general info of the system.
++It shows shared domain and the resources within this domain.
++
++Each resource has its own info sub-directory. User can read the information
++for allocation. For example, l3 directory has max_closid, max_cbm_len,
++domain_to_cache_id.
++
++3.2. tasks
++----------
++
++The file "tasks" has all task ids in the root directory initially. The
++thread ids in the file will be added or removed among sub-directories or
++partitions. A task id only stays in one directory at the same time.
++
++3.3. cpus
++
++The file "cpus" has a cpu mask that specifies the CPUs that are bound to the
++schemas. Any tasks scheduled on the cpus will use the schemas. User can set
++both "cpus" and "tasks" to share the same schema in one directory. But when
++a CPU is bound to a schema, a task running on the CPU uses this schema and
++kernel will ignore scheam set up for the task in "tasks".
++
++Initial value is all zeros which means there is no CPU bound to the schemas
++in the root directory and tasks use the schemas.
++
++3.4. schemas
++------------
++
++The file "schemas" has default allocation masks/values for all resources on
++each socket/cpu. Format of the file "schemas" is in multiple lines and each
++line represents masks or values for one resource.
++
++Format of one resource schema line is as follows:
++
++<resource name>:<resource id0>=<schema>;<resource id1>=<schema>;...
++
++As one example, CAT L3's schema format is:
++
++L3:<cache_id0>=<cbm>;<cache_id1>=<cbm>;...
++
++On a two socket machine, L3's schema line could be:
++
++L3:0=ff;1=c0
++
++which means this line in "schemas" file is for CAT L3, L3 cache id 0's CBM
++is 0xff, and L3 cache id 1's CBM is 0xc0.
++
++If one resource is disabled, its line is not shown in schemas file.
++
++The schema line can be expended for situations. L3 cbms format can be
++expended to CDP enabled L3 cbms format:
++
++L3:<cache_id0>=<d_cbm>,<i_cbm>;<cache_id1>=<d_cbm>,<i_cbm>;...
++
++Initial value is all ones which means all tasks use all resources initially.
++
++4. Create and remove sub-directory
++===================================
++
++User can create a sub-directory under the root directory by "mkdir" command.
++User can remove the sub-directory by "rmdir" command.
++
++Each sub-directory represents a resource allocation policy that user can
++allocate resources for tasks or cpus.
++
++Each directory has three files "tasks", "cpus", and "schemas". The meaning
++of each file is same as the files in the root directory.
++
++When a directory is created, initial contents of the files are:
++
++tasks: Empty. This means no task currently uses this allocation schemas.
++cpus: All zeros. This means no CPU uses this allocation schemas.
++schemas: All ones. This means all resources can be used in this allocation.
++
++5. Add/remove a task in a partition
++===================================
++
++User can add/remove a task by writing its PID in "tasks" in a partition.
++User can read PIDs stored in one "tasks" file.
++
++One task PID only exists in one partition/directory at the same time. If PID
++is written in a new directory, it's removed automatically from its last
++directory.
++
++6. Add/remove a CPU in a partition
++==================================
++
++User can add/remove a CPU by writing its bit in "cpus" in a partition.
++User can read CPUs stored in one "cpus" file.
++
++One CPU only exists in one partition/directory if user wants it to be bound
++to any "schemas". Kernel guarantees uniqueness of the CPU in the whole
++directory to make sure it only uses one schemas. If a CPU is written in one
++new directory, it's automatically removed from its original directory if it
++exists in the original directory.
++
++Or it doesn't exist in the whole directory if user doesn't bind it to any
++"schemas".
++
++7. Some usage examples
++======================
++
++7.1 Example 1 for sharing CLOSID on socket 0 between two partitions
++
++Only L3 cbm is enabled. Assume the machine is 2-socket and dual-core without
++hyperthreading.
++
++#mount -t rscctrl rscctrl /sys/fs/rscctrl
++#cd /sys/fs/rscctrl
++#mkdir p0 p1
++#echo "L3:0=3;1=c" > /sys/fs/rscctrl/p0/schemas
++#echo "L3:0=3;1=3" > /sys/fs/rscctrl/p1/schemas
++
++In partition p0, kernel allocates CLOSID 0 for L3 cbm=0x3 on socket 0 and
++CLOSID 0 for cbm=0xc on socket 1.
++
++In partition p1, kernel allocates CLOSID 0 for L3 cbm=0x3 on socket 0 and
++CLOSID 1 for cbm=0x3 on socket 1.
++
++When p1/schemas is updated for socket 0, kernel searches existing
++IA32_L3_QOS_MASK_n MSR registers and finds that 0x3 is in IA32_L3_QOS_MASK_0
++register already. Therefore CLOSID 0 is shared between partition 0 and
++partition 1 on socket 0.
++
++When p1/schemas is udpated for socket 1, kernel searches existing
++IA32_L3_QOS_MASK_n registers and doesn't find a matching cbm. Therefore
++CLOSID 1 is created and IA32_L3_QOS_MASK_1=0xc.
++
++7.2 Example 2 for allocating L3 cache for real-time apps
++
++Two real time tasks pid=1234 running on processor 0 and pid=5678 running on
++processor 1 on socket 0 on a 2-socket and dual core machine. To avoid noisy
++neighbors, each of the two real-time tasks exclusively occupies one quarter
++of L3 cache on socket 0. Assume L3 cbm max width is 20 bits.
++
++#mount -t rscctrl rscctrl /sys/fs/rscctrl
++#cd /sys/fs/rscctrl
++#mkdir p0 p1
++#taskset 0x1 1234
++#taskset 0x2 5678
++#cd /sys/fs/rscctrl/
++#edit schemas to have following allocation:
++L3:0=3ff;1=fffff
++
++which means that all tasks use whole L3 cache 1 and half of L3 cache 0.
++
++#cd ..
++#mkdir p1 p2
++#cd p1
++#echo 1234 >tasks
++#edit schemas to have following two lines:
++L3:0=f8000;1=fffff
++
++which means task 1234 uses L3 cbm=0xf8000, i.e. one quarter of L3 cache 0
++and whole L3 cache 1.
++
++Since 1234 is tied to processor 0, it actually uses the quarter of L3
++on socket 0 only.
++
++#cd ../p2
++#echo 5678 >tasks
++#edit schemas to have following two lines:
++L3:0=7c00;1=fffff
++
++Which means that task 5678 uses L3 cbm=0x7c00, another quarter of L3 cache 0
++and whole L3 cache 1.
++
++Since 5678 is tied to processor 1, it actually only uses the quarter of L3
++on socket 0.
++
++Internally three CLOSIDs are allocated on L3 cache 0:
++IA32_L3_QOS_MASK_0 = 0x3ff
++IA32_L3_QOS_MASK_1 = 0xf8000
++IA32_L3_QOS_MASK_2 = 0x7c00.
++
++Each CLOSID's reference count=1 on L3 cache 0. There is no shared cbms on
++cache 0.
++
++Only one CLOSID is allocated on L3 cache 1:
++
++IA32_L3_QOS_MASK_0=0xfffff. It's shared by root, p1 and p2.
++
++Therefore CLOSID 0's reference count=3 on L3 cache 1.

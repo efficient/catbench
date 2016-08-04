@@ -1,0 +1,43 @@
+From patchwork Wed Jul 13 01:02:53 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [20/32] magic number for rscctrl file system
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226309
+Message-Id: <1468371785-53231-21-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:53 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ include/uapi/linux/magic.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/uapi/linux/magic.h b/include/uapi/linux/magic.h
+index 546b388..655036a 100644
+--- a/include/uapi/linux/magic.h
++++ b/include/uapi/linux/magic.h
+@@ -57,6 +57,8 @@
+ #define CGROUP_SUPER_MAGIC	0x27e0eb
+ #define CGROUP2_SUPER_MAGIC	0x63677270
+ 
++#define RDTGROUP_SUPER_MAGIC	0x7655821
++
+ 
+ #define STACK_END_MAGIC		0x57AC6E9D
+ 

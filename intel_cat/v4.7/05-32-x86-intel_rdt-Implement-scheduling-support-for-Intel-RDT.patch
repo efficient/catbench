@@ -1,0 +1,297 @@
+From patchwork Wed Jul 13 01:02:38 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [05/32] x86/intel_rdt: Implement scheduling support for Intel RDT
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226345
+Message-Id: <1468371785-53231-6-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:38 -0700
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+
+Adds support for IA32_PQR_ASSOC MSR writes during task scheduling. For
+Cache Allocation, MSR write would let the task fill in the cache
+'subset' represented by the task's capacity bit mask.
+
+The high 32 bits in the per processor MSR IA32_PQR_ASSOC represents the
+CLOSid. During context switch kernel implements this by writing the
+CLOSid of the task belongs to the CPU's IA32_PQR_ASSOC MSR.
+
+This patch also implements a common software cache for IA32_PQR_MSR
+(RMID 0:9, CLOSId 32:63) to be used by both Cache monitoring (CMT) and
+Cache allocation. CMT updates the RMID where as cache_alloc updates the
+CLOSid in the software cache. During scheduling when the new RMID/CLOSid
+value is different from the cached values, IA32_PQR_MSR is updated.
+Since the measured rdmsr latency for IA32_PQR_MSR is very high (~250
+ cycles) this software cache is necessary to avoid reading the MSR to
+compare the current CLOSid value.
+
+The following considerations are done for the PQR MSR write so that it
+minimally impacts scheduler hot path:
+ - This path does not exist on any non-intel platforms.
+ - On Intel platforms, this would not exist by default unless INTEL_RDT
+ is enabled.
+ - remains a no-op when INTEL_RDT is enabled and intel SKU does not
+ support the feature.
+ - When feature is available and enabled, never does MSR write till the
+ user manually starts using one of the capacity bit masks.
+ - MSR write is only done when there is a task with different Closid is
+ scheduled on the CPU. Typically if the task groups are bound to be
+ scheduled on a set of CPUs, the number of MSR writes is greatly
+ reduced.
+ - A per CPU cache of CLOSids is maintained to do the check so that we
+ don't have to do a rdmsr which actually costs a lot of cycles.
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/events/intel/cqm.c       | 26 +++-----------------------
+ arch/x86/include/asm/intel_rdt.h  | 28 ++++++++++++++++++++++++++++
+ arch/x86/include/asm/pqr_common.h | 27 +++++++++++++++++++++++++++
+ arch/x86/kernel/cpu/intel_rdt.c   | 25 +++++++++++++++++++++++++
+ arch/x86/kernel/process_64.c      |  6 ++++++
+ 5 files changed, 89 insertions(+), 23 deletions(-)
+ create mode 100644 arch/x86/include/asm/pqr_common.h
+
+diff --git a/arch/x86/events/intel/cqm.c b/arch/x86/events/intel/cqm.c
+index 7b5fd81..ac76e43 100644
+--- a/arch/x86/events/intel/cqm.c
++++ b/arch/x86/events/intel/cqm.c
+@@ -7,9 +7,9 @@
+ #include <linux/perf_event.h>
+ #include <linux/slab.h>
+ #include <asm/cpu_device_id.h>
++#include <asm/pqr_common.h>
+ #include "../perf_event.h"
+ 
+-#define MSR_IA32_PQR_ASSOC	0x0c8f
+ #define MSR_IA32_QM_CTR		0x0c8e
+ #define MSR_IA32_QM_EVTSEL	0x0c8d
+ 
+@@ -24,32 +24,13 @@ static unsigned int cqm_l3_scale; /* supposedly cacheline size */
+ static bool cqm_enabled, mbm_enabled;
+ unsigned int mbm_socket_max;
+ 
+-/**
+- * struct intel_pqr_state - State cache for the PQR MSR
+- * @rmid:		The cached Resource Monitoring ID
+- * @closid:		The cached Class Of Service ID
+- * @rmid_usecnt:	The usage counter for rmid
+- *
+- * The upper 32 bits of MSR_IA32_PQR_ASSOC contain closid and the
+- * lower 10 bits rmid. The update to MSR_IA32_PQR_ASSOC always
+- * contains both parts, so we need to cache them.
+- *
+- * The cache also helps to avoid pointless updates if the value does
+- * not change.
+- */
+-struct intel_pqr_state {
+-	u32			rmid;
+-	u32			closid;
+-	int			rmid_usecnt;
+-};
+-
+ /*
+  * The cached intel_pqr_state is strictly per CPU and can never be
+  * updated from a remote CPU. Both functions which modify the state
+  * (intel_cqm_event_start and intel_cqm_event_stop) are called with
+  * interrupts disabled, which is sufficient for the protection.
+  */
+-static DEFINE_PER_CPU(struct intel_pqr_state, pqr_state);
++DEFINE_PER_CPU(struct intel_pqr_state, pqr_state);
+ static struct hrtimer *mbm_timers;
+ /**
+  * struct sample - mbm event's (local or total) data
+@@ -476,9 +457,9 @@ static void cqm_mask_call(struct rmid_read *rr)
+  */
+ static u32 intel_cqm_xchg_rmid(struct perf_event *group, u32 rmid)
+ {
+-	struct perf_event *event;
+ 	struct list_head *head = &group->hw.cqm_group_entry;
+ 	u32 old_rmid = group->hw.cqm_rmid;
++	struct perf_event *event;
+ 
+ 	lockdep_assert_held(&cache_mutex);
+ 
+@@ -1583,7 +1564,6 @@ static void intel_cqm_cpu_starting(unsigned int cpu)
+ 	struct cpuinfo_x86 *c = &cpu_data(cpu);
+ 
+ 	state->rmid = 0;
+-	state->closid = 0;
+ 	state->rmid_usecnt = 0;
+ 
+ 	WARN_ON(c->x86_cache_max_rmid != cqm_max_rmid);
+diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
+index 4f45dc8..afb6da3 100644
+--- a/arch/x86/include/asm/intel_rdt.h
++++ b/arch/x86/include/asm/intel_rdt.h
+@@ -3,14 +3,42 @@
+ 
+ #ifdef CONFIG_INTEL_RDT
+ 
++#include <linux/jump_label.h>
++
+ #define MAX_CBM_LENGTH			32
+ #define IA32_L3_CBM_BASE		0xc90
+ #define CBM_FROM_INDEX(x)		(IA32_L3_CBM_BASE + x)
+ 
++extern struct static_key rdt_enable_key;
++void __intel_rdt_sched_in(void *dummy);
++
+ struct clos_cbm_table {
+ 	unsigned long l3_cbm;
+ 	unsigned int clos_refcnt;
+ };
+ 
++/*
++ * intel_rdt_sched_in() - Writes the task's CLOSid to IA32_PQR_MSR
++ *
++ * Following considerations are made so that this has minimal impact
++ * on scheduler hot path:
++ * - This will stay as no-op unless we are running on an Intel SKU
++ * which supports L3 cache allocation.
++ * - Caches the per cpu CLOSid values and does the MSR write only
++ * when a task with a different CLOSid is scheduled in.
++ */
++static inline void intel_rdt_sched_in(void)
++{
++	/*
++	 * Call the schedule in code only when RDT is enabled.
++	 */
++	if (static_key_false(&rdt_enable_key))
++		__intel_rdt_sched_in(NULL);
++}
++
++#else
++
++static inline void intel_rdt_sched_in(void) {}
++
+ #endif
+ #endif
+diff --git a/arch/x86/include/asm/pqr_common.h b/arch/x86/include/asm/pqr_common.h
+new file mode 100644
+index 0000000..11e985c
+--- /dev/null
++++ b/arch/x86/include/asm/pqr_common.h
+@@ -0,0 +1,27 @@
++#ifndef _X86_RDT_H_
++#define _X86_RDT_H_
++
++#define MSR_IA32_PQR_ASSOC	0x0c8f
++
++/**
++ * struct intel_pqr_state - State cache for the PQR MSR
++ * @rmid:		The cached Resource Monitoring ID
++ * @closid:		The cached Class Of Service ID
++ * @rmid_usecnt:	The usage counter for rmid
++ *
++ * The upper 32 bits of MSR_IA32_PQR_ASSOC contain closid and the
++ * lower 10 bits rmid. The update to MSR_IA32_PQR_ASSOC always
++ * contains both parts, so we need to cache them.
++ *
++ * The cache also helps to avoid pointless updates if the value does
++ * not change.
++ */
++struct intel_pqr_state {
++	u32			rmid;
++	u32			closid;
++	int			rmid_usecnt;
++};
++
++DECLARE_PER_CPU(struct intel_pqr_state, pqr_state);
++
++#endif
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index 6ad5b48..8379df8 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -24,6 +24,8 @@
+ 
+ #include <linux/slab.h>
+ #include <linux/err.h>
++#include <linux/sched.h>
++#include <asm/pqr_common.h>
+ #include <asm/intel_rdt.h>
+ 
+ /*
+@@ -44,12 +46,33 @@ static cpumask_t rdt_cpumask;
+  */
+ static cpumask_t tmp_cpumask;
+ static DEFINE_MUTEX(rdt_group_mutex);
++struct static_key __read_mostly rdt_enable_key = STATIC_KEY_INIT_FALSE;
+ 
+ struct rdt_remote_data {
+ 	int msr;
+ 	u64 val;
+ };
+ 
++void __intel_rdt_sched_in(void *dummy)
++{
++	struct intel_pqr_state *state = this_cpu_ptr(&pqr_state);
++	u32 closid = current->closid;
++
++	if (closid == state->closid)
++		return;
++
++	wrmsr(MSR_IA32_PQR_ASSOC, state->rmid, closid);
++	state->closid = closid;
++}
++
++/*
++ * Synchronize the IA32_PQR_ASSOC MSR of all currently running tasks.
++ */
++static inline void closid_tasks_sync(void)
++{
++	on_each_cpu_mask(cpu_online_mask, __intel_rdt_sched_in, NULL, 1);
++}
++
+ static inline void closid_get(u32 closid)
+ {
+ 	struct clos_cbm_table *cct = &cctable[closid];
+@@ -240,6 +263,8 @@ static int __init intel_rdt_late_init(void)
+ 
+ 	for_each_online_cpu(i)
+ 		rdt_cpumask_update(i);
++
++	static_key_slow_inc(&rdt_enable_key);
+ 	pr_info("Intel cache allocation enabled\n");
+ out_err:
+ 
+diff --git a/arch/x86/kernel/process_64.c b/arch/x86/kernel/process_64.c
+index 6e789ca..71fc41a 100644
+--- a/arch/x86/kernel/process_64.c
++++ b/arch/x86/kernel/process_64.c
+@@ -48,6 +48,7 @@
+ #include <asm/syscalls.h>
+ #include <asm/debugreg.h>
+ #include <asm/switch_to.h>
++#include <asm/intel_rdt.h>
+ #include <asm/xen/hypervisor.h>
+ 
+ asmlinkage extern void ret_from_fork(void);
+@@ -472,6 +473,11 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
+ 			loadsegment(ss, __KERNEL_DS);
+ 	}
+ 
++	/*
++	 * Load the Intel cache allocation PQR MSR.
++	 */
++	intel_rdt_sched_in();
++
+ 	return prev_p;
+ }
+ 

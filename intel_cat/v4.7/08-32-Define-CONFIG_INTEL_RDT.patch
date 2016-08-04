@@ -1,0 +1,126 @@
+From patchwork Wed Jul 13 01:02:41 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [08/32] Define CONFIG_INTEL_RDT
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226331
+Message-Id: <1468371785-53231-9-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:41 -0700
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+
+CONFIG_INTEL_RDT is defined. The option provides support for resource
+allocation which is a sub-feature of Intel Resource Director Technology
+(RDT).
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/Kconfig                 | 12 ++++++++++++
+ arch/x86/include/asm/intel_rdt.h | 10 +++++++++-
+ arch/x86/kernel/cpu/intel_rdt.c  | 12 +++++++-----
+ include/linux/sched.h            |  3 ---
+ 4 files changed, 28 insertions(+), 9 deletions(-)
+
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index d9a94da..231d44c 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -408,6 +408,18 @@ config GOLDFISH
+        def_bool y
+        depends on X86_GOLDFISH
+ 
++config INTEL_RDT
++	bool "Intel Resource Director Technology support"
++	depends on X86_64 && CPU_SUP_INTEL
++	help
++	  This option provides support for resource allocation which is a
++	  sub-feature of Intel Resource Director Technology(RDT).
++	  Current implementation supports L3 cache allocation.
++	  Using this feature a user can specify the amount of L3 cache space
++	  into which an application can fill.
++
++	  Say N if unsure.
++
+ if X86_32
+ config X86_EXTENDED_PLATFORM
+ 	bool "Support for extended (non-PC) x86 platforms"
+diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
+index afb6da3..6e20314 100644
+--- a/arch/x86/include/asm/intel_rdt.h
++++ b/arch/x86/include/asm/intel_rdt.h
+@@ -24,8 +24,16 @@ struct clos_cbm_table {
+  * on scheduler hot path:
+  * - This will stay as no-op unless we are running on an Intel SKU
+  * which supports L3 cache allocation.
++ * - When support is present and enabled, does not do any
++ * IA32_PQR_MSR writes until the user starts really using the feature
++ * ie creates a rdtgroup directory and assigns a cache_mask thats
++ * different from the root rdtgroup's cache_mask.
+  * - Caches the per cpu CLOSid values and does the MSR write only
+- * when a task with a different CLOSid is scheduled in.
++ * when a task with a different CLOSid is scheduled in. That
++ * means the task belongs to a different rdtgroup.
++ * - Closids are allocated so that different rdtgroup directories
++ * with same cache_mask gets the same CLOSid. This minimizes CLOSids
++ * used and reduces MSR write frequency.
+  */
+ static inline void intel_rdt_sched_in(void)
+ {
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index ecaf8e6..525390a 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -108,17 +108,19 @@ static inline bool cache_alloc_supported(struct cpuinfo_x86 *c)
+ 	return false;
+ }
+ 
+-
+ void __intel_rdt_sched_in(void *dummy)
+ {
+ 	struct intel_pqr_state *state = this_cpu_ptr(&pqr_state);
+-	u32 closid = current->closid;
+ 
+-	if (closid == state->closid)
++	/*
++	 * Currently closid is always 0. When  user interface is added,
++	 * closid will come from user interface.
++	 */
++	if (state->closid == 0)
+ 		return;
+ 
+-	wrmsr(MSR_IA32_PQR_ASSOC, state->rmid, closid);
+-	state->closid = closid;
++	wrmsr(MSR_IA32_PQR_ASSOC, state->rmid, 0);
++	state->closid = 0;
+ }
+ 
+ /*
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 6005bba..253538f 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1761,9 +1761,6 @@ struct task_struct {
+ 	/* cg_list protected by css_set_lock and tsk->alloc_lock */
+ 	struct list_head cg_list;
+ #endif
+-#ifdef CONFIG_INTEL_RDT
+-	u32 closid;
+-#endif
+ #ifdef CONFIG_FUTEX
+ 	struct robust_list_head __user *robust_list;
+ #ifdef CONFIG_COMPAT

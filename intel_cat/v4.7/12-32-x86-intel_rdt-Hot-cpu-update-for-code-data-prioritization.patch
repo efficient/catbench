@@ -1,0 +1,84 @@
+From patchwork Wed Jul 13 01:02:45 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [12/32] x86/intel_rdt: Hot cpu update for code data prioritization
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226319
+Message-Id: <1468371785-53231-13-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:45 -0700
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+
+Updates hot cpu notification handling for code data prioritization(cdp).
+The capacity bitmask(cbm) is global for both data and instruction and we
+need to update the new online package with all the cbms by writing to
+the IA32_L3_QOS_n MSRs.
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/kernel/cpu/intel_rdt.c | 27 +++++++++++++++++++++------
+ 1 file changed, 21 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index 7a03671..057aef1 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -330,6 +330,26 @@ static inline bool rdt_cpumask_update(int cpu)
+ 	return false;
+ }
+ 
++static void cbm_update_msr(u32 index)
++{
++	struct rdt_remote_data info;
++	int dindex;
++
++	dindex = DCBM_TABLE_INDEX(index);
++	if (cctable[dindex].clos_refcnt) {
++
++		info.msr = CBM_FROM_INDEX(dindex);
++		info.val = cctable[dindex].l3_cbm;
++		msr_cpu_update((void *) &info);
++
++		if (cdp_enabled) {
++			info.msr = __ICBM_MSR_INDEX(index);
++			info.val = cctable[dindex + 1].l3_cbm;
++			msr_cpu_update((void *) &info);
++		}
++	}
++}
++
+ /*
+  * cbm_update_msrs() - Updates all the existing IA32_L3_MASK_n MSRs
+  * which are one per CLOSid on the current package.
+@@ -337,15 +357,10 @@ static inline bool rdt_cpumask_update(int cpu)
+ static void cbm_update_msrs(void *dummy)
+ {
+ 	int maxid = cconfig.max_closid;
+-	struct rdt_remote_data info;
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < maxid; i++) {
+-		if (cctable[i].clos_refcnt) {
+-			info.msr = CBM_FROM_INDEX(i);
+-			info.val = cctable[i].l3_cbm;
+-			msr_cpu_update((void *) &info);
+-		}
++		cbm_update_msr(i);
+ 	}
+ }
+ 

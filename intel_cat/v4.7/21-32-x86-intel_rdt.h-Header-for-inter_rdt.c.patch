@@ -1,0 +1,153 @@
+From patchwork Wed Jul 13 01:02:54 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [21/32] x86/intel_rdt.h: Header for inter_rdt.c
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226317
+Message-Id: <1468371785-53231-22-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:54 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+The header mainly provides functions to call from the user interface
+file intel_rdt_rdtgroup.c.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/include/asm/intel_rdt.h | 87 +++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 81 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/include/asm/intel_rdt.h b/arch/x86/include/asm/intel_rdt.h
+index f2cb91d..4c5e0ac 100644
+--- a/arch/x86/include/asm/intel_rdt.h
++++ b/arch/x86/include/asm/intel_rdt.h
+@@ -3,27 +3,99 @@
+ 
+ #ifdef CONFIG_INTEL_RDT
+ 
++#include <linux/seq_file.h>
+ #include <linux/jump_label.h>
+ 
+-#define MAX_CBM_LENGTH			32
+ #define IA32_L3_CBM_BASE		0xc90
+-#define CBM_FROM_INDEX(x)		(IA32_L3_CBM_BASE + x)
+-#define MSR_IA32_PQOS_CFG		0xc81
++#define L3_CBM_FROM_INDEX(x)		(IA32_L3_CBM_BASE + x)
++
++#define MSR_IA32_L3_QOS_CFG		0xc81
++
++enum resource_type {
++	RESOURCE_L3  = 0,
++	RESOURCE_NUM = 1,
++};
++
++#define MAX_CACHE_LEAVES        4
++#define MAX_CACHE_DOMAINS       64
++
++DECLARE_PER_CPU_READ_MOSTLY(int, cpu_l3_domain);
++DECLARE_PER_CPU_READ_MOSTLY(struct rdtgroup *, cpu_rdtgroup);
+ 
+ extern struct static_key rdt_enable_key;
+ void __intel_rdt_sched_in(void *dummy);
++extern bool use_rdtgroup_tasks;
++
++extern bool cdp_enabled;
++
++struct rdt_opts {
++	bool cdp_enabled;
++	bool verbose;
++	bool simulate_cat_l3;
++};
++
++struct cache_domain {
++	cpumask_t shared_cpu_map[MAX_CACHE_DOMAINS];
++	unsigned int max_cache_domains_num;
++	unsigned int level;
++	unsigned int shared_cache_id[MAX_CACHE_DOMAINS];
++};
++
++extern struct rdt_opts rdt_opts;
+ 
+ struct clos_cbm_table {
+-	unsigned long l3_cbm;
++	unsigned long cbm;
+ 	unsigned int clos_refcnt;
+ };
+ 
+ struct clos_config {
+-	unsigned long *closmap;
++	unsigned long **closmap;
+ 	u32 max_closid;
+-	u32 closids_used;
+ };
+ 
++struct shared_domain {
++	struct cpumask cpumask;
++	int l3_domain;
++};
++
++#define for_each_cache_domain(domain, start_domain, max_domain)	\
++	for (domain = start_domain; domain < max_domain; domain++)
++
++extern struct clos_config cconfig;
++extern struct shared_domain *shared_domain;
++extern int shared_domain_num;
++
++extern struct rdtgroup *root_rdtgrp;
++extern void rdtgroup_fork(struct task_struct *child);
++extern void rdtgroup_post_fork(struct task_struct *child);
++
++extern struct clos_cbm_table **l3_cctable;
++
++extern unsigned int min_bitmask_len;
++extern void msr_cpu_update(void *arg);
++extern inline void closid_get(u32 closid, int domain);
++extern void closid_put(u32 closid, int domain);
++extern void closid_free(u32 closid, int domain, int level);
++extern int closid_alloc(u32 *closid, int domain);
++extern bool cat_l3_enabled;
++extern unsigned int get_domain_num(int level);
++extern struct shared_domain *shared_domain;
++extern int shared_domain_num;
++extern inline int get_dcbm_table_index(int x);
++extern inline int get_icbm_table_index(int x);
++
++extern int get_cache_leaf(int level, int cpu);
++
++extern void cbm_update_l3_msr(void *pindex);
++extern int level_to_leaf(int level);
++
++extern void init_msrs(bool cdpenabled);
++extern bool cat_enabled(int level);
++extern u64 max_cbm(int level);
++extern u32 max_cbm_len(int level);
++
++extern void rdtgroup_exit(struct task_struct *tsk);
++
+ /*
+  * intel_rdt_sched_in() - Writes the task's CLOSid to IA32_PQR_MSR
+  *
+@@ -54,6 +126,9 @@ static inline void intel_rdt_sched_in(void)
+ #else
+ 
+ static inline void intel_rdt_sched_in(void) {}
++static inline void rdtgroup_fork(struct task_struct *child) {}
++static inline void rdtgroup_post_fork(struct task_struct *child) {}
++static inline void rdtgroup_exit(struct task_struct *tsk) {}
+ 
+ #endif
+ #endif

@@ -1,0 +1,133 @@
+From patchwork Wed Jul 13 01:02:40 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [07/32] x86/intel_rdt: Intel haswell Cache Allocation enumeration
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226289
+Message-Id: <1468371785-53231-8-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:40 -0700
+
+From: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+
+This patch is specific to Intel haswell (hsw) server SKUs. Cache
+Allocation on hsw server needs to be enumerated separately as HSW does
+not have support for CPUID enumeration for Cache Allocation. This patch
+does a probe by writing a CLOSid (Class of service id) into high 32 bits
+of IA32_PQR_MSR and see if the bits stick. The probe is only done after
+confirming that the CPU is HSW server. Other hardcoded values are:
+
+ - L3 cache bit mask must be at least two bits.
+ - Maximum CLOSids supported is always 4.
+ - Maximum bits support in cache bit mask is always 20.
+
+Signed-off-by: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/kernel/cpu/intel_rdt.c | 59 +++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 57 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kernel/cpu/intel_rdt.c b/arch/x86/kernel/cpu/intel_rdt.c
+index 31f8588..ecaf8e6 100644
+--- a/arch/x86/kernel/cpu/intel_rdt.c
++++ b/arch/x86/kernel/cpu/intel_rdt.c
+@@ -38,6 +38,10 @@ static struct clos_cbm_table *cctable;
+  */
+ unsigned long *closmap;
+ /*
++ * Minimum bits required in Cache bitmask.
++ */
++static unsigned int min_bitmask_len = 1;
++/*
+  * Mask of CPUs for writing CBM values. We only need one CPU per-socket.
+  */
+ static cpumask_t rdt_cpumask;
+@@ -54,6 +58,57 @@ struct rdt_remote_data {
+ 	u64 val;
+ };
+ 
++/*
++ * cache_alloc_hsw_probe() - Have to probe for Intel haswell server CPUs
++ * as it does not have CPUID enumeration support for Cache allocation.
++ *
++ * Probes by writing to the high 32 bits(CLOSid) of the IA32_PQR_MSR and
++ * testing if the bits stick. Max CLOSids is always 4 and max cbm length
++ * is always 20 on hsw server parts. The minimum cache bitmask length
++ * allowed for HSW server is always 2 bits. Hardcode all of them.
++ */
++static inline bool cache_alloc_hsw_probe(void)
++{
++	u32 l, h_old, h_new, h_tmp;
++
++	if (rdmsr_safe(MSR_IA32_PQR_ASSOC, &l, &h_old))
++		return false;
++
++	/*
++	 * Default value is always 0 if feature is present.
++	 */
++	h_tmp = h_old ^ 0x1U;
++	if (wrmsr_safe(MSR_IA32_PQR_ASSOC, l, h_tmp) ||
++	    rdmsr_safe(MSR_IA32_PQR_ASSOC, &l, &h_new))
++		return false;
++
++	if (h_tmp != h_new)
++		return false;
++
++	wrmsr_safe(MSR_IA32_PQR_ASSOC, l, h_old);
++
++	boot_cpu_data.x86_cache_max_closid = 4;
++	boot_cpu_data.x86_cache_max_cbm_len = 20;
++	min_bitmask_len = 2;
++
++	return true;
++}
++
++static inline bool cache_alloc_supported(struct cpuinfo_x86 *c)
++{
++	if (cpu_has(c, X86_FEATURE_CAT_L3))
++		return true;
++
++	/*
++	 * Probe for Haswell server CPUs.
++	 */
++	if (c->x86 == 0x6 && c->x86_model == 0x3f)
++		return cache_alloc_hsw_probe();
++
++	return false;
++}
++
++
+ void __intel_rdt_sched_in(void *dummy)
+ {
+ 	struct intel_pqr_state *state = this_cpu_ptr(&pqr_state);
+@@ -126,7 +181,7 @@ static bool cbm_validate(unsigned long var)
+ 	unsigned long first_bit, zero_bit;
+ 	u64 max_cbm;
+ 
+-	if (bitmap_weight(&var, max_cbm_len) < 1)
++	if (bitmap_weight(&var, max_cbm_len) < min_bitmask_len)
+ 		return false;
+ 
+ 	max_cbm = (1ULL << max_cbm_len) - 1;
+@@ -310,7 +365,7 @@ static int __init intel_rdt_late_init(void)
+ 	u32 maxid, max_cbm_len;
+ 	int err = 0, size, i;
+ 
+-	if (!cpu_has(c, X86_FEATURE_CAT_L3))
++	if (!cache_alloc_supported(c))
+ 		return -ENODEV;
+ 
+ 	maxid = c->x86_cache_max_closid;

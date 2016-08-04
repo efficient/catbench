@@ -1,0 +1,734 @@
+From patchwork Wed Jul 13 01:03:03 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [30/32] x86/intel_rdt_rdtgroup.c: Process schemas input from rscctrl
+ interface
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226299
+Message-Id: <1468371785-53231-31-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:03:03 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+There is one "schemas" file in each rdtgroup directory. User can input
+schemas in the file to control how to allocate resources.
+
+The input schemas first needs to pass validation. If there is no syntax
+issue, kernel digests the input schemas and find CLOSID for each
+domain for each resource.
+
+A shared domain covers a few different resource domains which share
+the same CLOSID. Kernel will find a CLOSID in each shared domain. If
+an existing CLOSID and its CBMs match input schemas, the CLOSID is
+shared by this rdtgroup. Otherwise, kernel tries to alloc a new
+CLOSID for this rdtgroup. If a new CLOSID is available, update QoS MASK
+MSRs. If no more CLOSID is available, kernel report ENODEV to user.
+
+A shared domain is in preparation for multiple resources (like L2)
+that will be added very soon.
+
+User can read the schemas saved in the file.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/x86/kernel/cpu/intel_rdt_rdtgroup.c | 673 +++++++++++++++++++++++++++++++
+ 1 file changed, 673 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c b/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
+index e6e8757..bb85995 100644
+--- a/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
++++ b/arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
+@@ -817,6 +817,679 @@ end:
+ 	return nbytes;
+ }
+ 
++static int get_res_type(char **res, enum resource_type *res_type)
++{
++	char *tok;
++
++	tok = strsep(res, ":");
++	if (tok == NULL)
++		return -EINVAL;
++
++	if (!strcmp(tok, "L3")) {
++		*res_type = RESOURCE_L3;
++		return 0;
++	}
++
++	return -EINVAL;
++}
++
++static int divide_resources(char *buf, char *resources[RESOURCE_NUM])
++{
++	char *tok;
++	unsigned int resource_num = 0;
++	int ret = 0;
++	char *res;
++	char *res_block;
++	size_t size;
++	enum resource_type res_type;
++
++	size = strlen(buf) + 1;
++	res = kzalloc(size, GFP_KERNEL);
++	if (!res) {
++		ret = -ENOSPC;
++		goto out;
++	}
++
++	while ((tok = strsep(&buf, "\n")) != NULL) {
++		if (strlen(tok) == 0)
++			break;
++		if (resource_num++ >= 1) {
++			pr_info("More than one line of resource input!\n");
++			ret = -EINVAL;
++			goto out;
++		}
++		strcpy(res, tok);
++	}
++
++	res_block = res;
++	ret = get_res_type(&res_block, &res_type);
++	if (ret) {
++		pr_info("Unknown resource type!");
++		goto out;
++	}
++
++	if (res_type == RESOURCE_L3 && cat_enabled(CACHE_LEVEL3)) {
++		strcpy(resources[RESOURCE_L3], res_block);
++	} else {
++		pr_info("Invalid resource type!");
++		goto out;
++	}
++
++	ret = 0;
++
++out:
++	kfree(res);
++	return ret;
++}
++
++static bool cbm_validate(unsigned long var, int level)
++{
++	u32 maxcbmlen = max_cbm_len(level);
++	unsigned long first_bit, zero_bit;
++
++	if (bitmap_weight(&var, maxcbmlen) < min_bitmask_len)
++		return false;
++
++	if (var & ~max_cbm(level))
++		return false;
++
++	first_bit = find_first_bit(&var, maxcbmlen);
++	zero_bit = find_next_zero_bit(&var, maxcbmlen, first_bit);
++
++	if (find_next_bit(&var, maxcbmlen, zero_bit) < maxcbmlen)
++		return false;
++
++	return true;
++}
++
++static int get_input_cbm(char *tok, struct cache_resource *l,
++			 int input_domain_num, int level)
++{
++	int ret;
++
++	if (!cdp_enabled) {
++		if (tok == NULL)
++			return -EINVAL;
++
++		ret = kstrtoul(tok, 16,
++			       (unsigned long *)&l->cbm[input_domain_num]);
++		if (ret)
++			return ret;
++
++		if (!cbm_validate(l->cbm[input_domain_num], level))
++			return -EINVAL;
++	} else  {
++		char *input_cbm1_str;
++
++		input_cbm1_str = strsep(&tok, ",");
++		if (input_cbm1_str == NULL || tok == NULL)
++			return -EINVAL;
++
++		ret = kstrtoul(input_cbm1_str, 16,
++			       (unsigned long *)&l->cbm[input_domain_num]);
++		if (ret)
++			return ret;
++
++		if (!cbm_validate(l->cbm[input_domain_num], level))
++			return -EINVAL;
++
++		ret = kstrtoul(tok, 16,
++			       (unsigned long *)&l->cbm2[input_domain_num]);
++		if (ret)
++			return ret;
++
++		if (!cbm_validate(l->cbm2[input_domain_num], level))
++			return -EINVAL;
++	}
++
++	return 0;
++}
++
++
++static int get_cache_schema(char *buf, struct cache_resource *l, int level,
++			 struct rdtgroup *rdtgrp)
++{
++	char *tok, *tok_cache_id;
++	int ret;
++	int domain_num;
++	int input_domain_num;
++	int len;
++	unsigned int input_cache_id;
++	unsigned int cid;
++	unsigned int leaf;
++
++	if (!cat_enabled(level) && strcmp(buf, ";")) {
++		pr_info("Disabled resource should have empty schema\n");
++		return -EINVAL;
++	}
++
++	len = strlen(buf);
++	/*
++	 * Translate cache id based cbm from one line string with format
++	 * "<cache prefix>:<cache id0>=xxxx;<cache id1>=xxxx;..." for
++	 * disabled cdp.
++	 * Or
++	 * "<cache prefix>:<cache id0>=xxxxx,xxxxx;<cache id1>=xxxxx,xxxxx;..."
++	 * for enabled cdp.
++	 */
++	input_domain_num = 0;
++	while ((tok = strsep(&buf, ";")) != NULL) {
++		tok_cache_id = strsep(&tok, "=");
++		if (tok_cache_id == NULL)
++			goto cache_id_err;
++
++		ret = kstrtouint(tok_cache_id, 16, &input_cache_id);
++		if (ret)
++			goto cache_id_err;
++
++		leaf = level_to_leaf(level);
++		cid = cache_domains[leaf].shared_cache_id[input_domain_num];
++		if (input_cache_id != cid)
++			goto cache_id_err;
++
++		ret = get_input_cbm(tok, l, input_domain_num, level);
++		if (ret)
++			goto cbm_err;
++
++		input_domain_num++;
++		if (input_domain_num > get_domain_num(level)) {
++			pr_info("domain number is more than max %d\n",
++				MAX_CACHE_DOMAINS);
++			return -EINVAL;
++		}
++	}
++
++	domain_num = get_domain_num(level);
++	if (domain_num != input_domain_num) {
++		pr_info("%s input domain number %d doesn't match domain number %d\n",
++			"l3",
++			input_domain_num, domain_num);
++
++		return -EINVAL;
++	}
++
++	return 0;
++
++cache_id_err:
++	pr_info("Invalid cache id in field %d for L%1d\n", input_domain_num,
++		level);
++	return -EINVAL;
++
++cbm_err:
++	pr_info("Invalid cbm in field %d for cache L%d\n",
++		input_domain_num, level);
++	return -EINVAL;
++}
++
++struct resources {
++	struct cache_resource *l3;
++};
++
++static bool cbm_found(struct cache_resource *l, struct rdtgroup *r,
++		      int domain, int level)
++{
++	int closid;
++	int l3_domain;
++	u64 cctable_cbm;
++	u64 cbm;
++	int dindex;
++
++	closid = r->resource.closid[domain];
++
++	if (level == CACHE_LEVEL3) {
++		l3_domain = shared_domain[domain].l3_domain;
++		cbm = l->cbm[l3_domain];
++		dindex = get_dcbm_table_index(closid);
++		cctable_cbm = l3_cctable[l3_domain][dindex].cbm;
++		if (cdp_enabled) {
++			u64 icbm;
++			u64 cctable_icbm;
++			int iindex;
++
++			icbm = l->cbm2[l3_domain];
++			iindex = get_icbm_table_index(closid);
++			cctable_icbm = l3_cctable[l3_domain][iindex].cbm;
++
++			return cbm == cctable_cbm && icbm == cctable_icbm;
++		}
++
++		return cbm == cctable_cbm;
++	}
++
++	return false;
++}
++
++enum {
++	CURRENT_CLOSID,
++	REUSED_OWN_CLOSID,
++	REUSED_OTHER_CLOSID,
++	NEW_CLOSID,
++};
++
++/*
++ * Check if the reference counts are all ones in rdtgrp's domain.
++ */
++static bool one_refcnt(struct rdtgroup *rdtgrp, int domain)
++{
++	int refcnt;
++	int closid;
++
++	closid = rdtgrp->resource.closid[domain];
++	if (cat_l3_enabled) {
++		int l3_domain;
++		int dindex;
++
++		l3_domain = shared_domain[domain].l3_domain;
++		dindex = get_dcbm_table_index(closid);
++		refcnt = l3_cctable[l3_domain][dindex].clos_refcnt;
++		if (refcnt != 1)
++			return false;
++
++		if (cdp_enabled) {
++			int iindex;
++
++			iindex = get_icbm_table_index(closid);
++			refcnt = l3_cctable[l3_domain][iindex].clos_refcnt;
++
++			if (refcnt != 1)
++				return false;
++		}
++	}
++
++	return true;
++}
++
++/*
++ * Go through all shared domains. Check if there is an existing closid
++ * in all rdtgroups that matches l3 cbms in the shared
++ * domain. If find one, reuse the closid. Otherwise, allocate a new one.
++ */
++static int get_rdtgroup_resources(struct resources *resources_set,
++				  struct rdtgroup *rdtgrp)
++{
++	struct cache_resource *l3;
++	bool l3_cbm_found;
++	struct list_head *l;
++	struct rdtgroup *r;
++	u64 cbm;
++	int rdt_closid[MAX_CACHE_DOMAINS];
++	int rdt_closid_type[MAX_CACHE_DOMAINS];
++	int domain;
++	int closid;
++	int ret;
++
++	l3 = resources_set->l3;
++	memcpy(rdt_closid, rdtgrp->resource.closid,
++	       shared_domain_num * sizeof(int));
++	for (domain = 0; domain < shared_domain_num; domain++) {
++		if (rdtgrp->resource.valid) {
++			/*
++			 * If current rdtgrp is the only user of cbms in
++			 * this domain, will replace the cbms with the input
++			 * cbms and reuse its own closid.
++			 */
++			if (one_refcnt(rdtgrp, domain)) {
++				closid = rdtgrp->resource.closid[domain];
++				rdt_closid[domain] = closid;
++				rdt_closid_type[domain] = REUSED_OWN_CLOSID;
++				continue;
++			}
++
++			l3_cbm_found = true;
++
++			if (cat_l3_enabled)
++				l3_cbm_found = cbm_found(l3, rdtgrp, domain,
++							 CACHE_LEVEL3);
++
++			/*
++			 * If the cbms in this shared domain are already
++			 * existing in current rdtgrp, record the closid
++			 * and its type.
++			 */
++			if (l3_cbm_found) {
++				closid = rdtgrp->resource.closid[domain];
++				rdt_closid[domain] = closid;
++				rdt_closid_type[domain] = CURRENT_CLOSID;
++				continue;
++			}
++		}
++
++		/*
++		 * If the cbms are not found in this rdtgrp, search other
++		 * rdtgroups and see if there are matched cbms.
++		 */
++		l3_cbm_found = cat_l3_enabled ? false : true;
++		list_for_each(l, &rdtgroup_lists) {
++			r = list_entry(l, struct rdtgroup, rdtgroup_list);
++			if (r == rdtgrp || !r->resource.valid)
++				continue;
++
++			if (cat_l3_enabled)
++				l3_cbm_found = cbm_found(l3, r, domain,
++							 CACHE_LEVEL3);
++
++			if (l3_cbm_found) {
++				/* Get the closid that matches l3 cbms.*/
++				closid = r->resource.closid[domain];
++				rdt_closid[domain] = closid;
++				rdt_closid_type[domain] = REUSED_OTHER_CLOSID;
++				break;
++			}
++		}
++
++		if (!l3_cbm_found) {
++			/*
++			 * If no existing closid is found, allocate
++			 * a new one.
++			 */
++			ret = closid_alloc(&closid, domain);
++			if (ret)
++				goto err;
++			rdt_closid[domain] = closid;
++			rdt_closid_type[domain] = NEW_CLOSID;
++		}
++	}
++
++	/*
++	 * Now all closid are ready in rdt_closid. Update rdtgrp's closid.
++	 */
++	for_each_cache_domain(domain, 0, shared_domain_num) {
++		/*
++		 * Nothing is changed if the same closid and same cbms were
++		 * found in this rdtgrp's domain.
++		 */
++		if (rdt_closid_type[domain] == CURRENT_CLOSID)
++			continue;
++
++		/*
++		 * Put rdtgroup closid. No need to put the closid if we
++		 * just change cbms and keep the closid (REUSED_OWN_CLOSID).
++		 */
++		if (rdtgrp->resource.valid &&
++		    rdt_closid_type[domain] != REUSED_OWN_CLOSID) {
++			/* Put old closid in this rdtgrp's domain if valid. */
++			closid = rdtgrp->resource.closid[domain];
++			closid_put(closid, domain);
++		}
++
++		/*
++		 * Replace the closid in this rdtgrp's domain with saved
++		 * closid that was newly allocted (NEW_CLOSID), or found in
++		 * another rdtgroup's domains (REUSED_CLOSID), or found in
++		 * this rdtgrp (REUSED_OWN_CLOSID).
++		 */
++		closid = rdt_closid[domain];
++		rdtgrp->resource.closid[domain] = closid;
++
++		/*
++		 * Get the reused other rdtgroup's closid. No need to get the
++		 * closid newly allocated (NEW_CLOSID) because it's been
++		 * already got in closid_alloc(). And no need to get the closid
++		 * for resued own closid (REUSED_OWN_CLOSID).
++		 */
++		if (rdt_closid_type[domain] == REUSED_OTHER_CLOSID)
++			closid_get(closid, domain);
++
++		/*
++		 * If the closid comes from a newly allocated closid
++		 * (NEW_CLOSID), or found in this rdtgrp (REUSED_OWN_CLOSID),
++		 * cbms for this closid will be updated in MSRs.
++		 */
++		if (rdt_closid_type[domain] == NEW_CLOSID ||
++		    rdt_closid_type[domain] == REUSED_OWN_CLOSID) {
++			/*
++			 * Update cbm in cctable with the newly allocated
++			 * closid.
++			 */
++			if (cat_l3_enabled) {
++				int cpu;
++				struct cpumask *mask;
++				int dindex;
++				int l3_domain = shared_domain[domain].l3_domain;
++				int leaf = level_to_leaf(CACHE_LEVEL3);
++
++				cbm = l3->cbm[l3_domain];
++				dindex = get_dcbm_table_index(closid);
++				l3_cctable[l3_domain][dindex].cbm = cbm;
++				if (cdp_enabled) {
++					int iindex;
++
++					cbm = l3->cbm2[l3_domain];
++					iindex = get_icbm_table_index(closid);
++					l3_cctable[l3_domain][iindex].cbm = cbm;
++				}
++
++				mask =
++				&cache_domains[leaf].shared_cpu_map[l3_domain];
++
++				cpu = cpumask_first(mask);
++				smp_call_function_single(cpu, cbm_update_l3_msr,
++							 &closid, 1);
++			}
++		}
++	}
++
++	rdtgrp->resource.valid = true;
++
++	return 0;
++err:
++	/* Free previously allocated closid. */
++	for_each_cache_domain(domain, 0, shared_domain_num) {
++		if (rdt_closid_type[domain] != NEW_CLOSID)
++			continue;
++
++		closid_put(rdt_closid[domain], domain);
++
++	}
++
++	return ret;
++}
++
++static void init_cache_resource(struct cache_resource *l)
++{
++	l->cbm = NULL;
++	l->cbm2 = NULL;
++	l->closid = NULL;
++	l->refcnt = NULL;
++}
++
++static void free_cache_resource(struct cache_resource *l)
++{
++	kfree(l->cbm);
++	kfree(l->cbm2);
++	kfree(l->closid);
++	kfree(l->refcnt);
++}
++
++static int alloc_cache_resource(struct cache_resource *l, int level)
++{
++	int domain_num = get_domain_num(level);
++
++	l->cbm = kcalloc(domain_num, sizeof(*l->cbm), GFP_KERNEL);
++	l->cbm2 = kcalloc(domain_num, sizeof(*l->cbm2), GFP_KERNEL);
++	l->closid = kcalloc(domain_num, sizeof(*l->closid), GFP_KERNEL);
++	l->refcnt = kcalloc(domain_num, sizeof(*l->refcnt), GFP_KERNEL);
++	if (l->cbm && l->cbm2 && l->closid && l->refcnt)
++		return 0;
++
++	return -ENOMEM;
++}
++
++/*
++ * This function digests schemas given in text buf. If the schemas are in
++ * right format and there is enough closid, input the schemas in rdtgrp
++ * and update resource cctables.
++ *
++ * Inputs:
++ *	buf: string buffer containing schemas
++ *	rdtgrp: current rdtgroup holding schemas.
++ *
++ * Return:
++ *	0 on success or error code.
++ */
++static int get_resources(char *buf, struct rdtgroup *rdtgrp)
++{
++	char *resources[RESOURCE_NUM];
++	struct cache_resource l3;
++	struct resources resources_set;
++	int ret;
++	char *resources_block;
++	int i;
++	int size = strlen(buf) + 1;
++
++	resources_block = kcalloc(RESOURCE_NUM, size, GFP_KERNEL);
++	if (!resources_block)
++		return -ENOMEM;
++
++	for (i = 0; i < RESOURCE_NUM; i++)
++		resources[i] = (char *)(resources_block + i * size);
++
++	ret = divide_resources(buf, resources);
++	if (ret) {
++		kfree(resources_block);
++		return -EINVAL;
++	}
++
++	init_cache_resource(&l3);
++
++	if (cat_l3_enabled) {
++		ret = alloc_cache_resource(&l3, CACHE_LEVEL3);
++		if (ret)
++			goto out;
++
++		ret = get_cache_schema(resources[RESOURCE_L3], &l3,
++				       CACHE_LEVEL3, rdtgrp);
++		if (ret)
++			goto out;
++
++		resources_set.l3 = &l3;
++	} else
++		resources_set.l3 = NULL;
++
++	ret = get_rdtgroup_resources(&resources_set, rdtgrp);
++
++out:
++	kfree(resources_block);
++	free_cache_resource(&l3);
++
++	return ret;
++}
++
++static void gen_cache_prefix(char *buf, int level)
++{
++	sprintf(buf, "L%1d:", level == CACHE_LEVEL3 ? 3 : 2);
++}
++
++static int get_cache_id(int domain, int level)
++{
++	return cache_domains[level_to_leaf(level)].shared_cache_id[domain];
++}
++
++static void gen_cache_buf(char *buf, int level)
++{
++	int domain;
++	char buf1[1024];
++	int domain_num;
++	u64 val;
++
++	gen_cache_prefix(buf, level);
++
++	domain_num = get_domain_num(level);
++
++	val = max_cbm(level);
++
++	for (domain = 0; domain < domain_num; domain++) {
++		sprintf(buf1, "%d=%lx", get_cache_id(domain, level),
++			(unsigned long)val);
++		strcat(buf, buf1);
++		if (cdp_enabled) {
++			sprintf(buf1, ",%lx", (unsigned long)val);
++			strcat(buf, buf1);
++		}
++		if (domain < domain_num - 1)
++			sprintf(buf1, ";");
++		else
++			sprintf(buf1, "\n");
++		strcat(buf, buf1);
++	}
++}
++
++/*
++ * Set up schemas in root rdtgroup. All schemas in all resources are default
++ * values (all 1's) for all domains.
++ *
++ * Input: root rdtgroup.
++ * Return: 0: successful
++ *	   non-0: error code
++ */
++static int get_default_resources(struct rdtgroup *rdtgrp)
++{
++	char schema[1024];
++	int ret = 0;
++
++	strcpy(rdtgrp->schema, "");
++
++	if (cat_enabled(CACHE_LEVEL3)) {
++		gen_cache_buf(schema, CACHE_LEVEL3);
++
++		if (strlen(schema)) {
++			char buf[1024];
++
++			strcpy(buf, schema);
++			ret = get_resources(buf, rdtgrp);
++			if (ret)
++				return ret;
++		}
++		strcat(rdtgrp->schema, schema);
++	}
++
++	return ret;
++}
++
++static ssize_t rdtgroup_schemas_write(struct kernfs_open_file *of,
++			char *buf, size_t nbytes, loff_t off)
++{
++	int ret = 0;
++	struct rdtgroup *rdtgrp;
++	char *schema;
++
++	rdtgrp = rdtgroup_kn_lock_live(of->kn);
++	if (!rdtgrp)
++		return -ENODEV;
++
++	schema = kzalloc(sizeof(char) * strlen(buf) + 1, GFP_KERNEL);
++	if (!schema) {
++		ret = -ENOMEM;
++		goto out_unlock;
++	}
++
++	memcpy(schema, buf, strlen(buf) + 1);
++
++	ret = get_resources(buf, rdtgrp);
++	if (ret)
++		goto out;
++
++	memcpy(rdtgrp->schema, schema, strlen(schema) + 1);
++
++out:
++	kfree(schema);
++
++out_unlock:
++	rdtgroup_kn_unlock(of->kn);
++	return nbytes;
++}
++
++static int rdtgroup_schemas_show(struct seq_file *s, void *v)
++{
++	struct kernfs_open_file *of = s->private;
++	struct rdtgroup *rdtgrp;
++
++	rdtgrp = rdtgroup_kn_lock_live(of->kn);
++	seq_printf(s, "%s", rdtgrp->schema);
++	rdtgroup_kn_unlock(of->kn);
++	return 0;
++}
++
+ static void show_rdt_tasks(struct list_head *tasks, struct seq_file *s)
+ {
+ 	struct list_head *pos;

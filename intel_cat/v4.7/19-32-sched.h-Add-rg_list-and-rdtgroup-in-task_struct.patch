@@ -1,0 +1,49 @@
+From patchwork Wed Jul 13 01:02:52 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [19/32] sched.h: Add rg_list and rdtgroup in task_struct
+From: Fenghua Yu <fenghua.yu@intel.com>
+X-Patchwork-Id: 9226307
+Message-Id: <1468371785-53231-20-git-send-email-fenghua.yu@intel.com>
+To: "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@elte.hu>,
+ "H. Peter Anvin" <h.peter.anvin@intel.com>,
+ "Tony Luck" <tony.luck@intel.com>, "Tejun Heo" <tj@kernel.org>,
+ "Borislav Petkov" <bp@suse.de>, "Stephane Eranian" <eranian@google.com>,
+ "Peter Zijlstra" <peterz@infradead.org>,
+ "Marcelo Tosatti" <mtosatti@redhat.com>,
+ "David Carrillo-Cisneros" <davidcc@google.com>,
+ "Ravi V Shankar" <ravi.v.shankar@intel.com>,
+ "Vikas Shivappa" <vikas.shivappa@linux.intel.com>,
+ "Sai Prakhya" <sai.praneeth.prakhya@intel.com>
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+ "x86" <x86@kernel.org>, "Fenghua Yu" <fenghua.yu@intel.com>
+Date: Tue, 12 Jul 2016 18:02:52 -0700
+
+From: Fenghua Yu <fenghua.yu@intel.com>
+
+rg_list is linked list to connect to other tasks in a rdtgroup.
+
+The point of rdtgroup allows the task to access its own rdtgroup directly.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Reviewed-by: Tony Luck <tony.luck@intel.com>
+---
+ include/linux/sched.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 253538f..55adf17 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1761,6 +1761,10 @@ struct task_struct {
+ 	/* cg_list protected by css_set_lock and tsk->alloc_lock */
+ 	struct list_head cg_list;
+ #endif
++#ifdef CONFIG_INTEL_RDT
++	struct list_head rg_list;
++	struct rdtgroup *rdtgroup;
++#endif
+ #ifdef CONFIG_FUTEX
+ 	struct robust_list_head __user *robust_list;
+ #ifdef CONFIG_COMPAT
