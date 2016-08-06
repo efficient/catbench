@@ -263,25 +263,28 @@ spawncontenders() {
 		unset trashmask
 	fi
 
-	if "$SINGLETON_CONTENDER"
+	if [ "$contenders" -ne 0 ]
 	then
-		cpu_mask=0
-		for contender in `seq "$contenders"`
-		do
-			cpu_mask=$((cpu_mask + (1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender))))
-		done
-		cpu_mask="`printf '%#x' $cpu_mask`"
-		echo "NETWORK_RTT: Spawning singleton contender (cpu_mask=$cpu_mask)..."
-		time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_0 2>&1 &
-		contender_pids="$contender_pids $!"
-	else
-		for contender in `seq "$contenders"`
-		do
-			cpu_mask="`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`"
-			echo "NETWORK_RTT: Spawning contender $((contender - 1)) (cpu_mask=$cpu_mask)..."
-			time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_$((contender - 1)) 2>&1 &
+		if "$SINGLETON_CONTENDER"
+		then
+			cpu_mask=0
+			for contender in `seq "$contenders"`
+			do
+				cpu_mask=$((cpu_mask + (1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender))))
+			done
+			cpu_mask="`printf '%#x' $cpu_mask`"
+			echo "NETWORK_RTT: Spawning singleton contender (cpu_mask=$cpu_mask)..."
+			time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_0 2>&1 &
 			contender_pids="$contender_pids $!"
-		done
+		else
+			for contender in `seq "$contenders"`
+			do
+				cpu_mask="`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`"
+				echo "NETWORK_RTT: Spawning contender $((contender - 1)) (cpu_mask=$cpu_mask)..."
+				time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_$((contender - 1)) 2>&1 &
+				contender_pids="$contender_pids $!"
+			done
+		fi
 	fi
 
 	if [ -n "$mask" ]
