@@ -13,7 +13,7 @@ extractcontendertput() {
 	total_count=1
 	total_time=0
 
-	if [ "$SPAWNCONTENDERS" != "oninit" -a "$SPAWNCONTENDERS" != "onwarmup" ]
+	if [ "$SPAWNCONTENDERS" != "oninit" -a "$SPAWNCONTENDERS" != "onwarmup" -a "$contenders" -ne 0 ]
 	then
 		in_file="rtt_contender_0"
 
