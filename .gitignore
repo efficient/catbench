@@ -15,3 +15,11 @@
 /rtt_client_pipe_in
 /rtt_client_pipe_out
 /perf.data*
+
+# by /networked/{gzip,gunzip}.sh
+/linux-*.tar
+/linux-*.tar.gz
+# by /networked/lepton.sh
+/images
+# by /networked/tensorflow_mnist_short.sh
+/tensorflow_mnist_data
