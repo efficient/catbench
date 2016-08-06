@@ -28,6 +28,7 @@ const MICA_GET_RATIO="0.5"
 const MICA_NUM_ITEMS="131072"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
 const PERF_CORES="0"
+const KEEP_PERF_DATA="false"
 const TRASH_ALLOC="800"
 const WARMUP="600"
 
@@ -130,14 +131,14 @@ remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit
 if [ "$localrev" != "$remoterev" ]
 then
 	echo "ERROR: Version mismatch between systems!" >&2
-	exit 2
+	#exit 2
 fi
 
 remotemod="`ssh "$foreign_client" "cd '$remote_path'; git diff --exit-code HEAD >/dev/null; echo \\$?"`"
 if [ "$remotemod" -ne 0 ]
 then
 	echo "ERROR: Remote repository state uncommitted!" >&2
-	exit 3
+	#exit 3
 fi
 
 if [ -e .network_rtt_pw ]
@@ -205,7 +206,7 @@ jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.unit string "us"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
 
-base64 -w0 "$SERVER_DIR/$SERVER_BIN" | jaguar/jaguar set "$logfilename" meta.server_binary string -
+"$KEEP_PERF_DATA" && (base64 -w0 "$SERVER_DIR/$SERVER_BIN" | jaguar/jaguar set "$logfilename" meta.server_binary string -)
 
 setdefaultmask() {
 	groupname="$1"
@@ -261,12 +262,27 @@ spawncontenders() {
 		setdefaultmask trash "$trashmask"
 		unset trashmask
 	fi
-	for contender in `seq "$contenders"`
-	do
-		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		time -p taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_$((contender - 1)) 2>&1 &
+
+	if "$SINGLETON_CONTENDER"
+	then
+		cpu_mask=0
+		for contender in `seq "$contenders"`
+		do
+			cpu_mask=$((cpu_mask + (1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender))))
+		done
+		cpu_mask="`printf '%#x' $cpu_mask`"
+		echo "NETWORK_RTT: Spawning singleton contender (cpu_mask=$cpu_mask)..."
+		time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_0 2>&1 &
 		contender_pids="$contender_pids $!"
-	done
+	else
+		for contender in `seq "$contenders"`
+		do
+			cpu_mask="`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`"
+			echo "NETWORK_RTT: Spawning contender $((contender - 1)) (cpu_mask=$cpu_mask)..."
+			time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_$((contender - 1)) 2>&1 &
+			contender_pids="$contender_pids $!"
+		done
+	fi
 
 	if [ -n "$mask" ]
 	then
@@ -412,6 +428,8 @@ recordtrial() {
 		allocation="$header"
 	fi
 
+	"$KEEP_PERF_DATA" || truncate --size=0 perf.data
+
 	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
 	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
 	echo "============================================="
@@ -479,23 +497,23 @@ trial_count="$((iteration_count * 4))"
 sudo -l >/dev/null
 for input in $iterator
 do
-	eval $independent=$input
-	eval cat <<-tac
+	#eval $independent=$input
+	#eval cat <<-tac
 
-		=================
+	#	=================
 
-		RUNNING ITERATION: $input
+	#	RUNNING ITERATION: $input
 
-	tac
-	recordtrial baseline
-	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
-	eval cat <<-tac
+	#tac
+	#recordtrial baseline
+	#trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
+	#eval cat <<-tac
 
-		RUNNING TRIAL: $input basealloc
+	#	RUNNING TRIAL: $input basealloc
 
-	tac
-	recordtrial basealloc 0 "$cache_ways"
-	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
+	#tac
+	#recordtrial basealloc 0 "$cache_ways"
+	#trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
