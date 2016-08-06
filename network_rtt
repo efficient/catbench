@@ -28,7 +28,7 @@ const MICA_GET_RATIO="0.5"
 const MICA_NUM_ITEMS="131072"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
 const PERF_CORES="0"
-const KEEP_PERF_DATA="false"
+const KEEP_PERF_DATA="true"
 const TRASH_ALLOC="800"
 const WARMUP="600"
 
@@ -497,23 +497,23 @@ trial_count="$((iteration_count * 4))"
 sudo -l >/dev/null
 for input in $iterator
 do
-	#eval $independent=$input
-	#eval cat <<-tac
+	eval $independent=$input
+	eval cat <<-tac
 
-	#	=================
+		=================
 
-	#	RUNNING ITERATION: $input
+		RUNNING ITERATION: $input
 
-	#tac
-	#recordtrial baseline
-	#trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
-	#eval cat <<-tac
+	tac
+	recordtrial baseline
+	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
+	eval cat <<-tac
 
-	#	RUNNING TRIAL: $input basealloc
+		RUNNING TRIAL: $input basealloc
 
-	#tac
-	#recordtrial basealloc 0 "$cache_ways"
-	#trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
+	tac
+	recordtrial basealloc 0 "$cache_ways"
+	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
 		RUNNING TRIAL: $input contention
