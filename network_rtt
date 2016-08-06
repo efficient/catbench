@@ -23,8 +23,6 @@ const DEFAULT_MITE_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 
 const DEFAULT_CACHE_WAYS="0x003"
 const DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
-const CGROUP_PATH="/sys/fs/rscctrl"
-const CGROUP_SUBMASK="schemas"
 const MICA_GET_RATIO="0.5"
 const MICA_NUM_ITEMS="131072"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
@@ -32,6 +30,8 @@ const PERF_CORES="0"
 const TRASH_ALLOC="800"
 const WARMUP="600"
 
+CGROUP_PATH="/sys/fs/rscctrl"
+CGROUP_SUBMASK="schemas"
 if [ ! -e "$CGROUP_PATH/tasks" ]
 then
 	# Fall back to Linux 4.4 compatibility mode
@@ -44,6 +44,8 @@ then
 		exit 1
 	fi
 fi
+readonly CGROUP_PATH
+readonly CGROUP_SUBMASK
 
 usage() {
 	cat <<-tac
