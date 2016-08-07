@@ -8,7 +8,7 @@ inherit_default_impl="$inherit_default_impl"
 GZ_FILENAME="linux-4.7.tar"
 
 gencontenderargs() {
-	echo "$GZ_FILENAME /dev/null"
+	echo "$GZ_FILENAME /dev/null -9"
 }
 
 extractcontendertput() {
