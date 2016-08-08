@@ -18,7 +18,7 @@ genclientargs() {
 	fi
 	local num_warm="`perl -e "print int($num_iter / 3)"`"
 
-	echo "-n '$num_iter' -w '$num_warm' -o /dev/null -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$mite_tput_limit'"
+	echo "-n '$num_iter' -w '$num_warm' -o /dev/null -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
 }
 
 prephugepages() {
