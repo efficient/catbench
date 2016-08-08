@@ -11,7 +11,7 @@ inherit_default_init="$inherit_default_init"
 inherit_default_impl="$inherit_default_impl genserverargs extractavelatency"
 
 genclientargs() {
-	echo "-o /dev/null -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$alpha' '$mite_tput_limit'"
+	echo "-o /dev/null -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
 }
 
 prephugepages() {
