@@ -42,9 +42,9 @@ set -e
 
 if [ "$cores" = "end" ]
 then
-	sudo kill -int "`ps -eopid,cmd | tr -s " " | sed -n 's/^ \?\([[:digit:]]\+\) \<sleep\> \<inf\>.*/\1/p' | tail -n1`" 2>/dev/null || echo "No instances left to end"
-	while [ "`ps -e | grep '\<perf\>$' | tail -n+2 | wc -l`" -ne "0" ]; do :; done
-	while fuser perf.data >/dev/null 2>&1; do :; done
+	sudoers="`ps -eopgid,comm | grep sudo | sed 's/^ */-e^/' | cut -d" " -f1`"
+	perfpid="`ps -eopgid,pid,comm | sed 's/^ *//' | grep $sudoers | grep " perf" | tail -n1 | tr -s " " | cut -d" " -f2`"
+	[ -n "$perfpid" ] && sudo kill -int "$perfpid" 2>/dev/null && while ps -eopid | tr -d " " | grep -x "$perfpid" >/dev/null; do :; done || echo "No instances left to end"
 	sudo chown "`whoami`:" perf.data
 	perf report --stdio | grep -A1 '^# Samples:' | grep -v -- -- | sed "s/'//g" | rev | cut -d" " -f1 | rev | paste - - | eval sed `echo "$COUNTERS" | sed 's|.*|-e"s:&:"|'`
 else
