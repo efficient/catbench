@@ -212,7 +212,10 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     colors = [
     	'b', 'g', 'r', 'm' ,'y', 'k'
     ]
-    ax.set_color_cycle(colors);
+    import itertools;
+    marker = itertools.cycle(('o', '>', 'D', 's', 'h', '+', '<', '^'));
+    color = itertools.cycle(('b', 'g', 'r', 'm' ,'y', 'k'));
+    #ax.set_color_cycle(colors);
 
     ax.set_xlabel(get_label(filename, xlabel));
     ax.set_ylabel(get_label(filename, ylabels[0]));
@@ -245,8 +248,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                 continue;
             xy = map(list, zip(*val2));
             line_label = val["description"];
-            line.append((ax.plot(xy[0], xy[1], 'o', label=line_label, alpha=0.3))); #+ str(key2[1])))[0]);
-            print val["order"];
+            line.append((ax.plot(xy[0], xy[1], '-o', color=color.next(), label=line_label, marker=marker.next(), alpha=0.3))); #+ str(key2[1])))[0]);
+	    #ax.plot(xy[0], xy[1]);
             temp.append((line[len(line) - 1][0], val["order"], line_label));
             #ax.scatter(xy[0], xy[1]);
         if(max(xy[0]) > cur_xmax):
