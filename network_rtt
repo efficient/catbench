@@ -23,7 +23,6 @@ const DEFAULT_MITE_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 
 const DEFAULT_CACHE_WAYS="0x003"
 const DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
-const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 const MICA_GET_RATIO="0.5"
 const MICA_NUM_ITEMS="131072"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
@@ -31,6 +30,23 @@ const PERF_CORES="0"
 const KEEP_PERF_DATA="true"
 const TRASH_ALLOC="800"
 const WARMUP="600"
+
+CGROUP_PATH="/sys/fs/rscctrl"
+CGROUP_SUBMASK="schemas"
+if [ ! -e "$CGROUP_PATH/tasks" ]
+then
+	# Fall back to Linux 4.4 compatibility mode
+	CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+	CGROUP_SUBMASK="intel_rdt.l3_cbm"
+
+	if [ ! -e "$CGROUP_PATH/tasks" ]
+	then
+		echo "ERROR: OS doesn't appear to support CAT!" >&2
+		exit 1
+	fi
+fi
+readonly CGROUP_PATH
+readonly CGROUP_SUBMASK
 
 usage() {
 	cat <<-tac
@@ -213,12 +229,40 @@ setdefaultmask() {
 	groupmask="$2"
 
 	sudo mkdir "$CGROUP_PATH/$groupname"
-	sudo sh -c "echo '$groupmask' >'$CGROUP_PATH/$groupname/intel_rdt.l3_cbm'"
+	if [ "$CGROUP_SUBMASK" = "schemas" ]
+	then
+		# Linux 4.7 mode
+		sudo sh -c "cat '$CGROUP_PATH/$groupname/$CGROUP_SUBMASK' | sed 's/=[^;]\+/=$groupmask/' >'$CGROUP_PATH/$groupname/$CGROUP_SUBMASK'"
+	elif [ "$CGROUP_SUBMASK" = "intel_rdt.l3_cbm" ]
+	then
+		# Linux 4.4 compatibility mode
+		sudo sh -c "echo '$groupmask' >'$CGROUP_PATH/$groupname/$CGROUP_SUBMASK'"
+	else
+		echo "INTERNAL ERROR: $CGROUP_SUBMASK: Unrecognized mask file type!" >&2
+		exit 1
+	fi
 	sudo sh -c "echo $$ >'$CGROUP_PATH/$groupname/tasks'"
 }
 
 unsetmask() {
 	sudo sh -c "echo $$ >'$CGROUP_PATH/tasks'"
+}
+
+mgdelete() {
+	groupname="$1"
+
+	if [ "$CGROUP_SUBMASK" = "schemas" ]
+	then
+		# Linux 4.7 mode
+		sudo rmdir "$CGROUP_PATH/$groupname"
+	elif [ "$CGROUP_SUBMASK" = "intel_rdt.l3_cbm" ]
+	then
+		# Linux 4.4 compatibility mode (requires cgdelete)
+		sudo cgdelete "intel_rdt:$groupname"
+	else
+		echo "INTERNAL ERROR: $CGROUP_SUBMASK: I don't know how to delete groups with this type of mask!" >&2
+		exit 1
+	fi
 }
 
 countfreepages() {
@@ -383,8 +427,8 @@ runtrial() {
 	killall "$CONTENDER_BIN"
 	if [ -n "$mask" ]
 	then
-		sudo cgdelete intel_rdt:lockserver
-		sudo cgdelete intel_rdt:trash
+		mgdelete lockserver
+		mgdelete trash
 	fi
 	scp -C "$foreign_client:$remote_path/rtt_client" .
 	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"

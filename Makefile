@@ -19,7 +19,7 @@ clean-recursive: clean
 	$(RM) external/pqos/lib/libpqos.a.dep external/pqos/lib/libpqos.so.1 external/pqos/lib/libpqos.so.1.0.1 external/pqos/pqos
 	git submodule foreach '[ -f "../`basename $$PWD`.patch" ] && git apply -R "../`basename $$PWD`.patch"; true'
 	git submodule foreach git clean -fX
-	git submodule deinit .
+	git submodule deinit $(DEINIT_FLAGS) .
 
 include external/modules.mk
 
