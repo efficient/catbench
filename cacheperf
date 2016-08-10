@@ -40,11 +40,19 @@ fi
 cores="$1"
 set -e
 
+findsudoerproc() {
+	local regex="$1"
+	set -e
+
+	ps -eopgid,pid,comm | sed 's/^ *//' | grep $sudoerpgids | grep "$regex" | tail -n1 | tr -s " " | cut -d" " -f2
+}
+
 if [ "$cores" = "end" ]
 then
-	sudoers="`ps -eopgid,comm | grep sudo | sed 's/^ */-e^/' | cut -d" " -f1`"
-	perfpid="`ps -eopgid,pid,comm | sed 's/^ *//' | grep $sudoers | grep " perf" | tail -n1 | tr -s " " | cut -d" " -f2`"
-	[ -n "$perfpid" ] && sudo kill -int "$perfpid" 2>/dev/null && while ps -eopid | tr -d " " | grep -x "$perfpid" >/dev/null; do :; done || echo "No instances left to end"
+	sudoerpgids="`ps -eopgid,comm | grep sudo | sed 's/^ */-e^/' | cut -d" " -f1`"
+	perfpid="`findsudoerproc " perf"`"
+	sleeppid="`findsudoerproc sleep`"
+	[ -n "$perfpid" -a -n "$sleeppid" ] && sudo kill -int "$sleeppid" 2>/dev/null && while ps -eopid | tr -d " " | grep -x "$perfpid" >/dev/null; do :; done || echo "No instances left to end"
 	sudo chown "`whoami`:" perf.data
 	perf report --stdio | grep -A1 '^# Samples:' | grep -v -- -- | sed "s/'//g" | rev | cut -d" " -f1 | rev | paste - - | eval sed `echo "$COUNTERS" | sed 's|.*|-e"s:&:"|'`
 else
