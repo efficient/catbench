@@ -1,22 +1,18 @@
 #!/bin/sh
-if [ "$2" == "-h" ]; then
-	echo "Usage: all_the_graphs <input> <xdata>
-	exit 0
-fi
 echo "$2"
 echo "$1"
 name=`basename -s .json "$1"`
 grep -vFe "perf_data.: \"" -e server_binary -e log -e patch "$1" > "$name"-temp1.json
 paste -sd"\r" "$name"-temp1.json | sed 's/,\r\([[:space:]]*[]}]\)/\n\1/g;s/\r/\n/g' > "$name"-temp2.json
 # Replace cache ways with numbers so graphing works better
-perl -pe 's/\"0x001\"/1/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x003\"/2/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x007\"/3/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x00f\"/4/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x01f\"/5/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x03f\"/6/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x07f\"/7/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0ff\"/8/g' "$name"-temp1.json > "$name"-temp2.json
+perl -pe 's/\"0x0*1\"/1/g' "$name"-temp2.json > "$name"-temp1.json
+perl -pe 's/\"0x0*3\"/2/g' "$name"-temp1.json > "$name"-temp2.json
+perl -pe 's/\"0x0*7\"/3/g' "$name"-temp2.json > "$name"-temp1.json
+perl -pe 's/\"0x0*f\"/4/g' "$name"-temp1.json > "$name"-temp2.json
+perl -pe 's/\"0x0*1f\"/5/g' "$name"-temp2.json > "$name"-temp1.json
+perl -pe 's/\"0x0*3f\"/6/g' "$name"-temp1.json > "$name"-temp2.json
+perl -pe 's/\"0x0*7f\"/7/g' "$name"-temp2.json > "$name"-temp1.json
+perl -pe 's/\"0x0*ff\"/8/g' "$name"-temp1.json > "$name"-temp2.json
 perl -pe 's/\"0x1ff\"/9/g' "$name"-temp2.json > "$name"-temp1.json
 perl -pe 's/\"0x3ff\"/10/g' "$name"-temp1.json > "$name"-temp2.json
 perl -pe 's/\"0x7ff\"/11/g' "$name"-temp2.json > "$name"-temp1.json
