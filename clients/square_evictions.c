@@ -141,7 +141,7 @@ static struct {
 	perf_log_buffer_t **perflog;
 	int perfstride;
 	bool measure_all;
-	int max_accesses;
+	unsigned max_accesses;
 	bool infinite_duration;
 } square_evictions_saved;
 
@@ -149,12 +149,12 @@ static void square_evictions_handler(int);
 static void term_handler(int);
 
 typedef int (*evictions_fun_t)(uint8_t *, int, int, int, int, int, rng_t *, rng_t *, bool, bool,
-		perf_log_buffer_t **, int, bool, int, bool);
+		perf_log_buffer_t **, int, bool, unsigned, bool);
 
 static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
 		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
-		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses,
+		perf_log_buffer_t **perflog, int perfstride, bool measure_all, unsigned max_accesses,
 		bool infinite_duration) {
 	square_evictions_saved.arr = arr;
 	square_evictions_saved.cache_line_size = cache_line_size;
@@ -187,7 +187,7 @@ static int square_evictions_async(uint8_t *arr, int cache_line_size, int num_per
 static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		int passes_per_cycle, int capacity_contracted, int capacity_expanded,
 		rng_t *randomize, rng_t *cont_rand, bool no_randspin, bool check_memrate,
-		perf_log_buffer_t **perflog, int perfstride, bool measure_all, int max_accesses,
+		perf_log_buffer_t **perflog, int perfstride, bool measure_all, unsigned max_accesses,
 		bool infinite_duration) {
 	assert(perflog);
 
@@ -221,7 +221,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 		const char *desc = "";
 		rng_t *randomizer = randomize;
 		int siz;
-		int accesses = 0;
+		unsigned long accesses = 0;
 		uint64_t time = 0;
 		uint64_t max_time = 0;
 		uint8_t val = rand();
@@ -297,7 +297,7 @@ static int square_evictions(uint8_t *arr, int cache_line_size, int num_periods,
 			printf("Completed iteration in %.6f seconds\n", ((double) duration) / CLOCKS_PER_SEC);
 			fflush(stdout);
 			if(check_memrate) {
-				fprintf(stderr, "Accesses performed: %d\n", accesses);
+				fprintf(stderr, "Accesses performed: %lu\n", accesses);
 				fprintf(stderr, "Sanity check: %.6f accesses/s\n", (double) accesses / duration * CLOCKS_PER_SEC);
 			}
 		} else
@@ -351,7 +351,7 @@ int main(int argc, char *argv[]) {
 	int percent_expanded = DEFAULT_PERCENT_EXPANDED;
 	int custom_increment = 0;
 	int perfstride = -1;
-	int accesses = 0;
+	unsigned accesses = 0;
 	int baserandom = 0;
 	bool hugepages = false;
 	bool randomize = false;
@@ -459,7 +459,7 @@ int main(int argc, char *argv[]) {
 			measure_all = true;
 			break;
 		case 'a':
-			if(!parse_arg_arg(each_arg, &accesses)) {
+			if(!parse_arg_arg(each_arg, (int *) &accesses)) {
 				ret = 1;
 				goto cleanup;
 			}

@@ -7,18 +7,11 @@ INDEPENDENT_VAR_WHITELIST="cache_ways mite_tput_limit zipf_alpha"
 
 PERF_INIT_PHRASE="tput="
 
-inherit_default_init="CONTENDER_DIR CONTENDER_BIN"
-inherit_default_impl="genserverargs gencontenderargs extractavelatency"
+inherit_default_init="$inherit_default_init"
+inherit_default_impl="$inherit_default_impl genserverargs extractavelatency"
 
 genclientargs() {
-	local num_iter="$MICA_NUM_ITERATIONS"
-	if [ "$independent" = "mite_tput_limit" ]
-	then
-		num_iter="`perl -e "print int($MICA_NUM_ITERATIONS * $mite_tput_limit / 3)"`"
-	fi
-	local num_warm="`perl -e "print int($num_iter / 3)"`"
-
-	echo "-n '$num_iter' -w '$num_warm' -o /dev/null -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
+	echo "-o /dev/null -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
 }
 
 prephugepages() {

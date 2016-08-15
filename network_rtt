@@ -23,18 +23,34 @@ const DEFAULT_MITE_TPUT_LIMIT_LOOP="0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0 2.2 
 const DEFAULT_CACHE_WAYS="0x003"
 const DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
-const CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
 const MICA_GET_RATIO="0.5"
 const MICA_NUM_ITEMS="131072"
-const MICA_NUM_ITERATIONS="30000000"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
 const PERF_CORES="0"
+const KEEP_PERF_DATA="true"
 const TRASH_ALLOC="800"
 const WARMUP="600"
 
+CGROUP_PATH="/sys/fs/rscctrl"
+CGROUP_SUBMASK="schemas"
+if [ ! -e "$CGROUP_PATH/tasks" ]
+then
+	# Fall back to Linux 4.4 compatibility mode
+	CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
+	CGROUP_SUBMASK="intel_rdt.l3_cbm"
+
+	if [ ! -e "$CGROUP_PATH/tasks" ]
+	then
+		echo "ERROR: OS doesn't appear to support CAT!" >&2
+		exit 1
+	fi
+fi
+readonly CGROUP_PATH
+readonly CGROUP_SUBMASK
+
 usage() {
 	cat <<-tac
-		USAGE: $0 <mode> <plugin> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
+		USAGE: $0 <mode> <plugins> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
 
 		<mode> is one of:
 		 -s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
@@ -44,7 +60,7 @@ usage() {
 		 -m: Vary the number of ways allocated to the mite
 		 -c: Vary the number of ways allocated to Trash
 
-		<plugin> is one of:
+		<plugins> is a comma-separated list of:
 	tac
 	ls networked/*.sh | sed 's/.*\/\([^/]*\).sh/ \1/'
 }
@@ -100,19 +116,24 @@ then
 	usage
 	exit 1
 fi
-plugin="$1"
+plugins="$1"
 foreign_client="$2"
 remote_path="$3"
 local_macaddr="$4"
 
 logfilename="$CATBENCH_JAGFILE"
-if [ -z "$plugin" -o ! -e "networked/$plugin.sh" ]
-then
-	echo "$plugin: Unrecognized software system plugin!" >&2
-	exit 1
-fi
-. "networked/$plugin.sh"
+
+for plugin in $(echo "$plugins" | sed -n 1'p' | tr ',' '\n')
+do
+	if [ -z "$plugin" -o ! -e "networked/$plugin.sh" ]
+	then
+		echo "$plugin: Unrecognized software system plugin!" >&2
+		exit 1
+	fi
+	. "networked/$plugin.sh"
+done
 . networked/.sh
+
 if [ -z "$logfilename" ]
 then
 	cat >&2 <<-tac
@@ -150,7 +171,6 @@ fi
 sudo killall "$SERVER_BIN" 2>/dev/null
 ssh "$foreign_client" "echo '$passwd' | sudo -S killall '$CLIENT_BIN' 2>/dev/null"
 sudo killall "$CONTENDER_BIN" 2>/dev/null
-sudo killall onmycommand 2>/dev/null
 
 if [ "$independent" = "client_sleep" ]
 then
@@ -202,19 +222,47 @@ jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.unit string "us"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
 
-base64 -w0 "$SERVER_DIR/$SERVER_BIN" | jaguar/jaguar set "$logfilename" meta.server_binary string -
+"$KEEP_PERF_DATA" && (base64 -w0 "$SERVER_DIR/$SERVER_BIN" | jaguar/jaguar set "$logfilename" meta.server_binary string -)
 
 setdefaultmask() {
 	groupname="$1"
 	groupmask="$2"
 
 	sudo mkdir "$CGROUP_PATH/$groupname"
-	sudo sh -c "echo '$groupmask' >'$CGROUP_PATH/$groupname/intel_rdt.l3_cbm'"
+	if [ "$CGROUP_SUBMASK" = "schemas" ]
+	then
+		# Linux 4.7 mode
+		sudo sh -c "cat '$CGROUP_PATH/$groupname/$CGROUP_SUBMASK' | sed 's/=[^;]\+/=$groupmask/' >'$CGROUP_PATH/$groupname/$CGROUP_SUBMASK'"
+	elif [ "$CGROUP_SUBMASK" = "intel_rdt.l3_cbm" ]
+	then
+		# Linux 4.4 compatibility mode
+		sudo sh -c "echo '$groupmask' >'$CGROUP_PATH/$groupname/$CGROUP_SUBMASK'"
+	else
+		echo "INTERNAL ERROR: $CGROUP_SUBMASK: Unrecognized mask file type!" >&2
+		exit 1
+	fi
 	sudo sh -c "echo $$ >'$CGROUP_PATH/$groupname/tasks'"
 }
 
 unsetmask() {
 	sudo sh -c "echo $$ >'$CGROUP_PATH/tasks'"
+}
+
+mgdelete() {
+	groupname="$1"
+
+	if [ "$CGROUP_SUBMASK" = "schemas" ]
+	then
+		# Linux 4.7 mode
+		sudo rmdir "$CGROUP_PATH/$groupname"
+	elif [ "$CGROUP_SUBMASK" = "intel_rdt.l3_cbm" ]
+	then
+		# Linux 4.4 compatibility mode (requires cgdelete)
+		sudo cgdelete "intel_rdt:$groupname"
+	else
+		echo "INTERNAL ERROR: $CGROUP_SUBMASK: I don't know how to delete groups with this type of mask!" >&2
+		exit 1
+	fi
 }
 
 countfreepages() {
@@ -240,6 +288,58 @@ waitforexit() {
 	while (ps -eo args | cut -d" " -f1 | grep -x "$arg0" >/dev/null 2>&1); do :; done
 }
 
+spawncontenders() {
+	contenders="$1"
+	mask="$2"
+
+	contender_pids=""
+
+	if [ "$contenders" -ne 0 -a -n "$mask" ]
+	then
+		if "$cache_partition_mite"
+		then
+			trashmask="`printf '%#x\n' $((((1 << $(cat /sys/devices/system/cpu/cpu0/cache/index3/ways_of_associativity)) - 1) - mask))`"
+		else
+			trashmask="$mask"
+		fi
+		echo "NETWORK_RTT: Setting mask to $trashmask..."
+		setdefaultmask trash "$trashmask"
+		unset trashmask
+	fi
+
+	if [ "$contenders" -ne 0 ]
+	then
+		if "$SINGLETON_CONTENDER"
+		then
+			cpu_mask=0
+			for contender in `seq "$contenders"`
+			do
+				cpu_mask=$((cpu_mask + (1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender))))
+			done
+			cpu_mask="`printf '%#x' $cpu_mask`"
+			echo "NETWORK_RTT: Spawning singleton contender (cpu_mask=$cpu_mask)..."
+			time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_0 2>&1 &
+			contender_pids="$contender_pids $!"
+		else
+			for contender in `seq "$contenders"`
+			do
+				cpu_mask="`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`"
+				echo "NETWORK_RTT: Spawning contender $((contender - 1)) (cpu_mask=$cpu_mask)..."
+				time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_$((contender - 1)) 2>&1 &
+				contender_pids="$contender_pids $!"
+			done
+		fi
+	fi
+
+	if [ -n "$mask" ]
+	then
+		echo "NETWORK_RTT: Unsetting mask..."
+		unsetmask
+	fi
+
+	echo "$contender_pids" >rtt_contender_pids
+}
+
 runtrial() {
 	contenders="0"
 	if [ -n "$1" ]
@@ -258,45 +358,77 @@ runtrial() {
 	eval "( cd '$SERVER_DIR'; sudo './$SERVER_BIN' `genserverargs` >'$PWD/rtt_server' )" &
 	awaitserverinit
 
-	if [ "$contenders" -ne 0 -a -n "$mask" ]
-	then
-		if "$cache_partition_mite"
-		then
-			trashmask="`printf '%#x\n' $((((1 << $(cat /sys/devices/system/cpu/cpu0/cache/index3/ways_of_associativity)) - 1) - mask))`"
-		else
-			trashmask="$mask"
-		fi
-		echo "NETWORK_RTT: Setting mask to $trashmask..."
-		setdefaultmask trash "$trashmask"
-		unset trashmask
-	fi
-	for contender in `seq "$contenders"`
-	do
-		echo "NETWORK_RTT: Spawning contender $((contender - 1))"
-		taskset "`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >/dev/null &
-	done
-
-	if [ -n "$mask" ]
-	then
-		echo "NETWORK_RTT: Unsetting mask..."
-		unsetmask
-	fi
-	./onmycommand ./cacheperf "$PERF_CORES" >rtt_perf_duration &
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
-	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; cd '$CLIENT_DIR'; echo '$passwd' | sudo -S './$CLIENT_BIN' `genclientargs` | tee ~/'$remote_path/rtt_client' | grep -F --line-buffered '$PERF_INIT_PHRASE'" | ( grep -Fm1 "$PERF_INIT_PHRASE" && killall -USR1 onmycommand && cat ) >/dev/null
-	./cacheperf end >rtt_perf
-	killall onmycommand
+
+
+	# set up remote pipes
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client_pipe_in rtt_client_pipe_out; mkfifo rtt_client_pipe_in rtt_client_pipe_out"
+
+	# set up local pipes
+	rm -f rtt_client_pipe_in rtt_client_pipe_out; mkfifo rtt_client_pipe_in rtt_client_pipe_out
+
+	# connect pipes
+	ssh "$foreign_client" "cd '$remote_path'; cat >rtt_client_pipe_in" <rtt_client_pipe_in &
+	rtt_cient_pipe_in_pid=$!
+	ssh "$foreign_client" "cd '$remote_path'; cat rtt_client_pipe_out" >rtt_client_pipe_out &
+	rtt_cient_pipe_out_pid=$!
+
+	# run a dummy input to allow writing to the piped input multiple times
+	sleep 1h > rtt_client_pipe_in &
+	dummy_in_pid=$!
+
+	# launch remote client
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; echo '$passwd' | sudo -S -v;
+		cd '$CLIENT_DIR'; sudo './$CLIENT_BIN' `genclientargs` <~/'$remote_path/rtt_client_pipe_in' | tee ~/'$remote_path/rtt_client' | (
+			grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready &&
+			cat >/dev/null
+		) >~/'$remote_path/rtt_client_pipe_out'" &
+	client_pid=$!
+
+	if [ "$SPAWNCONTENDERS" = "oninit" ]; then spawncontenders "$contenders" "$mask"; fi
+	oninit
+
+	# listen to client output
+	while read -r line <rtt_client_pipe_out
+	do
+		if [ "$line" != "ready" ]; then echo "ERROR: Unexpected output from pipe: %line"; exit 1; fi
+
+		# warm up
+		if [ "$SPAWNCONTENDERS" = "onwarmup" ]; then spawncontenders "$contenders" "$mask"; fi
+		echo "NETWORK_RTT: Warming up... ($WARMUP_DURATION)"
+		onwarmup
+
+		# main processing
+		if [ "$SPAWNCONTENDERS" = "onmainprocessing" ]; then spawncontenders "$contenders" "$mask"; fi
+		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
+		echo "r" >rtt_client_pipe_in
+		./cacheperf "$PERF_CORES" >rtt_perf_duration &
+		onmainprocessing
+
+		# stop
+		echo "NETWORK_RTT: Stopping..."
+		./cacheperf end >rtt_perf
+		echo "s" >rtt_client_pipe_in
+		wait $client_pid
+
+		break
+	done
+
+	echo "NETWORK_RTT: Cleaning up..."
+
 	sudo killall "$SERVER_BIN"
 	waitforexit "./$SERVER_BIN"
 	cat rtt_server >>"$CATBENCH_LOGFILE"
 
-	echo "NETWORK_RTT: Cleaning up..."
+	kill $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
+	wait $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
+
 	killall "$CONTENDER_BIN"
 	if [ -n "$mask" ]
 	then
-		sudo cgdelete intel_rdt:lockserver
-		sudo cgdelete intel_rdt:trash
+		mgdelete lockserver
+		mgdelete trash
 	fi
 	scp -C "$foreign_client:$remote_path/rtt_client" .
 	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
@@ -327,6 +459,7 @@ recordtrial() {
 	rtt_50="`extracttaillatency "$ct" 50 <<-ycnetalliattcartxe
 			$all
 		ycnetalliattcartxe`"
+	contender_tput="`extractcontendertput`"
 	if [ -z "$header" ]
 	then
 		if [ "$independent" = "cache_ways" ]
@@ -335,21 +468,24 @@ recordtrial() {
 		else
 			header="fraction"
 		fi
-		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
 		baseline="$header"
 		basealloc="$header"
 		contention="$header"
 		allocation="$header"
 	fi
 
+	"$KEEP_PERF_DATA" || truncate --size=0 perf.data
+
 	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
 	echo "============================================="
 	echo $tput
 	echo $avg
 	echo $rtt_999
 	echo $rtt_99
 	echo $rtt_95
+	echo $contender_tput
 	echo "============================================="
 }
 

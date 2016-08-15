@@ -1,7 +1,7 @@
 # Validates system plugins to ensure they override the appropriate functions.
 
-readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN CLIENT_DIR CLIENT_BIN CONTENDER_DIR CONTENDER_BIN PERF_INIT_PHRASE"
-readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency"
+readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN CLIENT_DIR CLIENT_BIN CONTENDER_DIR CONTENDER_BIN PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION"
+readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency extractcontendertput oninit onwarmup onmainprocessing"
 
 if ! echo "$INDEPENDENT_VAR_WHITELIST" | grep "\<$independent\>" >/dev/null
 then
@@ -35,7 +35,10 @@ do
 		eval "$var"='"clients"'
 		;;
 	CONTENDER_BIN)
-		eval "$var"='"square_evictions"'
+		eval "$var"='"true"'
+		;;
+	SINGLETON_CONTENDER)
+		eval "$var"='"false"'
 		;;
 	*)
 		echo "Internal error: Module requested nonexistant default initialization for constant '$var'!" >&2
@@ -75,7 +78,7 @@ do
 		;;
 	gencontenderargs)
 		eval "$fun()" '{
-			printf "%s %s %s" -c"$TRASH_ALLOC" -e"$TRASH_ALLOC" -uhr
+			true
 		}'
 		;;
 	prephugepages)
@@ -109,6 +112,11 @@ do
 			local percentile="$2"
 
 			sed -n "`echo "$entries * $percentile / 100" | bc`{p;q}"
+		}'
+		;;
+	extractcontendertput)
+		eval "$fun()" '{
+			echo 0
 		}'
 		;;
 	*)

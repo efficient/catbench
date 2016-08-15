@@ -1,5 +1,7 @@
 #!/bin/sh
 
+trap "" TERM
+
 if [ $# -ne 1 ]
 then
 	cat <<-tac
@@ -140,7 +142,7 @@ do
 	done
 
 	oneline "$line" "running since `timestamp`"
-	eval '"'"`dirname "$0"`/driver"'"' $args || true
+	( trap - TERM && eval '"'"`dirname "$0"`/driver"'"' $args ) || true
 
 	oneline "$line" "completed at `timestamp`"
 	line="$((line + 1))"

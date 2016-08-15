@@ -1,5 +1,8 @@
 #!/bin/sh
 
+trap exit TERM INT QUIT
+trap "kill 0" EXIT
+
 logging_commence() {
 	mkfifo "$prefix.tmp"
 	tee "$prefix.log" <"$prefix.tmp" &
@@ -80,6 +83,7 @@ jaguar/jaguar set "$CATBENCH_JAGFILE" meta.commit "`git log --oneline --abbrev-c
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.date "`date "+%F %T %z"`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.message "`git log --no-abbrev-commit --decorate -1`"
 git diff --ignore-submodules HEAD | base64 | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.patch -
+jaguar/jaguar set "$CATBENCH_JAGFILE" meta.perf "`perf -v`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.status "`git status -uno`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.submodule "`git submodule status`"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.uname "`uname -a`"
