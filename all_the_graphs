@@ -9,8 +9,7 @@ fi
 echo "$2"
 echo "$1"
 name=`basename -s .json "$1"`
-grep -vFe "perf_data.: \"" -e server_binary -e log -e patch "$1" > "$name"-temp1.json
-paste -sd"\r" "$name"-temp1.json | sed 's/,\r\([[:space:]]*[]}]\)/\n\1/g;s/\r/\n/g' > "$name"-temp2.json
+./strip "$name.json" >"$name-temp2.json"
 # Replace cache ways with numbers so graphing works better
 perl -pe 's/\"0x0*1\"/1/g' "$name"-temp2.json > "$name"-temp1.json
 perl -pe 's/\"0x0*3\"/2/g' "$name"-temp1.json > "$name"-temp2.json
