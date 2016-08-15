@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ $# -ne 1 -o ! -e "$1" ]
+then
+	cat <<-tac
+		USAGE: $0 <Jaguar file>
+
+		<Jaguar file> must already exist.
+	tac
+	exit 1
+fi
+
+grep -vFe'"perf_data": "' -e'"log"' -e'"patch"' -e'"server_binary"' "$1" | \
+	paste -sd"\r" | sed 's/,\r\([[:space:]]*[]}]\)/\n\1/g;s/\r/\n/g'
