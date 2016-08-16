@@ -9,7 +9,7 @@ fi
 echo "$2"
 echo "$1"
 name=`basename -s .json "$1"`
-./strip "$name.json" >"$name-temp2.json"
+./strip "$1" >"$name-temp2.json"
 # Replace cache ways with numbers so graphing works better
 perl -pe 's/\"0x0*1\"/1/g' "$name"-temp2.json > "$name"-temp1.json
 perl -pe 's/\"0x0*3\"/2/g' "$name"-temp1.json > "$name"-temp2.json
