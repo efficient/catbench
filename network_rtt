@@ -450,8 +450,8 @@ runtrial() {
 	fi
 	scp -C "$foreign_client:$remote_path/rtt_client" .
 	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
-	cat rtt_perf_duration >>"$CATBENCH_LOGFILE"
-	cat rtt_perf >>"$CATBENCH_LOGFILE"
+	cat rtt_perf_duration
+	cat rtt_perf
 }
 
 recordtrial() {
