@@ -7,8 +7,11 @@ INDEPENDENT_VAR_WHITELIST="cache_ways mite_tput_limit zipf_alpha"
 
 PERF_INIT_PHRASE="tput="
 
-inherit_default_init="$inherit_default_init SERVER_MIN_REV CLIENT_MIN_REV"
+inherit_default_init="$inherit_default_init"
 inherit_default_impl="$inherit_default_impl genserverargs extractavelatency"
+
+SERVER_MIN_REV="ec10efe"
+CLIENT_MIN_REV="6306ebf"
 
 genclientargs() {
 	echo "-o /dev/null -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
