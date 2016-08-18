@@ -134,14 +134,6 @@ do
 done
 . networked/.sh
 
-if [ -z "$logfilename" ]
-then
-	cat >&2 <<-tac
-		$0: should be invoked via driver
-	tac
-	exit 1
-fi
-
 localrev="`git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2`"
 remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2"`"
 if [ "$localrev" != "$remoterev" ]
@@ -155,6 +147,14 @@ if [ "$remotemod" -ne 0 ]
 then
 	echo "ERROR: Remote repository state uncommitted!" >&2
 	exit 3
+fi
+
+if [ -z "$logfilename" ]
+then
+	cat >&2 <<-tac
+		$0: should be invoked via driver
+	tac
+	exit 1
 fi
 
 if [ -e .network_rtt_pw ]
