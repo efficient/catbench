@@ -16,10 +16,10 @@ isfun() {
 	[ "`type "$name" | sed -n '1{p;q}' | rev | cut -d" " -f1 | rev`" = "function" ]
 }
 
-isvar() {
+isvar() (
 	local name="$1"
-	eval [ -n '"$'"$name"'"' ]
-}
+	! isfun "$name" && eval echo '"${'"$name"'?}"' >/dev/null 2>&1
+)
 
 for var in $inherit_default_init
 do
