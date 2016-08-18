@@ -2,7 +2,7 @@ CONTENDER_DIR="."
 CONTENDER_BIN="tensorflow_mnist_short.py"
 SINGLETON_CONTENDER="true"
 
-inherit_default_init="$inherit_default_init"
+inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 
 gencontenderargs() {

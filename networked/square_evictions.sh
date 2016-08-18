@@ -1,7 +1,7 @@
 CONTENDER_BIN="square_evictions"
 SINGLETON_CONTENDER="false"
 
-inherit_default_init="$inherit_default_init CONTENDER_DIR"
+inherit_default_init="$inherit_default_init CONTENDER_DIR CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 
 gencontenderargs() {

@@ -1,7 +1,17 @@
 # Validates system plugins to ensure they override the appropriate functions.
 
-readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN CLIENT_DIR CLIENT_BIN CONTENDER_DIR CONTENDER_BIN PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION"
-readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency extractcontendertput oninit onwarmup onmainprocessing"
+# Each set of modules should either define each of the following {variables,functions} or include their names in inherit_default_{init,impl}.
+readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN SERVER_MIN_REV CLIENT_DIR CLIENT_BIN CLIENT_MIN_REV CONTENDER_DIR CONTENDER_BIN CONTENDER_MIN_REV PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION"
+readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency extractcontendertput oninit onwarmup onmainprocessing checkserverrev checkclientrev checkcontenderrev"
+
+# These functions don't need to be explicitly accounted for by the set of modules.
+for implicit in checkserverrev checkclientrev checkcontenderrev
+do
+	if ! type "$implicit" >/dev/null 2>&1
+	then
+		inherit_default_impl="$inherit_default_impl $implicit"
+	fi
+done
 
 if ! echo "$INDEPENDENT_VAR_WHITELIST" | grep "\<$independent\>" >/dev/null
 then
@@ -33,6 +43,9 @@ do
 	case "$var" in
 	SERVER_DIR|CLIENT_DIR|CONTENDER_DIR)
 		eval "$var"='"clients"'
+		;;
+	SERVER_MIN_REV|CLIENT_MIN_REV|CONTENDER_MIN_REV)
+		eval "$var"='""'
 		;;
 	CONTENDER_BIN)
 		eval "$var"='"true"'
@@ -117,6 +130,25 @@ do
 	extractcontendertput)
 		eval "$fun()" '{
 			echo 0
+		}'
+		;;
+	checkserverrev)
+		eval "$fun()" '(
+			cd "$SERVER_DIR"
+			[ "`git log --oneline --no-abbrev-commit | grep "^$SERVER_MIN_REV" | wc -l`" -eq "1" ]
+		)'
+		;;
+	checkclientrev)
+		eval "$fun()" '{
+			[ "`ssh "$foreign_client" "
+				cd \"$remote_path/$CLIENT_DIR\"
+				git log --oneline --no-abbrev-commit" | grep "^$CLIENT_MIN_REV" | wc -l`" -eq "1" ]
+		}'
+		;;
+	checkcontenderrev)
+		eval "$fun()" '{
+			echo "WARNING: Module specifies CONTENDER_MIN_REV but provides no checkcontenderrev implementation...?" >&2
+			false
 		}'
 		;;
 	*)

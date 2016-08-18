@@ -2,7 +2,7 @@ CONTENDER_DIR="."
 CONTENDER_BIN="gzip_wrapper"
 SINGLETON_CONTENDER="false"
 
-inherit_default_init="$inherit_default_init"
+inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 
 GZ_FILENAME="linux-4.7.tar.gz"

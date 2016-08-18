@@ -149,6 +149,24 @@ then
 	exit 3
 fi
 
+checkrevision() {
+	component="$1"
+	errorcode="$2"
+
+	whichrev="\"$`echo "$component" | tr [a-z] [A-Z]`_MIN_REV\""
+	whichchk="\"check${component}rev\""
+
+	if eval [ -n "$whichrev" ] && ! eval "$whichchk"
+	then
+		eval printf "\"ERROR: Component '$component' is older than minimum supported version ('%s')!\n\"" "$whichrev" >&2
+		exit "$errorcode"
+	fi
+}
+
+checkrevision server 4
+checkrevision client 5
+checkrevision contender 6
+
 if [ -z "$logfilename" ]
 then
 	cat >&2 <<-tac
