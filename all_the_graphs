@@ -9,33 +9,33 @@ fi
 echo "$2"
 echo "$1"
 name=`basename -s .json "$1"`
-./strip "$1" >"$name-temp2.json"
+./strip "$1" >"$name-stripped.json"
 # Replace cache ways with numbers so graphing works better
-perl -pe 's/\"0x0*1\"/1/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*3\"/2/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*7\"/3/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*f\"/4/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*1f\"/5/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*3f\"/6/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*7f\"/7/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*ff\"/8/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*1ff\"/9/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*3ff\"/10/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*7ff\"/11/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*fff\"/12/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*1fff\"/13/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*3fff\"/14/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*7fff\"/15/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*ffff\"/16/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*1ffff\"/17/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*3ffff\"/18/g' "$name"-temp1.json > "$name"-temp2.json
-perl -pe 's/\"0x0*7ffff\"/19/g' "$name"-temp2.json > "$name"-temp1.json
-perl -pe 's/\"0x0*fffff\"/20/g' "$name"-temp1.json > "$name"-stripped.json
-rm "$name"-temp1.json
-rm "$name"-temp2.json
+sed -i 's/"0x0*/"0x/' "$name-stripped.json"
+sed -i 's/"0x1"/1/g' "$name-stripped.json"
+sed -i 's/"0x3"/2/g' "$name-stripped.json"
+sed -i 's/"0x7"/3/g' "$name-stripped.json"
+sed -i 's/"0xf"/4/g' "$name-stripped.json"
+sed -i 's/"0x1f"/5/g' "$name-stripped.json"
+sed -i 's/"0x3f"/6/g' "$name-stripped.json"
+sed -i 's/"0x7f"/7/g' "$name-stripped.json"
+sed -i 's/"0xff"/8/g' "$name-stripped.json"
+sed -i 's/"0x1ff"/9/g' "$name-stripped.json"
+sed -i 's/"0x3ff"/10/g' "$name-stripped.json"
+sed -i 's/"0x7ff"/11/g' "$name-stripped.json"
+sed -i 's/"0xfff"/12/g' "$name-stripped.json"
+sed -i 's/"0x1fff"/13/g' "$name-stripped.json"
+sed -i 's/"0x3fff"/14/g' "$name-stripped.json"
+sed -i 's/"0x7fff"/15/g' "$name-stripped.json"
+sed -i 's/"0xffff"/16/g' "$name-stripped.json"
+sed -i 's/"0x1ffff"/17/g' "$name-stripped.json"
+sed -i 's/"0x3ffff"/18/g' "$name-stripped.json"
+sed -i 's/"0x7ffff"/19/g' "$name-stripped.json"
+sed -i 's/"0xfffff"/20/g' "$name-stripped.json"
 mkdir -p ./graphs/
 mkdir -p ./graphs/"$name"
 # tail graphs
+./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata 50tail-latency --title "50% tail latency vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-50.png --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata 95tail-latency --title "95% tail latency vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-95.png --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata 99tail-latency --title "99% tail latency vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-99.png --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata 999tail-latency --title "99.9% tail latency vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-999.png --legend-y 0.7 --legend-x 1.5
