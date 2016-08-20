@@ -15,6 +15,13 @@ countones() {
 	printf %s "$binary" | tr -d 0 | wc -c
 }
 
+counttrailingzeroes() {
+	local binary="$1"
+	set -e
+
+	printf %s "$((`printf %s "$binary" | rev | cut -d1 -f1 | wc -c` - 1))"
+}
+
 processbasepairs() {
 	local oper="$1"
 	set -e
@@ -27,10 +34,26 @@ processbasepairs() {
 	done
 }
 
-if [ $# -ne 2 ]
+if [ $# -lt 2 -o $# -gt 3 ]
 then
-	echo "Usage: $0 input_json independent_variable"
+	cat <<-tac
+		Usage: $0 [-o] input_json independent_variable"
+
+		-o means to show the offset of the first cache way (default is the number of them)
+	tac
 	exit 1
+elif [ $# -eq 3 ]
+then
+	if [ "$1" != "-o" ]
+	then
+		printf "%s\n" "$1: Unrecognized switch; did you mean '-o'?" 2>&1
+		exit 2
+	else
+		methodandapparatus="counttrailingzeroes"
+	fi
+	shift
+else
+	methodandapparatus="countones"
 fi
 
 echo "$2"
@@ -39,7 +62,8 @@ name=`basename -s .json "$1"`
 ./strip "$1" >"$name-stripped.json"
 # Replace cache ways with numbers so graphing works better
 bothbases="`sed -n 's/.*"0x\([^"]\+\)".*/\1/p' "$name-stripped.json" | sort -V | uniq | sed 's/.*/obase=10; &; obase=2; &/;1iibase=16' | bc | paste - -`"
-eval sed -i"`printf "%s\n" "$bothbases" | processbasepairs countones`" '"$name-stripped.json"'
+eval sed -i"`printf "%s\n" "$bothbases" | processbasepairs "$methodandapparatus"`" '"$name-stripped.json"'
+[ "$methodandapparatus" = "counttrailingzeroes" ] && jaguar/jaguar get "$name-stripped.json" legend.samples.cache_ways.description | sed 's/ways/of first way/' | jaguar/jaguar set "$name-stripped.json" legend.samples.cache_ways.description -
 mkdir -p ./graphs/
 mkdir -p ./graphs/"$name"
 # tail graphs
