@@ -228,14 +228,17 @@ jaguar/jaguar set "$logfilename" legend.samples.mite_throughput.unit string "mop
 jaguar/jaguar set "$logfilename" legend.samples.mean.description string "Mean RTT"
 jaguar/jaguar set "$logfilename" legend.samples.mean.unit string "us"
 
-jaguar/jaguar set "$logfilename" legend.samples.999_tail_latency.description string "99.9th percentile tail RTT"
-jaguar/jaguar set "$logfilename" legend.samples.999_tail_latency.unit string "us"
+jaguar/jaguar set "$logfilename" legend.samples.999tail-latency.description string "99.9th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.999tail-latency.unit string "us"
 
-jaguar/jaguar set "$logfilename" legend.samples.99_tail_latency.description string "99th percentile tail RTT"
-jaguar/jaguar set "$logfilename" legend.samples.99_tail_latency.unit string "us"
+jaguar/jaguar set "$logfilename" legend.samples.99tail-latency.description string "99th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.99tail-latency.unit string "us"
 
-jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.description string "95th percentile tail RTT"
-jaguar/jaguar set "$logfilename" legend.samples.95_tail_latency.unit string "us"
+jaguar/jaguar set "$logfilename" legend.samples.95tail-latency.description string "95th percentile tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.95tail-latency.unit string "us"
+
+jaguar/jaguar set "$logfilename" legend.samples.50tail-latency.description string "Median tail RTT"
+jaguar/jaguar set "$logfilename" legend.samples.50tail-latency.unit string "us"
 
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
