@@ -61,7 +61,7 @@ echo "$1"
 name=`basename -s .json "$1"`
 ./strip "$1" >"$name-stripped.json"
 # Replace cache ways with numbers so graphing works better
-bothbases="`sed -n 's/.*"0x\([^"]\+\)".*/\1/p' "$name-stripped.json" | sort -V | uniq | tr [a-f] [A-F] | sed 's/.*/obase=10; &; obase=2; &/;1iibase=16' | bc | paste - -`"
+bothbases="`sed -n 's/.*"0x\([^"]\+\)".*/\1/p' "$name-stripped.json" | sort | uniq | tr [a-f] [A-F] | sed 's/.*/obase=10; &; obase=2; &/;1iibase=16' | bc | paste - -`"
 eval sed -i"`printf "%s\n" "$bothbases" | processbasepairs "$methodandapparatus"`" '"$name-stripped.json"'
 [ "$methodandapparatus" = "counttrailingzeroes" ] && jaguar/jaguar get "$name-stripped.json" legend.samples.cache_ways.description | sed 's/ways/of first way/' | jaguar/jaguar set "$name-stripped.json" legend.samples.cache_ways.description -
 mkdir -p ./graphs/
