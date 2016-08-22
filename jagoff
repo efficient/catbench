@@ -1,15 +1,54 @@
 #!/bin/sh
 
+rewritebinpaths() {
+	local modfile="$1"
+	local binfiles="$2"
+	set -e
+
+	local binfile
+	printf "%s\n" "$binfiles" | while read binfile
+	do
+		extractfile "meta.${binfile}_binary" "$binfile"
+		local pathoffsets="`strings -td "$modfile" | sed -n "s: *\(.*/.*$binfile\)$:\1:p" | cut -d" " -f1`"
+		local pathoffset
+		printf "%s\n" "$pathoffsets" | while read pathoffset
+		do
+			printf "%s\0" "$binfile" | dd of="$modfile" seek="$pathoffset" bs=1 conv=notrunc 2>/dev/null
+		done
+	done
+}
+
 extractfile() {
 	local whichkey="$1"
 	local filename="$2"
+	shift 2
+	set -e
+
+	local temporary="$filename.tmp"
+	jaguar/jaguar get "$jagfile" "$whichkey" | base64 -d >"$temporary"
+
+	if [ $# -gt 0 ]
+	then
+		local postproccmd="$1"
+		shift
+		"$postproccmd" "$temporary" "$@"
+	fi
 
 	if [ -e "$filename" ]
 	then
-		printf "%s\n" "ERROR: $filename: already exists!" >&2
-		return 3
+		if diff "$filename" "$temporary" >/dev/null
+		then
+			local exitcode="0"
+		else
+			printf "%s\n" "ERROR: $filename: already exists!" >&2
+			local exitcode="3"
+		fi
+
+		rm "$temporary"
+		return "$exitcode"
 	fi
-	jaguar/jaguar get "$jagfile" "$whichkey" | base64 -d >"$filename"
+
+	mv "$temporary" "$filename"
 }
 
 set -e
@@ -33,21 +72,10 @@ jagfile="$1"
 perfkey="$2"
 shift 2
 
-extractfile "$perfkey" perf.data
+perffile="perf.$perfkey.data"
 binaries="`cut -d'"' -f2 "$jagfile" | sed -n 's/\(.*\)_binary$/\1/p' | sort | uniq`"
-printf "%s\n" "$binaries" | while read binary
-do
-	extractfile "meta.${binary}_binary" "$binary"
-	pathoffsets="`strings -td perf.data | sed -n "s: *\(.*/.*$binary\)$:\1:p" | cut -d" " -f1`"
-	printf "%s\n" "$pathoffsets" | while read pathoffset
-	do
-		printf "%s\0" "$binary" | dd of=perf.data seek="$pathoffset" bs=1 conv=notrunc 2>/dev/null
-	done
-done
+extractfile "$perfkey" "$perffile" rewritebinpaths "$binaries"
 
-perf report "$@"
+perf report -i"$perffile" "$@"
 
-printf "%s\n%s\n" perf.data "$binaries" | while read tmpfile
-do
-	rm "$tmpfile"
-done
+fuser "$perffile" >/dev/null 2>&1 || rm "$perffile"
