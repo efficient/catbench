@@ -1,10 +1,11 @@
 # Validates system plugins to ensure they override the appropriate functions.
 
 # Each set of modules should either define each of the following {variables,functions} or include their names in inherit_default_{init,impl}.
-readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN SERVER_MIN_REV CLIENT_DIR CLIENT_BIN CLIENT_MIN_REV CONTENDER_DIR CONTENDER_BIN CONTENDER_MIN_REV EXPECTS_FILES PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION"
+readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN SERVER_MIN_REV CLIENT_DIR CLIENT_BIN CLIENT_MIN_REV CONTENDER_DIR CONTENDER_BIN CONTENDER_MIN_REV PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION EXPECTS_FILES"
 readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency extractcontendertput oninit onwarmup onmainprocessing checkserverrev checkclientrev checkcontenderrev"
 
-for implicit in checkserverrev checkclientrev checkcontenderrev
+# These variables and functions don't need to be explicitly accounted for by the set of modules.
+for implicit in EXPECTS_FILES checkserverrev checkclientrev checkcontenderrev
 do
 	if ! type "$implicit" >/dev/null 2>&1
 	then
@@ -59,7 +60,7 @@ do
 		eval "$var"='"true"'
 		;;
 	EXPECTS_FILES)
-		eval "$var"='"$var \"$SERVER_DIR/$SERVER_BIN\" \"$CONTENDER_DIR/$CONTENDER_BIN\""'
+		eval "$var"='""'
 		;;
 	SINGLETON_CONTENDER)
 		eval "$var"='"false"'

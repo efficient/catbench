@@ -173,7 +173,7 @@ then
 	exit 7
 fi
 
-eval printf '"%s\n"' $EXPECTS_FILES | while read prereqfile
+eval printf '"%s\n"' '"$SERVER_DIR/$SERVER_BIN"' '"$CONTENDER_DIR/$CONTENDER_BIN"' $EXPECTS_FILES | while read prereqfile
 do
 	if [ ! -e "$prereqfile" ]
 	then
