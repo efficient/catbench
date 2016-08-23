@@ -4,12 +4,20 @@
 readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN SERVER_MIN_REV CLIENT_DIR CLIENT_BIN CLIENT_MIN_REV CONTENDER_DIR CONTENDER_BIN CONTENDER_MIN_REV EXPECTS_FILES PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION"
 readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency extractcontendertput oninit onwarmup onmainprocessing checkserverrev checkclientrev checkcontenderrev"
 
-# These functions don't need to be explicitly accounted for by the set of modules.
 for implicit in checkserverrev checkclientrev checkcontenderrev
 do
 	if ! type "$implicit" >/dev/null 2>&1
 	then
-		inherit_default_impl="$inherit_default_impl $implicit"
+		if echo "$REQUIRED_VAR_INITS" | grep "\<$implicit\>" >/dev/null
+		then
+			inherit_default_init="$inherit_default_init $implicit"
+		elif echo "$REQUIRED_FUN_IMPLS" | grep "\<$implicit\>" >/dev/null
+		then
+			inherit_default_impl="$inherit_default_impl $implicit"
+		else
+			echo "Internal error: Accepted module parameter '$implicit' is registered as neither a variable nor a function!"
+			exit 1
+		fi
 	fi
 done
 
