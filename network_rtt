@@ -339,14 +339,14 @@ spawncontenders() {
 			done
 			cpu_mask="`printf '%#x' $cpu_mask`"
 			echo "NETWORK_RTT: Spawning singleton contender (cpu_mask=$cpu_mask)..."
-			time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_0 2>&1 &
+			time -p taskset "$cpu_mask" ./setpgrp "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_0 2>&1 &
 			contender_pids="$contender_pids $!"
 		else
 			for contender in `seq "$contenders"`
 			do
 				cpu_mask="`printf '%#x' $((1 << ($(grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l) * contender)))`"
 				echo "NETWORK_RTT: Spawning contender $((contender - 1)) (cpu_mask=$cpu_mask)..."
-				time -p taskset "$cpu_mask" "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_$((contender - 1)) 2>&1 &
+				time -p taskset "$cpu_mask" ./setpgrp "$CONTENDER_DIR/$CONTENDER_BIN" `gencontenderargs` >rtt_contender_$((contender - 1)) 2>&1 &
 				contender_pids="$contender_pids $!"
 			done
 		fi
@@ -445,7 +445,7 @@ runtrial() {
 	kill $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
 	wait $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
 
-	killall "$CONTENDER_BIN"
+	killall -g "$CONTENDER_BIN"
 	if [ -n "$mask" ]
 	then
 		mgdelete lockserver
