@@ -6,6 +6,7 @@ inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 
 IMAGES_DIR="images"
+EXPECTS_FILES="$EXPECTS_FILES \"$CONTENDER_DIR/$IMAGES_DIR\""
 
 gencontenderargs() {
 	echo "$IMAGES_DIR -allowprogressive -singlethread -unjailed"

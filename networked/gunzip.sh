@@ -6,6 +6,7 @@ inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 
 GZ_FILENAME="linux-4.7.tar.gz"
+EXPECTS_FILES="$EXPECTS_FILES \"$CONTENDER_DIR/$GZ_FILENAME\""
 
 gencontenderargs() {
 	echo "$GZ_FILENAME /dev/null -d"
