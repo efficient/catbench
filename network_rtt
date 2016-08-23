@@ -173,6 +173,15 @@ then
 	exit 7
 fi
 
+eval printf '"%s\n"' $EXPECTS_FILES | while read prereqfile
+do
+	if [ ! -e "$prereqfile" ]
+	then
+		echo "ERROR: Required file '$prereqfile' couldn't be found!" >&2
+		exit 8
+	fi
+done || exit $?
+
 if [ -z "$logfilename" ]
 then
 	cat >&2 <<-tac
