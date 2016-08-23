@@ -1,5 +1,5 @@
 CONTENDER_DIR="."
-CONTENDER_BIN="tensorflow_mnist_short.py"
+CONTENDER_BIN="tensorflow_mnist_short"
 SINGLETON_CONTENDER="true"
 
 inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
