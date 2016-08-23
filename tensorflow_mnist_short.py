@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 # /usr/local/lib/python3.5/dist-packages/tensorflow/models/image/mnist/convolutional.py
 
