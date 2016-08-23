@@ -167,6 +167,12 @@ checkrevision server 4
 checkrevision client 5
 checkrevision contender 6
 
+if [ ! -x setpgrp ]
+then
+	echo "ERROR: setpgrp binary not found; did you build it?" >&2
+	exit 7
+fi
+
 if [ -z "$logfilename" ]
 then
 	cat >&2 <<-tac
