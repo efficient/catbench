@@ -63,57 +63,6 @@ def setup_optparse():
         args.ymax = float(args.ymax)
     return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort;
 
-def graph_cdf(filename, slabels, xlabel, ypoints, title, outfile):
-    fd = open(filename, 'r');
-    data = json.load(fd);
-    fig = plt.figure();
-    ax = fig.add_subplot(1,1,1);
-    #ax.set_xlabel(xlabel);
-    y = list();
-    cdf = list();
-    num_bins = 68;
-    series_descriptions = list();
-    for series in slabels:
-        desc = data.get("data").get(series).get("description");
-        cur_series_data = (data.get("data").get(series).get("samples")[0]).get(ypoints[0]);
-        y.append(cur_series_data);
-        print series_descriptions;
-        print y;
-        cur_series_data.sort();
-        counts, bin_edges = np.histogram(cur_series_data, bins=max(cur_series_data), normed=True);
-        ax.plot(cur_series_data, np.linspace(0,1,len(cur_series_data)), label=desc);
-        cdf.append(np.cumsum(counts));
-    count = 0;
-    for yp in y:
-        count += 1;
-    box = ax.get_position();
-    ax.set_position([box.x0, box.y0, box.width, box.height * 0.7]);
-
-    #for c in cdf:
-        #print c;
-        #print bin_edges[1:];
-        #ax.plot(bin_edges[1:], c);
-    for yp in y:
-        ys = sorted(yp);
-        import scipy.stats as stats
-        fit = stats.norm.pdf(ys, np.mean(ys), np.std(ys));
-        density = stats.kde.gaussian_kde(ys);
-        #x = np.arange(1000, 20000, 1000);
-        #ax.plot(ys, fit, '-o');
-        #ax.hist(ys, normed=True);
-        #ax.plot(x, density(x), label=series_descriptions[count]);
-        count += 1;
-    ax.set_title(title);
-    ax.title.set_position((0.5, 1.08));
-    handles, labels = ax.get_legend_handles_labels()
-    import operator
-    print labels;
-    hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
-    handles2, labels2 = zip(*hl)
-    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(1.5, 0.5));
-    ax.xaxis.set_major_formatter(mtick.FormatStrFormatter('%.1'))
-    fig.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
-
 def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
