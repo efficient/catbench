@@ -3,7 +3,7 @@ SERVER_BIN="server"
 CLIENT_DIR="../mica2-catbench/build"
 CLIENT_BIN="netbench"
 
-INDEPENDENT_VAR_WHITELIST="cache_ways mite_tput_limit zipf_alpha"
+INDEPENDENT_VAR_WHITELIST="cache_ways table_entries mite_tput_limit zipf_alpha"
 
 PERF_INIT_PHRASE="tput="
 
@@ -14,7 +14,7 @@ SERVER_MIN_REV="ec10efe"
 CLIENT_MIN_REV="6306ebf"
 
 genclientargs() {
-	echo "-o /dev/null -p '$MICA_NUM_ITEMS' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
+	echo "-o /dev/null -p '$table_entries' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
 }
 
 prephugepages() {

@@ -14,7 +14,7 @@ const() {
 
 const DEFAULT_CLIENT_SLEEP="100000"
 const DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
-const DEFAULT_TABLE_ENTRIES="10000"
+const DEFAULT_TABLE_ENTRIES="131072"
 const DEFAULT_TABLE_ENTRIES_LOOP="1 10 100 1000 10000 100000"
 const DEFAULT_ZIPF_ALPHA="0.99"
 const DEFAULT_ZIPF_ALPHA_LOOP="0.00 0.90 0.99"
@@ -24,7 +24,6 @@ const DEFAULT_CACHE_WAYS="0x003"
 const DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
 const MICA_GET_RATIO="0.5"
-const MICA_NUM_ITEMS="131072"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
 const PERF_CORES="0"
 const KEEP_PERF_DATA="true"
@@ -211,7 +210,7 @@ then
 	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.unit string "us"
 elif [ "$independent" = "table_entries" ]
 then
-	jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Number of pointers to chase through"
+	jaguar/jaguar set "$logfilename" legend.samples.table_entries.description string "Mite server working set size"
 	jaguar/jaguar set "$logfilename" legend.samples.table_entries.unit string ""
 elif [ "$independent" = "zipf_alpha" ]
 then
