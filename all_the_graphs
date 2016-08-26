@@ -40,8 +40,13 @@ insertratioentries() {
 	local denominator="$3"
 	local newfield="$4"
 
-	# TODO: Fix reliance on respective ordering of numerator and denominator in the file
-	sed -n "s/.*\"\($numerator\|$denominator\)\": \(.\+\),/\2/p" "$filename" | paste - - | tr "\t" / | bc -l | sed "s/^/\t\t\t\t\t\"$newfield\": 0/" | sed -e'/\t\t\t\t\t[^,]\+$/R/dev/stdin' -e"/\"$newfield\"/!s/\t\t\t\t\t[^,]\+$/&,/" "$filename"
+	if grep -F "\"$numerator\"" "$filename" >/dev/null && ! grep -F "\"$denominator\"" "$filename" >/dev/null
+	then
+		# TODO: Fix reliance on respective ordering of numerator and denominator in the file
+		sed -n "s/.*\"\($numerator\|$denominator\)\": \(.\+\),/\2/p" "$filename" | paste - - | tr "\t" / | bc -l | sed "s/^/\t\t\t\t\t\"$newfield\": 0/" | sed -e'/\t\t\t\t\t[^,]\+$/R/dev/stdin' -e"/\"$newfield\"/!s/\t\t\t\t\t[^,]\+$/&,/" "$filename"
+	else
+		cat "$filename"
+	fi
 }
 
 if [ $# -lt 2 -o $# -gt 3 ]
