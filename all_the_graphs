@@ -34,6 +34,16 @@ processbasepairs() {
 	done
 }
 
+insertratioentries() {
+	local filename="$1"
+	local numerator="$2"
+	local denominator="$3"
+	local newfield="$4"
+
+	# TODO: Fix reliance on respective ordering of numerator and denominator in the file
+	sed -n "s/.*\"\($numerator\|$denominator\)\": \(.\+\),/\2/p" "$filename" | paste - - | tr "\t" / | bc -l | sed "s/^/\t\t\t\t\t\"$newfield\": 0/" | sed -e'/\t\t\t\t\t[^,]\+$/R/dev/stdin' -e"/\"$newfield\"/!s/\t\t\t\t\t[^,]\+$/&,/" "$filename"
+}
+
 if [ $# -lt 2 -o $# -gt 3 ]
 then
 	cat <<-tac
@@ -64,6 +74,8 @@ name=`basename -s .json "$1"`
 bothbases="`sed -n 's/.*"0x\([^"]\+\)".*/\1/p' "$name-stripped.json" | sort | uniq | tr [a-f] [A-F] | sed 's/.*/obase=10; &; obase=2; &/;1iibase=16' | bc | paste - -`"
 eval sed -i"`printf "%s\n" "$bothbases" | processbasepairs "$methodandapparatus"`" '"$name-stripped.json"'
 [ "$methodandapparatus" = "counttrailingzeroes" ] && jaguar/jaguar get "$name-stripped.json" legend.samples.cache_ways.description | sed 's/ways/of first way/' | jaguar/jaguar set "$name-stripped.json" legend.samples.cache_ways.description -
+insertratioentries "$name-stripped.json" LLC_MISS LLC_REFERENCE LLC_MISS_RATIO >"$name-augmented.json"
+mv "$name-augmented.json" "$name-stripped.json"
 mkdir -p ./graphs/
 mkdir -p ./graphs/"$name"
 # tail graphs
@@ -95,5 +107,6 @@ mkdir -p ./graphs/"$name"
 ./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L2_RQSTS/REFERENCES" --title "L2_RQSTS.REFERENCES (HSW) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-references.png --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "LLC_REFERENCE" --title "LLC_REFERENCE (BDE70) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-llc-reference.png --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "LLC_MISS" --title "LLC_MISS (BDE70) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-llc-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "LLC_MISS_RATIO" --title "LLC_MISS RATIO vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-llc-miss-ratio.png --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata contender_tput --title "Contender throughput vs Mite Ways" -o ./graphs/"$name"/"$name"-contender.png --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata mite_throughput --title "Mite throughput vs Mite Ways" -o ./graphs/"$name"/"$name"-mite.png --legend-y 0.7 --legend-x 1.5
