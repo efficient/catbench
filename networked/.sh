@@ -4,10 +4,20 @@
 readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN SERVER_MIN_REV CLIENT_DIR CLIENT_BIN CLIENT_MIN_REV CONTENDER_DIR CONTENDER_BIN CONTENDER_MIN_REV PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION EXPECTS_FILES"
 readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency extractcontendertput oninit onwarmup onmainprocessing checkserverrev checkclientrev checkcontenderrev"
 
+isfun() {
+	local name="$1"
+	[ "`type "$name" | sed -n '1{p;q}' | rev | cut -d" " -f1 | rev`" = "function" ]
+}
+
+isvar() (
+	local name="$1"
+	! isfun "$name" && eval echo '"${'"$name"'?}"' >/dev/null 2>&1
+)
+
 # These variables and functions don't need to be explicitly accounted for by the set of modules.
 for implicit in EXPECTS_FILES checkserverrev checkclientrev checkcontenderrev
 do
-	if ! type "$implicit" >/dev/null 2>&1
+	if ! isvar "$implicit" && ! isfun "$implicit"
 	then
 		if echo "$REQUIRED_VAR_INITS" | grep "\<$implicit\>" >/dev/null
 		then
@@ -29,16 +39,6 @@ then
 fi
 
 uhoh="false"
-
-isfun() {
-	local name="$1"
-	[ "`type "$name" | sed -n '1{p;q}' | rev | cut -d" " -f1 | rev`" = "function" ]
-}
-
-isvar() (
-	local name="$1"
-	! isfun "$name" && eval echo '"${'"$name"'?}"' >/dev/null 2>&1
-)
 
 for var in $inherit_default_init
 do
