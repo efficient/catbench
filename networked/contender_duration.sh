@@ -1,7 +1,7 @@
 SPAWNCONTENDERS="onmainprocessing"
 
-WARMUP_DURATION="3s"
-MAIN_DURATION="10s"
+const WARMUP_DURATION="3s"
+const MAIN_DURATION="10s"
 
 inherit_default_init="$inherit_default_init"
 inherit_default_impl="$inherit_default_impl"
