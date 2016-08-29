@@ -119,6 +119,9 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     axl.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     #fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
     plt.xlim(xmin=0);
+    plt.ylim(ymin=0);
+    axl.set_ylim(0);
+    axr.set_ylim(0);
     fig.savefig(outfile, format='png', dpi=600, bbox_inches='tight');
 
 def main():
