@@ -54,6 +54,8 @@ def setup_optparse():
                         help="Put x ticks only when there is a data point for that x value");
     parser.add_argument('--nosort', dest='nosort', action='store_true', default=False,
                         help="Do not alphabetically sort legend entries, preserve input order");
+    parser.add_argument('--xmax', dest='xmax', type=float, default=0,
+                        help="Maximum x point to graph");
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
@@ -61,9 +63,9 @@ def setup_optparse():
         args.ymin = float(args.ymin)
     if(args.ymax != None):
         args.ymax = float(args.ymax)
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort, args.xmax;
 
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort):
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -155,7 +157,10 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
 
     cur_ymax = cur_ymax * 1.75;
-    plt.xlim(xmin=0);
+    x_max = xmax;
+    if(x_max == 0):
+        x_max = cur_xmax;
+    plt.xlim(xmin=0, xmax=x_max);
     plt.setp(ax.get_xticklabels(), fontsize=10, rotation=90)
     if(logy == False):
         if(user_ymin == None and fit == False and user_ymax == None):
@@ -186,9 +191,9 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort = setup_optparse();
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort, xmax = setup_optparse();
     if(cdf == False):
-        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort);
+        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax);
     else:
         graph_cdf(filename, slabels, xlabel, ylabels, title, outfile);
 
