@@ -114,7 +114,6 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 	        val2_cropped = val2;
             else:
 	        val2_cropped = filter(lambda x: x[0] <= xmax and x[0] >= xmin, val2);
-		print val2_cropped;
             xy = map(list, zip(*val2_cropped));
             line_label = val["description"];
             line.append((ax.plot(xy[0], xy[1], '-o', color=color.next(), label=line_label, marker=marker.next(), alpha=0.3))); #+ str(key2[1])))[0]);
@@ -154,11 +153,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         idx = 0;
         hl = sorted(temp, key=operator.itemgetter(1));
         handles2, trash, labels2 = zip(*hl);
-        print labels2;
-        print hl;
     else:
         # or sort them by labels
-        print labels;
         hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
         handles2, labels2 = zip(*hl)
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
