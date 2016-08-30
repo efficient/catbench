@@ -44,7 +44,6 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x):
             while(index < len(data2[key]["samples"])):
                 sample = data2[key]["samples"][index];
                 base_sample = data2[norm]["samples"][index];
-                print type(sample);
                 for ylabel in sample:
                     if(base_sample[ylabel] != 0 and ylabel != norm_x):
                         data2[key]["samples"][index][ylabel] = sample[ylabel] / base_sample[ylabel];
