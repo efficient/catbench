@@ -42,8 +42,13 @@ insertratioentries() {
 
 	if grep -F "\"$numerator\"" "$filename" >/dev/null && grep -F "\"$denominator\"" "$filename" >/dev/null
 	then
-		# TODO: Fix reliance on respective ordering of numerator and denominator in the file
-		sed -n "s/.*\"\($numerator\|$denominator\)\": \(.\+\),/\2/p" "$filename" | paste - - | tr "\t" / | bc -l | sed "s/^/\t\t\t\t\t\"$newfield\": 0/" | sed -e'/\t\t\t\t\t[^,]\+$/R/dev/stdin' -e"/\"$newfield\"/!s/\t\t\t\t\t[^,]\+$/&,/" "$filename"
+		local revcols="cat"
+		if grep -Fe"\"$numerator\"" -e"\"$denominator\"" "$filename" | head -n1 | grep -F "\"$denominator\"" >/dev/null
+		then
+			revcols="sed s/\(.*\)\t\(.*\)/\2\t\1/"
+		fi
+
+		sed -n "s/.*\"\($numerator\|$denominator\)\": \(.\+\),/\2/p" "$filename" | paste - - | $revcols | tr "\t" / | bc -l | sed "s/^/\t\t\t\t\t\"$newfield\": 0/" | sed -e'/\t\t\t\t\t[^,]\+$/R/dev/stdin' -e"/\"$newfield\"/!s/\t\t\t\t\t[^,]\+$/&,/" "$filename"
 	else
 		cat "$filename"
 	fi
