@@ -54,15 +54,15 @@ insertratioentries() {
 	fi
 }
 
-if [ $# -lt 2 -o $# -gt 3 ]
+if [ $# -lt 2 ]
 then
 	cat <<-tac
-		Usage: $0 [-o] input_json independent_variable"
+		Usage: $0 [-o] input_json independent_variable [series]..."
 
 		-o means to show the offset of the first cache way (default is the number of them)
 	tac
 	exit 1
-elif [ $# -eq 3 ]
+elif [ $# -ge 3 ] && printf %s "$1" | grep '^-' >/dev/null
 then
 	if [ "$1" != "-o" ]
 	then
@@ -78,12 +78,21 @@ fi
 
 echo "$2"
 echo "$1"
-name=`basename -s .json "$1"`
+name="`basename -s .json "$1"`"
+quest="$2"
+color="Not applicable"
 ./strip "$1" >"$name-stripped.json"
 # Replace cache ways with numbers so graphing works better
 bothbases="`sed -n 's/.*"0x\([^"]\+\)".*/\1/p' "$name-stripped.json" | sort | uniq | tr [a-f] [A-F] | sed 's/.*/obase=10; &; obase=2; &/;1iibase=16' | bc | paste - -`"
 eval sed -i"`printf "%s\n" "$bothbases" | processbasepairs "$methodandapparatus"`" '"$name-stripped.json"'
 [ "$methodandapparatus" = "counttrailingzeroes" ] && jaguar/jaguar get "$name-stripped.json" legend.samples.cache_ways.description | sed 's/ways/of first way/' | jaguar/jaguar set "$name-stripped.json" legend.samples.cache_ways.description -
+
+shift 2
+if [ -z "$*" ]
+then
+	set "$@"
+fi
+
 insertratioentries "$name-stripped.json" LLC_MISS LLC_REFERENCE LLC_MISS_RATIO >"$name-augmented.json"
 mv "$name-augmented.json" "$name-stripped.json"
 insertratioentries "$name-stripped.json" L2_RQSTS/MISS L2_RQSTS/REFERENCES L2_RQSTS/MISS_RATIO >"$name-augmented.json"
@@ -95,37 +104,37 @@ mv "$name-augmented.json" "$name-stripped.json"
 mkdir -p ./graphs/
 mkdir -p ./graphs/"$name"
 # tail graphs
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata 50tail-latency --title "50% tail latency vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-50.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata 95tail-latency --title "95% tail latency vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-95.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata 99tail-latency --title "99% tail latency vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-99.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata 999tail-latency --title "99.9% tail latency vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-999.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 50tail-latency --title "50% tail latency vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-50.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 95tail-latency --title "95% tail latency vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-95.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 99tail-latency --title "99% tail latency vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-99.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "99.9% tail latency vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-999.png --legend-y 0.7 --legend-x 1.5
 # perf graphs
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "stalled-cycles" --title "Stalled cycles vs Mite Ways" -o ./graphs/"$name"/"$name"-stalled-cycles.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata cpu-cycles --title "CPU cycles vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-cpu-cycles.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata instructions --title "instructions vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-instructions.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L1-dcache-load-misses" --title "L1-dcache-load-misses (L1D.REPLACEMENT) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l1-dcache-load-misses.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L1-icache-load-misses" --title "L1-icache-load-misses (ICACHE.MISSES) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l1-icache-load-misses.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "dTLB-load-misses" --title "dTLB-load-misses (DTLB_LOAD_MISSES.MISS_CAUSES_A_WALK) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-dtlb-load-misses.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "MEM_UOPS_RETIRED/ALL_LOADS" --title "MEM_UOPS_RETIRED.ALL_LOADS (i.e. L1-dcache-loads, dTLB-load-misses) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-mem-uops-retired-all-loads.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata MEM_LOAD_UOPS_RETIRED/L1_MISS --title "MEM_LOAD_UOPS_RETIRED/L1_MISS vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-mem-load-uops-retired-l1-miss.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata MEM_LOAD_UOPS_RETIRED/L2_MISS --title "MEM_LOAD_UOPS_RETIRED/L2_MISS vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-mem-load-uops-retired-l2-miss.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "MEM_LOAD_UOPS_RETIRED/L3_MISS" --title "MEM_LOAD_UOPS_RETIRED.L3_MISS (BDE70) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-mem-uops-retired-l3-miss.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata L2_RQSTS/DEMAND_DATA_RD_MISS --title "L2_RQSTS.DEMAND_DATA_RD_MISS vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-demand-data-rd-miss.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO --title "L2_RQSTS.DEMAND_DATA_RD_MISS RATIO vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-demand-data-rd-miss-ratio.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata L2_RQSTS/ALL_DEMAND_DATA_RD --title "L2_RQSTS.ALL_DEMAND_DATA_RD vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-all-demand-data-rd.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata L2_RQSTS/ALL_CODE_RD --title "L2_RQSTS.ALL_CODE_RD vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-all-code-rd.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata L2_TRANS/DEMAND_DATA_RD --title "L2_RQSTS.DEMAND_DATA_RD vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-demand-data-rd.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata L2_TRANS/DEMAND_DATA_RD --title "L2_TRANS.DEMAND_DATA_RD vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-trans-demand-data-rd.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata L2_TRANS/CODE_RD --title "L2_TRANS.CODE_RD vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-trans-code-rd.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L2_RQSTS/CODE_RD_MISS" --title "L2_RQSTS.CODE_RD_MISS (HSW) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-code-rd-miss.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L2_RQSTS/CODE_RD_MISS_RATIO" --title "L2_RQSTS.CODE_RD_MISS RATIO (HSW) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-code-rd-miss-ratio.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L2_RQSTS/ALL_DEMAND_MISS" --title "L2_RQSTS.ALL_DEMAND_MISS (HSW) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-all-demand-miss.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L2_RQSTS/ALL_DEMAND_REFERENCES" --title "L2_RQSTS.ALL_DEMAND_REFERENCES (HSW) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-all-demand-references.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L2_RQSTS/MISS" --title "L2_RQSTS.MISS (HSW) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-miss.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L2_RQSTS/MISS_RATIO" --title "L2_RQSTS.MISS RATIO (HSW) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-miss-ratio.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "L2_RQSTS/REFERENCES" --title "L2_RQSTS.REFERENCES (HSW) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-l2-rqsts-references.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "LLC_REFERENCE" --title "LLC_REFERENCE (BDE70) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-llc-reference.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "LLC_MISS" --title "LLC_MISS (BDE70) vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-llc-miss.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata "LLC_MISS_RATIO" --title "LLC_MISS RATIO vs Mica Throughput Limit $2 ways" -o ./graphs/"$name"/"$name"-llc-miss-ratio.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "$2" --ydata contender_tput --title "Contender throughput vs Mite Ways" -o ./graphs/"$name"/"$name"-contender.png --legend-y 0.7 --legend-x 1.5
-./graph-cat.py --input "$name"-stripped.json --series allocation baseline basealloc contention --xdata "cache_ways" --ydata mite_throughput --title "Mite throughput vs Mite Ways" -o ./graphs/"$name"/"$name"-mite.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "stalled-cycles" --title "Stalled cycles vs Mite Ways" -o ./graphs/"$name"/"$name"-stalled-cycles.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata cpu-cycles --title "CPU cycles vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-cpu-cycles.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata instructions --title "instructions vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-instructions.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L1-dcache-load-misses" --title "L1-dcache-load-misses (L1D.REPLACEMENT) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l1-dcache-load-misses.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L1-icache-load-misses" --title "L1-icache-load-misses (ICACHE.MISSES) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l1-icache-load-misses.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "dTLB-load-misses" --title "dTLB-load-misses (DTLB_LOAD_MISSES.MISS_CAUSES_A_WALK) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-dtlb-load-misses.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "MEM_UOPS_RETIRED/ALL_LOADS" --title "MEM_UOPS_RETIRED.ALL_LOADS (i.e. L1-dcache-loads, dTLB-load-misses) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-mem-uops-retired-all-loads.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata MEM_LOAD_UOPS_RETIRED/L1_MISS --title "MEM_LOAD_UOPS_RETIRED/L1_MISS vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-mem-load-uops-retired-l1-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata MEM_LOAD_UOPS_RETIRED/L2_MISS --title "MEM_LOAD_UOPS_RETIRED/L2_MISS vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-mem-load-uops-retired-l2-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "MEM_LOAD_UOPS_RETIRED/L3_MISS" --title "MEM_LOAD_UOPS_RETIRED.L3_MISS (BDE70) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-mem-uops-retired-l3-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata L2_RQSTS/DEMAND_DATA_RD_MISS --title "L2_RQSTS.DEMAND_DATA_RD_MISS vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-demand-data-rd-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO --title "L2_RQSTS.DEMAND_DATA_RD_MISS RATIO vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-demand-data-rd-miss-ratio.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata L2_RQSTS/ALL_DEMAND_DATA_RD --title "L2_RQSTS.ALL_DEMAND_DATA_RD vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-all-demand-data-rd.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata L2_RQSTS/ALL_CODE_RD --title "L2_RQSTS.ALL_CODE_RD vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-all-code-rd.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata L2_TRANS/DEMAND_DATA_RD --title "L2_RQSTS.DEMAND_DATA_RD vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-demand-data-rd.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata L2_TRANS/DEMAND_DATA_RD --title "L2_TRANS.DEMAND_DATA_RD vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-trans-demand-data-rd.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata L2_TRANS/CODE_RD --title "L2_TRANS.CODE_RD vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-trans-code-rd.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L2_RQSTS/CODE_RD_MISS" --title "L2_RQSTS.CODE_RD_MISS (HSW) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-code-rd-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L2_RQSTS/CODE_RD_MISS_RATIO" --title "L2_RQSTS.CODE_RD_MISS RATIO (HSW) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-code-rd-miss-ratio.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L2_RQSTS/ALL_DEMAND_MISS" --title "L2_RQSTS.ALL_DEMAND_MISS (HSW) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-all-demand-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L2_RQSTS/ALL_DEMAND_REFERENCES" --title "L2_RQSTS.ALL_DEMAND_REFERENCES (HSW) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-all-demand-references.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L2_RQSTS/MISS" --title "L2_RQSTS.MISS (HSW) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L2_RQSTS/MISS_RATIO" --title "L2_RQSTS.MISS RATIO (HSW) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-miss-ratio.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "L2_RQSTS/REFERENCES" --title "L2_RQSTS.REFERENCES (HSW) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-l2-rqsts-references.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "LLC_REFERENCE" --title "LLC_REFERENCE (BDE70) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-llc-reference.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "LLC_MISS" --title "LLC_MISS (BDE70) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-llc-miss.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "LLC_MISS_RATIO" --title "LLC_MISS RATIO vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-llc-miss-ratio.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata contender_tput --title "Contender throughput vs Mite Ways" -o ./graphs/"$name"/"$name"-contender.png --legend-y 0.7 --legend-x 1.5
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "cache_ways" --ydata mite_throughput --title "Mite throughput vs Mite Ways" -o ./graphs/"$name"/"$name"-mite.png --legend-y 0.7 --legend-x 1.5
