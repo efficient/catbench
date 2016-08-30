@@ -48,7 +48,7 @@ insertratioentries() {
 			revcols="sed s/\(.*\)\t\(.*\)/\2\t\1/"
 		fi
 
-		sed -n "s/.*\"\($numerator\|$denominator\)\": \(.\+\),/\2/p" "$filename" | paste - - | $revcols | tr "\t" / | bc -l | sed "s/^/\t\t\t\t\t\"$newfield\": 0/" | sed -e'/\t\t\t\t\t[^,]\+$/R/dev/stdin' -e"/\"$newfield\"/!s/\t\t\t\t\t[^,]\+$/&,/" "$filename"
+		sed -n "s;.*\"\($numerator\|$denominator\)\": \(.\+\),;\2;p" "$filename" | paste - - | $revcols | tr "\t" / | bc -l | sed "s;^;\t\t\t\t\t\"$newfield\": 0;" | sed -e'/\t\t\t\t\t[^,]\+$/R/dev/stdin' -e"/\"`printf %s "$newfield" | sed 's;/;\\\\/;g'`\"/!s/\t\t\t\t\t[^,]\+$/&,/" "$filename"
 	else
 		cat "$filename"
 	fi
