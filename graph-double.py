@@ -113,16 +113,16 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     labels2 = None;
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
-    lgdr = axr.legend(handles2, labels2, loc="center left", bbox_to_anchor=(legend_x, legend_y));
+    lgdr = axr.legend(handles2, labels2, loc="lower right", bbox_to_anchor=(legend_x, legend_y));
 
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
     axl.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    #fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
+    #fig.savefig(outfile, format='png', bbox_extra_artists=(lgd,), bbox_inches='tight');
     plt.xlim(xmin=0);
     plt.ylim(ymin=0);
     axl.set_ylim(0);
     axr.set_ylim(0);
-    fig.savefig(outfile, format='png', dpi=600, bbox_inches='tight');
+    plt.savefig(outfile, dpi=600, bbox_inches='tight');
 
 def main():
     left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_x, legend_y = setup_optparse();

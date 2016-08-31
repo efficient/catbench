@@ -188,14 +188,13 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     #ax.axis("tight");
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
     ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    fig.savefig(outfile, format='png', dpi=600, bbox_extra_artists=(lgd,), bbox_inches='tight');
+    print outfile;
+    plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
     filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin = setup_optparse();
     if(cdf == False):
         graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin);
-    else:
-        graph_cdf(filename, slabels, xlabel, ylabels, title, outfile);
 
 main();
 # Col 0 are the x points
