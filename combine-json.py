@@ -49,7 +49,7 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x):
                         data2[key]["samples"][index][ylabel] = sample[ylabel] / base_sample[ylabel];
                 index += 1
 	    data1[new_key] = data2[key];
-	    data1[new_key]["description"] = data1[new_key]["description"] + suffix + norm_suffix;
+	    data1[new_key]["description"] = data1[new_key]["description"] + suffix + " normalized to " + norm;
     outfd = open(outfile, 'w');
     json.dump(json1, outfd, indent=4, sort_keys=True);
 
