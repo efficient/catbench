@@ -78,7 +78,8 @@ fi
 
 echo "$2"
 echo "$1"
-filetype="svg"
+# Accepts png, pdf, eps, svg and probably more but those were the 4 in the documentation
+filetype="pdf"
 name="`basename -s .json "$1"`"
 quest="$2"
 color="Not applicable"
