@@ -92,7 +92,7 @@ eval sed -i"`printf "%s\n" "$bothbases" | processbasepairs "$methodandapparatus"
 shift 2
 if [ -z "$*" ]
 then
-	set "$@"
+	set allocation basealloc baseline contention
 fi
 
 insertratioentries "$name-stripped.json" LLC_MISS LLC_REFERENCE LLC_MISS_RATIO >"$name-augmented.json"
