@@ -439,12 +439,12 @@ runtrial() {
 		if [ "$SPAWNCONTENDERS" = "onmainprocessing" ]; then spawncontenders "$contenders" "$mask"; fi
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
 		echo "r" >rtt_client_pipe_in
-		./cacheperf "$PERF_CORES" >rtt_perf_duration &
+		( cd ramdisk && ../cacheperf "$PERF_CORES" >../rtt_perf_duration ) &
 		onmainprocessing
 
 		# stop
 		echo "NETWORK_RTT: Stopping..."
-		./cacheperf end >rtt_perf
+		( cd ramdisk && ../cacheperf end >../rtt_perf )
 		echo "s" >rtt_client_pipe_in
 		wait $client_pid
 
@@ -511,10 +511,10 @@ recordtrial() {
 		allocation="$header"
 	fi
 
-	"$KEEP_PERF_DATA" || truncate --size=0 perf.data
+	"$KEEP_PERF_DATA" || truncate --size=0 ramdisk/perf.data
 
 	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 ramdisk/perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
 	echo "============================================="
 	echo $tput
 	echo $avg
