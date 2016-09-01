@@ -65,9 +65,15 @@ do
 	fi
 done
 
+if ! mount | grep "$PWD/ramdisk" >/dev/null
+then
+	mkdir -p ramdisk
+	sudo mount -ttmpfs none ramdisk
+fi
+
 prefix="catbench-`basename $cmd`_`date +%F_%H-%M-%S_%z`"
 export CATBENCH_JAGFILE="$prefix.json"
-export CATBENCH_LOGFILE="$prefix.log"
+export CATBENCH_LOGFILE="ramdisk/$prefix.log"
 if [ -e "$CATBENCH_JAGFILE" ]
 then
 	echo "ERROR: Output JSON file already exists; aborting!" >&2
