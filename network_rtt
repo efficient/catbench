@@ -24,6 +24,7 @@ const DEFAULT_CACHE_WAYS="0x003"
 const DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0x3ff"
 
 const MICA_GET_RATIO="0.5"
+const MICA_RECORD_ITERATIONS="300000000"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
 const PERF_CORES="0"
 const KEEP_PERF_DATA="true"

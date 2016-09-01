@@ -20,7 +20,7 @@ genclientargs() {
 		multiplier="`genclientargs_table_entries_multiplier`"
 	fi
 
-	echo "-o /dev/null -p '$((table_entries * multiplier))' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
+	echo "-n '$MICA_RECORD_ITERATIONS' -o /dev/null -p '$((table_entries * multiplier))' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
 }
 
 prephugepages() {
