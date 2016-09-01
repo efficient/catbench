@@ -14,7 +14,13 @@ SERVER_MIN_REV="ec10efe"
 CLIENT_MIN_REV="6306ebf"
 
 genclientargs() {
-	echo "-o /dev/null -p '$table_entries' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
+	local multiplier="1"
+	if type genclientargs_table_entries_multiplier >/dev/null 2>&1
+	then
+		multiplier="`genclientargs_table_entries_multiplier`"
+	fi
+
+	echo "-o /dev/null -p '$((table_entries * multiplier))' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
 }
 
 prephugepages() {
