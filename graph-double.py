@@ -54,9 +54,9 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     right_tuples = get_tuples(right, series, x_right, y_right);
     left_yvar = y_left[0];
     right_yvar = y_right[0];
-    fig = plt.figure();
-    axl = fig.add_subplot(1,1,1);
-    axr = axl.twinx();
+    axl = plt.subplot(212);
+    axr = plt.subplot(211, sharex=axl);
+    plt.setp(axr.get_xticklabels(), visible=False);
     axl.set_xlabel(get_label(left, x_left));
     axl.set_ylabel(get_label(left, y_left[0]));
     axr.set_ylabel(get_label(right, y_right[0]));
@@ -70,9 +70,9 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     color = itertools.cycle(('b', 'g', 'r', 'm' ,'y', 'k'));
 
     box = axl.get_position();
-    axl.set_position([box.x0, box.y0, box.width, box.height * 0.7]);
+    #axl.set_position([box.x0, box.y0, box.width, box.height * 0.7]);
     box = axr.get_position();
-    axr.set_position([box.x0, box.y0, box.width, box.height * 0.7]);
+    #axr.set_position([box.x0, box.y0, box.width, box.height * 0.7]);
 
     left_lines = list();
     for series_label, fields in left_tuples.items():
@@ -95,8 +95,8 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
             line.append((axr.plot(points[0], points[1], '-o', color=color.next(), label=line_label, marker=marker.next())));
             right_lines.append((line[-1][0], fields["order"], line_label));
 
-    axl.set_title(title);
-    axl.title.set_position((0.5, 1.08));
+    axr.set_title(title);
+    axr.title.set_position((0.5, 1.08));
 
     handles, labels = axl.get_legend_handles_labels()
 
