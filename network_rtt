@@ -3,13 +3,35 @@
 # Pseudo-modifier for variable declarations.
 # Creates a constant with the specified default value, unless a specialization is found in the environment.
 const() {
+	local ondefaulthandler=""
+	if [ $# -gt 1 ]
+	then
+		ondefaulthandler="$1"
+		shift
+	fi
 	local varname="`printf %s "$1" | cut -d= -f1`"
 	local vardef="`printf %s "$1" | cut -d= -f2-`"
+
 	if eval [ -z '"$'"$varname"'"' ]
 	then
 		eval "$varname"='"'"$vardef"'"'
+		[ -z "$ondefaulthandler" ] || "$ondefaulthandler" "$varname"
 	fi
 	eval readonly "$varname"
+}
+
+warn() {
+	local variable="$1"
+	echo "WARNING: $1 unspecified; using hardcoded default!" >&2
+}
+
+count() {
+	if [ -z "$undefcounter" ]
+	then
+		undefcounter="1"
+	else
+		undefcounter="$((undefcounter + 1))"
+	fi
 }
 
 const DEFAULT_CLIENT_SLEEP="100000"
@@ -30,6 +52,17 @@ const PERF_CORES="0"
 const KEEP_PERF_DATA="true"
 const TRASH_ALLOC="800"
 const WARMUP="600"
+
+if [ -n "$undefcounter" ]
+then
+	if [ "$undefcounter" -gt 3 ]
+	then
+		echo "WARNING: No DEFAULT_*_LOOP variable overridden; using hardcoded default!" >&2
+	elif [ "$undefcounter" -lt 3 ]
+	then
+		echo "WARNING: Multiple DEFAULT_*_LOOP variables overriden; one or more will be ignored!" >&2
+	fi
+fi
 
 CGROUP_PATH="/sys/fs/rscctrl"
 CGROUP_SUBMASK="schemas"
