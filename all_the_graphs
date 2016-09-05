@@ -76,13 +76,23 @@ else
 	methodandapparatus="countones"
 fi
 
-echo "$2"
-echo "$1"
 # Accepts png, pdf, eps, svg and probably more but those were the 4 in the documentation
 filetype="pdf"
 name="`basename -s .json "$1"`"
 quest="$2"
 color="Not applicable"
+
+if [ "$quest" = "mite_tput_limit" ]
+then
+	echo "Are you sure you didn't mean mite_throughput?"
+fi
+
+if [ "$quest" = "table_entries" ]
+then
+	echo "Are you sure you didn't mean working_set_size?"
+fi
+
+# Post Processing
 ./strip "$1" >"$name-stripped.json"
 # Replace cache ways with numbers so graphing works better
 bothbases="`sed -n 's/.*"0x\([^"]\+\)".*/\1/p' "$name-stripped.json" | sort | uniq | tr [a-f] [A-F] | sed 's/.*/obase=10; &; obase=2; &/;1iibase=16' | bc | paste - -`"
@@ -114,6 +124,7 @@ mkdir -p ./graphs/"$name"
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 95tail-latency --title "95% tail latency vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-95."$filetype" --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 99tail-latency --title "99% tail latency vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-99."$filetype" --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "99.9% tail latency vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-999."$filetype" --legend-y 0.7 --legend-x 1.5
+echo "Finished tail graphs"
 # perf graphs
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "stalled-cycles" --title "Stalled cycles vs Mite Ways" -o ./graphs/"$name"/"$name"-stalled-cycles."$filetype" --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata cpu-cycles --title "CPU cycles vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-cpu-cycles."$filetype" --legend-y 0.7 --legend-x 1.5
@@ -142,6 +153,9 @@ mkdir -p ./graphs/"$name"
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "LLC_REFERENCE" --title "LLC_REFERENCE (BDE70) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-llc-reference."$filetype" --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "LLC_MISS" --title "LLC_MISS (BDE70) vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-llc-miss."$filetype" --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "LLC_MISS_RATIO" --title "LLC_MISS RATIO vs Mica Throughput Limit $quest ways" -o ./graphs/"$name"/"$name"-llc-miss-ratio."$filetype" --legend-y 0.7 --legend-x 1.5
+echo "Finished perf graphs"
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata contender_tput --title "Contender throughput vs Mite Ways" -o ./graphs/"$name"/"$name"-contender."$filetype" --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata mite_throughput --title "Mite throughput vs $quest" -o ./graphs/"$name"/"$name"-mite."$filetype" --legend-y 0.7 --legend-x 1.5
+echo "Finished throughput graphs"
 ./graph-double.py --input-left "$name"-stripped.json --input-right "$name"-stripped.json --series allocation contention --xdata-left "$quest" --xdata-right "$quest" --ydata-left 999tail-latency --ydata-right contender_tput --title "Contender Throughput & Mica 99.9%-ile Tail Latency vs $quest" --outfile ./graphs/"$name"/"$name"-tputandtail."$filetype" --no-commit --legend-x 1.0 --legend-y 0.7
+echo "Finished double graphs"
