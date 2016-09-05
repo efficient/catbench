@@ -103,7 +103,7 @@ insertratioentries "$name-stripped.json" L2_RQSTS/DEMAND_DATA_RD_MISS L2_RQSTS/A
 mv "$name-augmented.json" "$name-stripped.json"
 insertratioentries "$name-stripped.json" L2_RQSTS/CODE_RD_MISS L2_RQSTS/ALL_CODE_RD L2_RQSTS/CODE_RD_MISS_RATIO >"$name-augmented.json"
 mv "$name-augmented.json" "$name-stripped.json"
-./entries2bytes -i "$name-stripped.json"
+./entries2bytes -i "$name-stripped.json" -b 56
 mkdir -p ./graphs/
 mkdir -p ./graphs/"$name"
 # tail graphs

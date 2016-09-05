@@ -5,16 +5,16 @@ import os;
 import sys;
 import json;
 
-bytes_per_entry=56;
-
 def setup_optparse():
     parser = argparse.ArgumentParser();
     parser.add_argument('--input', '-i', dest='input',
-                        help='json to append to');
+                        help='input json (modified in place)');
+    parser.add_argument('--bytes', '-b', dest='bytes', type=int, default=56,
+                        help='Bytes per entry');
     args = parser.parse_args();
-    return args.input;
+    return args.input, args.bytes;
 
-def entries2bytes(input):
+def entries2bytes(input, bytes_per_entry):
     fd = open(input, 'r');
     jsonfile = json.load(fd);
     data = jsonfile.get("data");
@@ -27,7 +27,7 @@ def entries2bytes(input):
             index = 0;
             while(index < len(data[key]["samples"])):
                 sample = data[key]["samples"][index]["table_entries"];
-		size_mb= sample * bytes_per_entry / 1024 / 1024;
+		size_mb = sample * bytes_per_entry / 1024 / 1024;
                 data[key]["samples"][index]["working_set_size"] = size_mb;
                 index += 1
     fd.close();
@@ -35,9 +35,9 @@ def entries2bytes(input):
     json.dump(jsonfile, fd , indent=4, sort_keys=True);
 
 def main():
-    input = setup_optparse();
+    input, bytes_per_entry = setup_optparse();
     if(input != ""):
-        entries2bytes(input);
+        entries2bytes(input, bytes_per_entry);
     else:
         print("Missing input file");
 
