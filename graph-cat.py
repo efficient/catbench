@@ -188,7 +188,6 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     #ax.axis("tight");
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
     ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    print outfile;
     plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():

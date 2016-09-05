@@ -33,7 +33,6 @@ def get_sample_description(filename, samplename):
     return str(label_entry.get("description"));
 
 def get_label(filename, labelname):
-    print labelname;
     fd = open(filename, 'r');
     database = json.load(fd);
     label_entry = database.get("legend").get("samples").get(labelname);
