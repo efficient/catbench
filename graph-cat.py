@@ -60,7 +60,7 @@ def setup_optparse():
                         help="Do not alphabetically sort legend entries, preserve input order");
     parser.add_argument('--xmax', dest='xmax', type=float, default=0,
                         help="Maximum x point to graph");
-    parser.add_argument('--xmin', dest='xmin', type=float, default=0,
+    parser.add_argument('--xmin', dest='xmin', type=float, default=None,
                         help="Minimum x point to graph");
     args = parser.parse_args();
     if(type(args.series_labels) != list):
@@ -109,7 +109,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         for key2, val2 in val.items():
             if(key2 == "description" or key2 == "order"):
                 continue;
-            if(xmax == 0 and xmin == 0):
+            if(xmin == None or (xmax == 0 and xmin == 0)):
 	        val2_cropped = val2;
             else:
 	        val2_cropped = filter(lambda x: x[0] <= xmax and x[0] >= xmin, val2);
@@ -119,9 +119,11 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 	    #ax.plot(xy[0], xy[1]);
             temp.append((line[len(line) - 1][0], val["order"], line_label));
             #ax.scatter(xy[0], xy[1]);
+        if(x_copy == None):
+	    x_copy = xy[0];
+        x_copy = list(set(x_copy + xy[0]));
         if(max(xy[0]) > cur_xmax):
             cur_xmax = max(xy[0]);
-            x_copy = xy[0];
         if(max(xy[1]) > cur_ymax):
             cur_ymax = max(xy[1]);
 
@@ -129,13 +131,13 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         ax.set_xscale('log');
     if(logy):
         ax.set_yscale('log');
-    min_dist = 0.1;
+    min_dist = (max(x_copy) - min(x_copy)) / 50;
     idx = 0;
-    if(x_copy[0] > 0):
-        x_copy.insert(0, 0);
+    x_copy.sort();
     while(idx + 1 < len(x_copy)):
         if(x_copy[idx] + min_dist > x_copy[idx+1]):
             x_copy.pop(idx+1);
+	    idx = 0;
             continue;
         idx += 1;
     if(logx == logy == smart_x == False):
@@ -159,7 +161,10 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
 
     cur_ymax = cur_ymax * 1.75;
-    plt.xlim(xmin=xmin);
+    if(xmin != None):
+    	plt.xlim(xmin=xmin);
+    else:
+    	plt.xlim(xmin=min(x_copy));
     plt.setp(ax.get_xticklabels(), fontsize=10, rotation=90)
     if(logy == False):
         if(user_ymin == None and fit == False and user_ymax == None):
