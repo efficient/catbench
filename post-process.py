@@ -12,6 +12,38 @@ descriptions = {
     'contention': 'Contention, no CAT'
 }
 
+unit_conversions = {
+    'L1-dcache-load-misses': 1000000,
+    'L1-icache-load-misses': 1000000,
+    'L2_RQSTS/ALL_CODE_RD': 1000000,
+    'L2_RQSTS/ALL_DEMAND_DATA_RD': 1000000,
+    'L2_RQSTS/ALL_DEMAND_MISS': 1000000,
+    'L2_RQSTS/CODE_RD_MISS': 1000000,
+    'L2_RQSTS/MISS': 1000000,
+    'L2_RQSTS/REFERENCES': 1000000,
+    'L2_TRANS/CODE_RD': 1000000,
+    'L2_TRANS/DEMAND_DATA_RD': 1000000,
+    'LLC_MISS': 1000000,
+    'LLC_REFERENCE': 1000000,
+    'MEM_LOAD_UOPS_RETIRED/L1_MISS': 1000000,
+    'MEM_LOAD_UOPS_RETIRED/L2_MISS': 1000000,
+    'MEM_LOAD_UOPS_RETIRED/L3_MISS': 1000000,
+    'MEM_UOPS_RETIRED/ALL_LOADS': 1000000,
+    'cpu-cycles': 1000000,
+    'instructions': 1000000,
+    'stalled-cycles': 1000000,
+    'L2_RQSTS/ALL_DEMAND_REFERENCES': 1000000,
+    "L2_RQSTS/DEMAND_DATA_RD_MISS": 1000000
+}
+
+def num2word(num):
+    if(num == 1000):
+        return "thousands";
+    if(num == 1000000):
+        return "millions";
+    return None;
+
+
 def setup_optparse():
     parser = argparse.ArgumentParser();
     parser.add_argument('--input', '-i', dest='input',
@@ -20,14 +52,18 @@ def setup_optparse():
                         help='Bytes per entry, omit or set to 0 to skip this postprocessing step');
     parser.add_argument('--series-description', '-s', dest='series_description', action='store_true', default=False,
                         help='Change series descriptions (legend labels) to something more reasonable. String replacements can be found in this file (post-process.py)');
+    parser.add_argument('--perf-descriptions', '-p', dest='perf_descriptions', action='store_true', default=False,
+                        help='Add in legend entries for all perf counters');
+    parser.add_argument('--change-units', '-c', dest='change_units', action='store_true', default=False,
+                        help='Change units on large numbers to thousands, millions, billions.');
     args = parser.parse_args();
-    return args.input, args.bytes, args.series_description;
+    return args.input, args.bytes, args.series_description, args.perf_descriptions, args.change_units;
 
 def entries2bytes(jsonfile, bytes_per_entry):
     data = jsonfile.get("data");
     legend = jsonfile.get("legend");
     legend["samples"]["working_set_size"] = {};
-    legend["samples"]["working_set_size"]["description"] = "Working set size";
+    legend["samples"]["working_set_size"]["description"] = "Working set size per second";
     legend["samples"]["working_set_size"]["unit"] = "mb";
     for key in data.keys():
         index = 0;
@@ -42,9 +78,139 @@ def fix_series_descriptions(jsonfile):
     for key in data.keys():
         data[key]["description"] = descriptions[key];
 
+def add_perf_descriptions(jsonfile):
+    legend = jsonfile.get("legend");
+    legend_samples = legend["samples"];
 
+    legend_samples['L1-dcache-load-misses'] = {};
+    legend_samples['L1-dcache-load-misses']["description"] = "L1 dcache load misses per second";
+    legend_samples['L1-dcache-load-misses']["unit"] = "";
+    
+    legend_samples['L1-icache-load-misses'] = {};
+    legend_samples['L1-icache-load-misses']["description"] = "L1 icache load misses per second";
+    legend_samples['L1-icache-load-misses']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/ALL_CODE_RD'] = {};
+    legend_samples['L2_RQSTS/ALL_CODE_RD']["description"] = "L2 code read requests per second";
+    legend_samples['L2_RQSTS/ALL_CODE_RD']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/ALL_DEMAND_DATA_RD'] = {};
+    legend_samples['L2_RQSTS/ALL_DEMAND_DATA_RD']["description"] = "L2 data read requests per second";
+    legend_samples['L2_RQSTS/ALL_DEMAND_DATA_RD']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/ALL_DEMAND_MISS'] = {};
+    legend_samples['L2_RQSTS/ALL_DEMAND_MISS']["description"] = "L2 all misses per second";
+    legend_samples['L2_RQSTS/ALL_DEMAND_MISS']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/ALL_DEMAND_REFERENCES'] = {};
+    legend_samples['L2_RQSTS/ALL_DEMAND_REFERENCES']["description"] = "L2 all references per second";
+    legend_samples['L2_RQSTS/ALL_DEMAND_REFERENCES']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/CODE_RD_MISS'] = {};
+    legend_samples['L2_RQSTS/CODE_RD_MISS']["description"] = "L2 code read misses per second";
+    legend_samples['L2_RQSTS/CODE_RD_MISS']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/CODE_RD_MISS_RATIO'] = {};
+    legend_samples['L2_RQSTS/CODE_RD_MISS_RATIO']["description"] = "L2 code read miss ratio per second";
+    legend_samples['L2_RQSTS/CODE_RD_MISS_RATIO']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS'] = {};
+    legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS']["description"] = "L2 data read misses per second";
+    legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO'] = {};
+    legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO']["description"] = "L2 data read miss ratio per second";
+    legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/MISS'] = {};
+    legend_samples['L2_RQSTS/MISS']["description"] = "L2 misses per second";
+    legend_samples['L2_RQSTS/MISS']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/MISS_RATIO'] = {};
+    legend_samples['L2_RQSTS/MISS_RATIO']["description"] = "L2 miss ratio per second";
+    legend_samples['L2_RQSTS/MISS_RATIO']["unit"] = "";
+    
+    legend_samples['L2_RQSTS/REFERENCES'] = {};
+    legend_samples['L2_RQSTS/REFERENCES']["description"] = "L2 references per second";
+    legend_samples['L2_RQSTS/REFERENCES']["unit"] = "";
+    
+    legend_samples['L2_TRANS/CODE_RD'] = {};
+    legend_samples['L2_TRANS/CODE_RD']["description"] = "L2 trans code read per second";
+    legend_samples['L2_TRANS/CODE_RD']["unit"] = "";
+    
+    legend_samples['L2_TRANS/DEMAND_DATA_RD'] = {};
+    legend_samples['L2_TRANS/DEMAND_DATA_RD']["description"] = "L2 trans demand data read per second";
+    legend_samples['L2_TRANS/DEMAND_DATA_RD']["unit"] = "";
+    
+    legend_samples['LLC_MISS'] = {};
+    legend_samples['LLC_MISS']["description"] = "LLC misses per second";
+    legend_samples['LLC_MISS']["unit"] = "";
+    
+    legend_samples['LLC_MISS_RATIO'] = {};
+    legend_samples['LLC_MISS_RATIO']["description"] = "LLC miss ratio per second";
+    legend_samples['LLC_MISS_RATIO']["unit"] = "";
+    
+    legend_samples['LLC_REFERENCE'] = {};
+    legend_samples['LLC_REFERENCE']["description"] = "LLC references per second";
+    legend_samples['LLC_REFERENCE']["unit"] = "";
+    
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L1_MISS'] = {};
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L1_MISS']["description"] = "Mem load uops retired l1 miss per second";
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L1_MISS']["unit"] = "";
+    
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L2_MISS'] = {};
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L2_MISS']["description"] = "Mem load uops retired l2 miss per second";
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L2_MISS']["unit"] = "";
+    
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L3_MISS'] = {};
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L3_MISS']["description"] = "Mem load uops retired l3 miss per second";
+    legend_samples['MEM_LOAD_UOPS_RETIRED/L3_MISS']["unit"] = "";
+    
+    legend_samples['MEM_UOPS_RETIRED/ALL_LOADS'] = {};
+    legend_samples['MEM_UOPS_RETIRED/ALL_LOADS']["description"] = "Mem uops retired all loads per second";
+    legend_samples['MEM_UOPS_RETIRED/ALL_LOADS']["unit"] = "";
+    
+    legend_samples['cpu-cycles'] = {};
+    legend_samples['cpu-cycles']["description"] = "CPU cycles per second";
+    legend_samples['cpu-cycles']["unit"] = "";
+    
+    legend_samples['instructions'] = {};
+    legend_samples['instructions']["description"] = "Instructions per second";
+    legend_samples['instructions']["unit"] = "";
+
+    legend_samples['stalled-cycles'] = {};
+    legend_samples['stalled-cycles']["description"] = "Stalled cycles per second";
+    legend_samples['stalled-cycles']["unit"] = "";
+
+    legend_samples['dTLB-load-misses'] = {};
+    legend_samples['dTLB-load-misses']["description"] = "dTLB load misses per second";
+    legend_samples['dTLB-load-misses']["unit"] = "";
+    
+    legend_samples['iTLB-load-misses'] = {};
+    legend_samples['iTLB-load-misses']["description"] = "iTBL load misses per second";
+    legend_samples['iTLB-load-misses']["unit"] = "";
+    
+
+
+def change_counter_units(jsonfile):
+    data = jsonfile.get("data");
+    legend = jsonfile.get("legend");
+    for series in data.keys():
+        index = 0;
+        while(index < len(data[series]["samples"])):
+            sample = data[series]["samples"][index];
+            for datakey in sample.keys():
+	    	if(datakey not in unit_conversions):
+		    continue;
+                new_key = datakey + "-scaled";
+                if(new_key not in legend["samples"]):
+                    legend["samples"][new_key] = {};
+                    legend["samples"][new_key]["description"] = legend["samples"][datakey]["description"];
+                    legend["samples"][new_key]["unit"] = num2word(unit_conversions[datakey]);
+                sample[new_key] = sample[datakey] / unit_conversions[datakey];
+            index += 1
 def main():
-    input, bytes_per_entry, series_description = setup_optparse();
+    input, bytes_per_entry, series_description, perf_descriptions, change_units = setup_optparse();
     if(input == ""):
         print("Missing input file, please specify with -i <input_filename>");
         exit();
@@ -63,6 +229,16 @@ def main():
             fix_series_descriptions(jsonfile);
         except:
             print('Error, data[series] for some series is missing \"description\" field');
+    if(perf_descriptions == True):
+        try:
+            add_perf_descriptions(jsonfile);
+        except:
+            print('Error, missing some perf counter');
+    if(perf_descriptions == False and change_units == True):
+        print('Error, cannot run -c without -p');
+        exit();
+    if(change_units == True):
+        change_counter_units(jsonfile);
     # Close the fd because even with 'rw' python doesn't like to write to the open file
     fd.close();
     fd = open(input, 'w');
