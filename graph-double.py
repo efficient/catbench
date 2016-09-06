@@ -117,7 +117,6 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     lgdr = axr.legend(handles2, labels2, loc="lower right", bbox_to_anchor=(legend_x, legend_y));
 
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
-    plt.xlim(xmin=0);
     plt.ylim(ymin=0);
     axl.set_ylim(0);
     axr.set_ylim(0);
