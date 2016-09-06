@@ -19,6 +19,10 @@ from graph_helper import get_arg_unit;
 from graph_helper import get_aux;
 from graph_helper import get_commit;
 from graph_helper import get_series_aux;
+from graph_helper import color;
+from graph_helper import color_alpha;
+from graph_helper import marker;
+from graph_helper import marker_size;
 
 def setup_optparse():
     parser = argparse.ArgumentParser();
@@ -62,9 +66,6 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     axr.set_ylabel(get_label(right, y_right[0]));
     axl.ticklabel_format(useOffset=False);
     #axr.ticklabel_format(useOffset=False);
-    colors = [
-    	'b', 'g', 'r', 'm' ,'y', 'k'
-    ]
     import itertools;
     marker = itertools.cycle(('o', '>', 'D', 's', 'h', '+', '<', '^'));
     color = itertools.cycle(('b', 'g', 'r', 'm' ,'y', 'k'));
@@ -116,8 +117,6 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     lgdr = axr.legend(handles2, labels2, loc="lower right", bbox_to_anchor=(legend_x, legend_y));
 
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
-    axl.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    #fig.savefig(outfile, format='png', bbox_extra_artists=(lgd,), bbox_inches='tight');
     plt.xlim(xmin=0);
     plt.ylim(ymin=0);
     axl.set_ylim(0);

@@ -8,7 +8,7 @@ mpl.use('Agg');
 import matplotlib.pyplot as plt;
 import json;
 from matplotlib import ticker;
-import numpy as np
+import numpy as np;
 
 from graph_helper import get_tuples;
 from graph_helper import get_sample_description;
@@ -18,6 +18,10 @@ from graph_helper import get_arg_unit;
 from graph_helper import get_aux;
 from graph_helper import get_commit;
 from graph_helper import get_series_aux;
+from graph_helper import color;
+from graph_helper import color_alpha;
+from graph_helper import marker;
+from graph_helper import marker_size;
 
 def setup_optparse():
     parser = argparse.ArgumentParser();
@@ -73,12 +77,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     fig = plt.figure();
     ax = fig.add_subplot(1,1,1);
     ax.ticklabel_format(useOffset=False);
-    colors = [
-    	'b', 'g', 'r', 'm' ,'y', 'k'
-    ]
-    import itertools;
-    marker = itertools.cycle(('o', '>', 'D', 's', 'h', '+', '<', '^'));
-    color = itertools.cycle(('b', 'g', 'r', 'm' ,'y', 'k'));
+
     #ax.set_color_cycle(colors);
 
     ax.set_xlabel(get_label(filename, xlabel));
@@ -116,7 +115,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 	        val2_cropped = filter(lambda x: x[0] <= xmax and x[0] >= xmin, val2);
             xy = map(list, zip(*val2_cropped));
             line_label = val["description"];
-            line.append((ax.plot(xy[0], xy[1], '-o', color=color.next(), label=line_label, marker=marker.next(), alpha=0.3))); #+ str(key2[1])))[0]);
+            line.append((ax.plot(xy[0], xy[1], '-o', color=color.next(), label=line_label, marker=marker.next(), markersize = marker_size, alpha=color_alpha))); #+ str(key2[1])))[0]);
 	    #ax.plot(xy[0], xy[1]);
             temp.append((line[len(line) - 1][0], val["order"], line_label));
             #ax.scatter(xy[0], xy[1]);
@@ -185,9 +184,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             xticks.append(cur_tick);
             cur_tick = cur_tick * 10;
         plt.xticks(xticks);
-    #ax.axis("tight");
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
-    ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():

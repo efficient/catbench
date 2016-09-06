@@ -1,6 +1,12 @@
 #!/usr/bin/python
 import json;
 
+import itertools;
+marker = itertools.cycle(('o', '>', 'D', 's', 'h', '+', '<', '^'));
+color = itertools.cycle(('b', 'm', 'k', 'r' ,'y'));
+color_alpha = 1.0;
+marker_size = 4;
+
 def get_tuples(filename, slabels, xlabel, ylabels):
     count = 0;
     fd = open(filename, 'r');
