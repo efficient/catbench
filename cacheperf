@@ -40,18 +40,18 @@ fi
 cores="$1"
 set -e
 
-findsudoerproc() {
+findrootproc() {
 	local regex="$1"
 	set -e
 
-	ps -eopgid,pid,comm | sed 's/^ *//' | grep $sudoerpgids | grep "$regex" | tail -n1 | tr -s " " | cut -d" " -f2
+	ps -eouid,pid,comm | sed 's/^ *//' | grep '^0 ' | grep "$regex" | tail -n1 | tr -s " " | cut -d" " -f2
 }
 
 if [ "$cores" = "end" ]
 then
-	sudoerpgids="`ps -eopgid,comm | grep sudo | sed 's/^ */-e^/' | cut -d" " -f1`"
-	perfpid="`findsudoerproc " perf"`"
-	sleeppid="`findsudoerproc sleep`"
+	# FIXME: This makes the blind assumption that the most recent root-owned perf process is the one that spawned the most recent root-owned sleep
+	perfpid="`findrootproc " perf"`"
+	sleeppid="`findrootproc " sleep"`"
 	cores="`ps -eopid,cmd | grep "^ *$perfpid" | sed 's/.*-aC\([^ ]\+\).*/\1/'`"
 	[ -n "$perfpid" -a -n "$sleeppid" ] && sudo kill -int "$sleeppid" 2>/dev/null && while ps -eopid | tr -d " " | grep -x "$perfpid" >/dev/null; do :; done || echo "No instances left to end"
 	[ "`echo "$cores" | wc -l`" -ne "1" ] || ln -sf "perf.data.$cores" perf.data
