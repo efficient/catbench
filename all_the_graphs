@@ -157,5 +157,5 @@ echo "Finished perf graphs"
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata contender_tput --title "Contender throughput vs Mite Ways" -o ./graphs/"$name"/"$name"-contender."$filetype" --legend-y 0.7 --legend-x 1.5
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata mite_throughput --title "Mite throughput vs $quest" -o ./graphs/"$name"/"$name"-mite."$filetype" --legend-y 0.7 --legend-x 1.5
 echo "Finished throughput graphs"
-./graph-double.py --input-left "$name"-stripped.json --input-right "$name"-stripped.json --series allocation contention --xdata-left "$quest" --xdata-right "$quest" --ydata-left 999tail-latency --ydata-right contender_tput --title "Contender Throughput & Mica 99.9%-ile Tail Latency vs $quest" --outfile ./graphs/"$name"/"$name"-tputandtail."$filetype" --no-commit --legend-x 1.0 --legend-y 0.7
+./graph-double.py --input-left "$name"-stripped.json --input-right "$name"-stripped.json --series allocation contention --xdata-left "$quest" --xdata-right "$quest" --ydata-left 999tail-latency --ydata-right contender_tput --title "Contender Throughput & Mica 99.9%-ile Tail Latency vs $quest" --outfile ./graphs/"$name"/"$name"-tputandtail."$filetype" --no-commit --legend-x 1.7 --legend-y 0.7
 echo "Finished double graphs"
