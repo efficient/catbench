@@ -36,6 +36,27 @@ unit_conversions = {
     "L2_RQSTS/DEMAND_DATA_RD_MISS": 1000000
 }
 
+miss_counters = [ 
+                    'L1-dcache-load-misses',
+                    'L1-icache-load-misses',
+                    'L2_RQSTS/ALL_CODE_RD',
+                    'L2_RQSTS/ALL_DEMAND_DATA_RD',
+                    'L2_RQSTS/ALL_DEMAND_MISS',
+                    'L2_RQSTS/ALL_DEMAND_REFERENCES',
+                    'L2_RQSTS/CODE_RD_MISS',
+                    'L2_RQSTS/CODE_RD_MISS_RATIO',
+                    'L2_RQSTS/DEMAND_DATA_RD_MISS',
+                    'L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO',
+                    'L2_RQSTS/MISS',
+                    'L2_RQSTS/REFERENCES',
+                    'L2_TRANS/CODE_RD',
+                    'L2_TRANS/DEMAND_DATA_RD',
+                    'LLC_MISS',
+                    'LLC_REFERENCE',
+                    'dTLB-load-misses',
+                    'iTLB-load-misses'
+];
+
 def num2word(num):
     if(num == 1000):
         return "thousands";
@@ -56,8 +77,10 @@ def setup_optparse():
                         help='Add in legend entries for all perf counters');
     parser.add_argument('--change-units', '-c', dest='change_units', action='store_true', default=False,
                         help='Change units on large numbers to thousands, millions, billions.');
+    parser.add_argument('--miss-per-instruction', '-m', dest='miss_per_instruction', action='store_true', default=False,
+                        help='Add L{1,2,3} cache misses per kilo-instruction to all data points');
     args = parser.parse_args();
-    return args.input, args.bytes, args.series_description, args.perf_descriptions, args.change_units;
+    return args.input, args.bytes, args.series_description, args.perf_descriptions, args.change_units, args.miss_per_instruction;
 
 def entries2bytes(jsonfile, bytes_per_entry):
     data = jsonfile.get("data");
@@ -189,8 +212,6 @@ def add_perf_descriptions(jsonfile):
     legend_samples['iTLB-load-misses'] = {};
     legend_samples['iTLB-load-misses']["description"] = "iTBL load misses per second";
     legend_samples['iTLB-load-misses']["unit"] = "";
-    
-
 
 def change_counter_units(jsonfile):
     data = jsonfile.get("data");
@@ -200,8 +221,8 @@ def change_counter_units(jsonfile):
         while(index < len(data[series]["samples"])):
             sample = data[series]["samples"][index];
             for datakey in sample.keys():
-	    	if(datakey not in unit_conversions):
-		    continue;
+                if(datakey not in unit_conversions):
+		            continue;
                 new_key = datakey + "-scaled";
                 if(new_key not in legend["samples"]):
                     legend["samples"][new_key] = {};
@@ -209,8 +230,27 @@ def change_counter_units(jsonfile):
                     legend["samples"][new_key]["unit"] = num2word(unit_conversions[datakey]);
                 sample[new_key] = sample[datakey] / unit_conversions[datakey];
             index += 1
+
+def add_misses_per_instruction(jsonfile):
+    data = jsonfile.get("data");
+    legend = jsonfile.get("legend");
+    for series in data.keys():
+        index = 0;
+        while(index < len(data[series]["samples"])):
+            sample = data[series]["samples"][index];
+            for datakey in sample.keys():
+                if(datakey not in miss_counters):
+                    continue;
+                new_key = datakey + "-per-kilo-instruction";
+                if(new_key not in legend["samples"]):
+                    legend["samples"][new_key] = {};
+                    legend["samples"][new_key]["description"] = legend["samples"][datakey]["description"] + " per kilo-instruction";
+                    legend["samples"][new_key]["unit"] = "";
+                sample[new_key] = sample[datakey] / sample["instructions"] / 1000;
+            index += 1;
+
 def main():
-    input, bytes_per_entry, series_description, perf_descriptions, change_units = setup_optparse();
+    input, bytes_per_entry, series_description, perf_descriptions, change_units, miss_per_instruction = setup_optparse();
     if(input == ""):
         print("Missing input file, please specify with -i <input_filename>");
         exit();
@@ -219,6 +259,8 @@ def main():
     jsonfile = json.load(fd);
 
     # Do post processing based on flags passed
+
+
     if(bytes_per_entry != 0):
         try:
             entries2bytes(jsonfile, bytes_per_entry);
@@ -229,16 +271,24 @@ def main():
             fix_series_descriptions(jsonfile);
         except:
             print('Error, data[series] for some series is missing \"description\" field');
+    # add_perf_descriptions must happen before add_misses_per_instruction and change_counter_units
     if(perf_descriptions == True):
         try:
             add_perf_descriptions(jsonfile);
         except:
             print('Error, missing some perf counter');
+    # add_misses_per_instruction must happen before change_counter_units
+    if(miss_per_instruction == True):
+    	try:
+            add_misses_per_instruction(jsonfile);
+	except:
+	    print("Something went wrong with post-process.py:add_misses_per_instruction(1)");
     if(perf_descriptions == False and change_units == True):
         print('Error, cannot run -c without -p');
         exit();
     if(change_units == True):
         change_counter_units(jsonfile);
+
     # Close the fd because even with 'rw' python doesn't like to write to the open file
     fd.close();
     fd = open(input, 'w');
