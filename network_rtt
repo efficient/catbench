@@ -291,6 +291,9 @@ jaguar/jaguar set "$logfilename" legend.samples.50tail-latency.unit string "us"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
 
+jaguar/jaguar set "$logfilename" legend.samples.intel_cqm/local_bytes.description string "System-wide memory bandwidth usage"
+jaguar/jaguar set "$logfilename" legend.samples.intel_cqm/local_bytes.unit string "MB/s"
+
 "$KEEP_PERF_DATA" && (base64 -w0 "$SERVER_DIR/$SERVER_BIN" | jaguar/jaguar set "$logfilename" meta.server_binary string -)
 
 setdefaultmask() {
@@ -473,11 +476,13 @@ runtrial() {
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
 		echo "r" >rtt_client_pipe_in
 		( cd ramdisk && ../cacheperf "$PERF_CORES" >../rtt_perf_duration ) &
+		perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
 		onmainprocessing
 
 		# stop
 		echo "NETWORK_RTT: Stopping..."
 		( cd ramdisk && ../cacheperf end >../rtt_perf )
+		killall -INT perf
 		echo "s" >rtt_client_pipe_in
 		wait $client_pid
 
@@ -503,6 +508,7 @@ runtrial() {
 	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 	cat rtt_perf_duration
 	cat rtt_perf
+	cat rtt_bandwidth
 }
 
 recordtrial() {
@@ -537,7 +543,7 @@ recordtrial() {
 		else
 			header="fraction"
 		fi
-		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`"
+		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`,intel_cqm/local_bytes"
 		baseline="$header"
 		basealloc="$header"
 		contention="$header"
@@ -547,7 +553,7 @@ recordtrial() {
 	"$KEEP_PERF_DATA" || truncate --size=0 ramdisk/perf.data
 
 	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 ramdisk/perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 ramdisk/perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`grep -v ^$ rtt_bandwidth | tail -n+2 | tr -d , | tr -s " " | cut -d" " -f2 | paste -sd/ | bc -l`"
 	echo "============================================="
 	echo $tput
 	echo $avg
@@ -654,3 +660,4 @@ rm rtt_client
 rm rtt_server
 rm rtt_perf_duration
 rm rtt_perf
+rm rtt_bandwidth
