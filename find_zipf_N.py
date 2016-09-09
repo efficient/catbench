@@ -36,6 +36,8 @@ def find_zipf_N(cache_size, zipf_alpha, percentile):
         #N *= 1.001
         #print('lhs = %f' % lhs)
 
+    sys.stderr.write('found N = %d\n' % prevN)
+
     print('%d' % prevN)
     return prevN
 
