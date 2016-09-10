@@ -86,7 +86,7 @@ findproc() {
 
 if [ "$cores" = "end" ]
 then
-	perfline="`findproc "^perf"`"
+	perfline="`findproc "^perf "`"
 	if [ -z "$perfline" ]
 	then
 		echo "No instances left to end"
@@ -95,7 +95,7 @@ then
 
 	perfpgid="`printf %s "$perfline" | cut -d" " -f2`"
 	perfpid="`printf %s "$perfline" | cut -d" " -f3`"
-	chldpid="`findproc "^[^ ]\+ $perfpgid" | cut -d" " -f3`"
+	chldpid="`findproc "^sleep $perfpgid .*inf$" | cut -d" " -f3`"
 	if [ -n "$chldpid" ]
 	then
 		targetpid="$chldpid"
