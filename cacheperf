@@ -81,7 +81,7 @@ findproc() {
 	local regex="$1"
 	set -e
 
-	ps -eocomm,pgid,pid,cmd | tr -s " " | sed 's/^ //' | grep "$regex" | grep -v grep | tail -n1
+	ps -eocomm,pgid,pid,cmd | tr -s " " | grep "$regex" | tail -n1
 }
 
 if [ "$cores" = "end" ]
