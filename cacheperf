@@ -103,7 +103,7 @@ then
 		targetpid="$perfpid"
 	fi
 
-	sudo kill -int "$targetpid" 2>/dev/null
+	sudo kill -int "$targetpid"
 	while ps -eopid | tr -d " " | grep -x "$perfpid" >/dev/null; do :; done
 
 	mode="`printf %s "$perfline" | sed 's/.\+perf \([^ ]\+\).*/\1/'`"
