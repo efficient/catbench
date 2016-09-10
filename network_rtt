@@ -476,7 +476,7 @@ runtrial() {
 		if [ "$SPAWNCONTENDERS" = "onmainprocessing" ]; then spawncontenders "$contenders" "$mask"; fi
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
 		echo "r" >rtt_client_pipe_in
-		( cd ramdisk && ../cacheperf "$PERF_CORES" >../rtt_perf_duration ) &
+		( cd ramdisk && ../cacheperf -r "$PERF_CORES" >../rtt_perf_duration ) &
 		perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
 		onmainprocessing
 

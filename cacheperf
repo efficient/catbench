@@ -26,10 +26,13 @@ readonly COUNTERS="`echo "
 	r412e:LLC_MISS (BDE70)
 	" | tail -n+2 | tr -d '\t'`"
 
-if [ $# -ne 1 ]
+if [ $# -ne 2 -a \( $# -ne 1 -o "$1" != "end" \) ]
 then
 	cat <<-tac
-		USAGE: $0 <<list,of,cores> | end>
+		USAGE: $0 <-r|-s> <<list,of,cores> | end>
+
+			-r means record a perf.data file
+			-s means only output aggregate statistics
 
 		Records cache-related performance counters on the specified cores
 		until called again with the 'end' argument.
@@ -37,28 +40,89 @@ then
 	tac
 	exit 1
 fi
-cores="$1"
+
+cores="$2"
+case "$1" in
+-r)
+	mode="record"
+	;;
+-s)
+	mode="stat"
+	;;
+end)
+	cores="$1"
+	;;
+*)
+	printf "%s\n" "$1: Unknown switch (expected -r or -s)" >&2
+	exit 1
+	;;
+esac
 set -e
 
-findrootproc() {
+launch_record() {
+	rm -f "perf.data.$cores"
+	ln -sf "perf.data.$cores" perf.data
+	sudo perf record -se"`echo "$COUNTERS" | cut -d: -f1 | paste -sd,`" --call-graph lbr -aC"$cores" -o perf.data time -f" %e seconds time elapsed" sleep inf 2>&1 &
+}
+
+report_record() {
+	perf report --stdio -iperf.data | grep -A1 '^# Samples:' | grep -v -- -- | sed "s/'//g" | rev | cut -d" " -f1 | rev | paste - - | eval sed `echo "$COUNTERS" | sed 's|.*|-e"s:&:"|'`
+}
+
+launch_stat() {
+	sudo perf stat -e"`echo "$COUNTERS" | cut -d: -f1 | paste -sd,`" 2>&1 -aC"$cores" | tee "perf.dat.$cores" | tail -n2 | tr -s " " &
+}
+
+report_stat() {
+	eval sed `echo "$COUNTERS" | sed 's|.*|-e"s:&:"|'` perf.dat | tail -n+4 | head -n-3 | tr -s " " | sed 's/ \([^ ]\+\) \([^#]\+\) .*/\2\t\1/' | tr -d ,
+}
+
+findproc() {
 	local regex="$1"
 	set -e
 
-	ps -eouid,pid,comm | sed 's/^ *//' | grep '^0 ' | grep "$regex" | tail -n1 | tr -s " " | cut -d" " -f2
+	ps -eocomm,pgid,pid,cmd | tr -s " " | sed 's/^ //' | grep "$regex" | grep -v grep | tail -n1
 }
 
 if [ "$cores" = "end" ]
 then
-	# FIXME: This makes the blind assumption that the most recent root-owned perf process is the one that spawned the most recent root-owned sleep
-	perfpid="`findrootproc " perf"`"
-	sleeppid="`findrootproc " sleep"`"
-	cores="`ps -eopid,cmd | grep "^ *$perfpid" | sed 's/.*-aC\([^ ]\+\).*/\1/'`"
-	[ -n "$perfpid" -a -n "$sleeppid" ] && sudo kill -int "$sleeppid" 2>/dev/null && while ps -eopid | tr -d " " | grep -x "$perfpid" >/dev/null; do :; done || echo "No instances left to end"
-	[ "`echo "$cores" | wc -l`" -ne "1" ] || ln -sf "perf.data.$cores" perf.data
-	sudo chown "`whoami`:" perf.data
-	perf report --stdio -iperf.data | grep -A1 '^# Samples:' | grep -v -- -- | sed "s/'//g" | rev | cut -d" " -f1 | rev | paste - - | eval sed `echo "$COUNTERS" | sed 's|.*|-e"s:&:"|'`
+	perfline="`findproc "^perf"`"
+	if [ -z "$perfline" ]
+	then
+		echo "No instances left to end"
+		exit 0
+	fi
+
+	perfpgid="`printf %s "$perfline" | cut -d" " -f2`"
+	perfpid="`printf %s "$perfline" | cut -d" " -f3`"
+	chldpid="`findproc "^[^ ]\+ $perfpgid" | cut -d" " -f3`"
+	if [ -n "$chldpid" ]
+	then
+		targetpid="$chldpid"
+	else
+		targetpid="$perfpid"
+	fi
+
+	sudo kill -int "$targetpid" 2>/dev/null
+	while ps -eopid | tr -d " " | grep -x "$perfpid" >/dev/null; do :; done
+
+	mode="`printf %s "$perfline" | sed 's/.\+perf \([^ ]\+\).*/\1/'`"
+	cores="`printf %s "$perfline" | sed 's/.*-aC\([^ ]\+\).*/\1/'`"
+	case "$mode" in
+	record)
+		ln -sf "perf.data.$cores" perf.data
+		sudo chown "`whoami`:" perf.data
+		mode="record"
+		;;
+	stat)
+		ln -sf "perf.dat.$cores" perf.dat
+		mode="stat"
+		;;
+	*)
+		echo "INTERNAL ERROR: Neither record nor stat?!" >&2
+		exit 2
+	esac
+	"report_$mode"
 else
-	rm -f "perf.data.$cores"
-	ln -sf "perf.data.$cores" perf.data
-	sudo perf record -se"`echo "$COUNTERS" | cut -d: -f1 | paste -sd,`" --call-graph lbr -aC"$cores" -o perf.data time -f" %e seconds time elapsed" sleep inf 2>&1 &
+	"launch_$mode"
 fi
