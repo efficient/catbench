@@ -1,7 +1,7 @@
 SERVER_DIR="../mica2-catbench/build"
 SERVER_BIN="server"
 CLIENT_DIR="../mica2-catbench/build"
-CLIENT_BIN="netbench"
+CLIENT_BIN="netbench_interval"
 
 INDEPENDENT_VAR_WHITELIST="cache_ways table_entries mite_tput_limit zipf_alpha"
 
@@ -11,7 +11,7 @@ inherit_default_init="$inherit_default_init"
 inherit_default_impl="$inherit_default_impl genserverargs extractavelatency"
 
 SERVER_MIN_REV="ec10efe"
-CLIENT_MIN_REV="6306ebf"
+CLIENT_MIN_REV="50ece37"
 
 genclientargs() {
 	local multiplier="1"
