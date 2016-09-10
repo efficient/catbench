@@ -48,7 +48,8 @@ const count DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0
 const MICA_GET_RATIO="0.5"
 const MICA_RECORD_ITERATIONS="300000000"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
-const PERF_CORES="0"
+const PERF_RECORD_CORES="0"
+const PERF_STAT_CORES="2,4,6,8,10,12,14,16,18,20,22,24,26,28,30"
 const KEEP_PERF_DATA="true"
 const TRASH_ALLOC="800"
 const WARMUP="600"
@@ -476,13 +477,15 @@ runtrial() {
 		if [ "$SPAWNCONTENDERS" = "onmainprocessing" ]; then spawncontenders "$contenders" "$mask"; fi
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
 		echo "r" >rtt_client_pipe_in
-		( cd ramdisk && ../cacheperf -r "$PERF_CORES" >../rtt_perf_duration ) &
 		perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
+		./cacheperf -s "$PERF_STAT_CORES" >rtt_contender_duration &
+		( cd ramdisk && ../cacheperf -r "$PERF_RECORD_CORES" >../rtt_perf_duration ) &
 		onmainprocessing
 
 		# stop
 		echo "NETWORK_RTT: Stopping..."
 		( cd ramdisk && ../cacheperf end >../rtt_perf )
+		./cacheperf end >rtt_contender
 		killall -INT perf
 		echo "s" >rtt_client_pipe_in
 		wait $client_pid
@@ -509,6 +512,8 @@ runtrial() {
 	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
 	cat rtt_perf_duration
 	cat rtt_perf
+	cat rtt_contender_duration
+	cat rtt_contender
 	cat rtt_bandwidth
 }
 
@@ -544,7 +549,7 @@ recordtrial() {
 		else
 			header="fraction"
 		fi
-		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`,intel_cqm/local_bytes"
+		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd, | sed p | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd, | sed 'p;s/^\|,/&contender-/g' | paste -sd,`,intel_cqm/local_bytes"
 		baseline="$header"
 		basealloc="$header"
 		contention="$header"
@@ -554,7 +559,8 @@ recordtrial() {
 	"$KEEP_PERF_DATA" || truncate --size=0 ramdisk/perf.data
 
 	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 ramdisk/perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`grep -v ^$ rtt_bandwidth | tail -n+2 | tr -d , | tr -s " " | cut -d" " -f2 | paste -sd/ | bc -l`"
+	contender_time="`grep -F "seconds time elapsed" rtt_contender_duration | tr -s " " | cut -d" " -f2`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 ramdisk/perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`cut -f2 rtt_contender | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`grep -v ^$ rtt_bandwidth | tail -n+2 | tr -d , | tr -s " " | cut -d" " -f2 | paste -sd/ | bc -l`"
 	echo "============================================="
 	echo $tput
 	echo $avg
@@ -661,4 +667,6 @@ rm rtt_client
 rm rtt_server
 rm rtt_perf_duration
 rm rtt_perf
+rm rtt_contender_duration
+rm rtt_contender
 rm rtt_bandwidth
