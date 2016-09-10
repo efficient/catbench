@@ -451,12 +451,13 @@ runtrial() {
 	dummy_in_pid=$!
 
 	# launch remote client
-	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; echo '$passwd' | sudo -S -v;
-		cd '$CLIENT_DIR'; sudo './$CLIENT_BIN' `genclientargs` <~/'$remote_path/rtt_client_pipe_in' | tee ~/'$remote_path/rtt_client' | (
+	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client;
+		cd '$CLIENT_DIR'; sudo -S './$CLIENT_BIN' `genclientargs` <~/'$remote_path/rtt_client_pipe_in' | tee ~/'$remote_path/rtt_client' | (
 			grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready &&
 			cat >/dev/null
 		) >~/'$remote_path/rtt_client_pipe_out'" &
 	client_pid=$!
+	echo "$passwd" >rtt_client_pipe_in
 
 	if [ "$SPAWNCONTENDERS" = "oninit" ]; then spawncontenders "$contenders" "$mask"; fi
 	oninit
