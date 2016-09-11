@@ -134,7 +134,7 @@ def add_perf_descriptions(jsonfile):
     legend_samples['L2_RQSTS/CODE_RD_MISS']["unit"] = "";
     
     legend_samples['L2_RQSTS/CODE_RD_MISS_RATIO'] = {};
-    legend_samples['L2_RQSTS/CODE_RD_MISS_RATIO']["description"] = "L2 code read miss ratio per second";
+    legend_samples['L2_RQSTS/CODE_RD_MISS_RATIO']["description"] = "L2 code read miss ratio";
     legend_samples['L2_RQSTS/CODE_RD_MISS_RATIO']["unit"] = "";
     
     legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS'] = {};
@@ -142,7 +142,7 @@ def add_perf_descriptions(jsonfile):
     legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS']["unit"] = "";
     
     legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO'] = {};
-    legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO']["description"] = "L2 data read miss ratio per second";
+    legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO']["description"] = "L2 data read miss ratio";
     legend_samples['L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO']["unit"] = "";
     
     legend_samples['L2_RQSTS/MISS'] = {};
@@ -150,7 +150,7 @@ def add_perf_descriptions(jsonfile):
     legend_samples['L2_RQSTS/MISS']["unit"] = "";
     
     legend_samples['L2_RQSTS/MISS_RATIO'] = {};
-    legend_samples['L2_RQSTS/MISS_RATIO']["description"] = "L2 miss ratio per second";
+    legend_samples['L2_RQSTS/MISS_RATIO']["description"] = "L2 miss ratio";
     legend_samples['L2_RQSTS/MISS_RATIO']["unit"] = "";
     
     legend_samples['L2_RQSTS/REFERENCES'] = {};
@@ -170,7 +170,7 @@ def add_perf_descriptions(jsonfile):
     legend_samples['LLC_MISS']["unit"] = "";
     
     legend_samples['LLC_MISS_RATIO'] = {};
-    legend_samples['LLC_MISS_RATIO']["description"] = "LLC miss ratio per second";
+    legend_samples['LLC_MISS_RATIO']["description"] = "LLC miss ratio";
     legend_samples['LLC_MISS_RATIO']["unit"] = "";
     
     legend_samples['LLC_REFERENCE'] = {};
@@ -210,8 +210,16 @@ def add_perf_descriptions(jsonfile):
     legend_samples['dTLB-load-misses']["unit"] = "";
     
     legend_samples['iTLB-load-misses'] = {};
-    legend_samples['iTLB-load-misses']["description"] = "iTBL load misses per second";
+    legend_samples['iTLB-load-misses']["description"] = "iTLB load misses per second";
     legend_samples['iTLB-load-misses']["unit"] = "";
+
+    legend_samples['999tail-latency'] = {};
+    legend_samples['999tail-latency']["description"] = "Mite 99.9%-ile tail latency";
+    legend_samples['999tail-latency']["unit"] = "us";
+
+    legend_samples['contender_tput'] = {};
+    legend_samples['contender_tput']["description"] = "Contender throughput";
+    legend_samples['contender_tput']["unit"] = "";
 
 def change_counter_units(jsonfile):
     data = jsonfile.get("data");
