@@ -46,14 +46,24 @@ def setup_optparse():
                         help='Output filename');
     parser.add_argument('--no-commit', '-n', dest='no_commit_message', action='store_true', default=False,
                         help="Do not include commit number on graph");
-    parser.add_argument('--legend-x', dest='legend_x', type=float, default=1.0,
-                        help="Legend box location x coordinate (default 1.0)");
-    parser.add_argument('--legend-y', dest='legend_y', type=float, default=0.3,
-                        help="Legend boy location y coordinate (default 0.3)");
+    parser.add_argument('--legend-xl', dest='legend_xl', type=float, default=1.0,
+                        help="Legend box location x coordinate for left side (default 1.0)");
+    parser.add_argument('--legend-yl', dest='legend_yl', type=float, default=0.3,
+                        help="Legend box location y coordinate for left side (default 0.3)");
+    parser.add_argument('--legend-xr', dest='legend_xr', type=float, default=1.0,
+                        help="Legend box location x coordinate for right side (default 1.0)");
+    parser.add_argument('--legend-yr', dest='legend_yr', type=float, default=0.3,
+                        help="Legend box location y coordinate for right side (default 0.3)");
     args = parser.parse_args();
-    return args.left_datafile, args.right_datafile, args.series, args.x_left, args.y_left, args.x_right, args.y_right,args.title, args.outfile, args.no_commit_message, args.legend_x, args.legend_y;
+    return args.left_datafile, args.right_datafile, args.series, args.x_left, args.y_left, args.x_right, args.y_right,args.title, args.outfile, args.no_commit_message, args.legend_xl, args.legend_yl, args.legend_xr, args.legend_yr;
 
-def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_x, legend_y):
+def get_series_sublabel(filename, key):
+    fd = open(filename, 'r');
+    data = json.load(fd);
+    return "";
+    #return data["legend"]["samples"][key]["description"];
+
+def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr):
     left_tuples = get_tuples(left, series, x_left, y_left);
     right_tuples = get_tuples(right, series, x_right, y_right);
     left_yvar = y_left[0];
@@ -76,13 +86,14 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     #axr.set_position([box.x0, box.y0, box.width, box.height * 0.7]);
 
     left_lines = list();
+    x_copy=None;
     for series_label, fields in left_tuples.items():
         line = list();
         for field, tuples in fields.items():
             if(field == "description" or field == "order"):
                 continue;
             points = map(list, zip(*tuples));
-            line_label = fields["description"] + " " + y_left[0];
+            line_label = fields["description"] + " " + get_series_sublabel(left, y_left[0]);
             line.append((axl.plot(points[0], points[1], '-o', color=color.next(), label=line_label, marker=marker.next())));
             left_lines.append((line[-1][0], fields["order"], line_label));
     right_lines = list();
@@ -92,12 +103,17 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
             if(field == "description" or field == "order"):
                 continue;
             points = map(list, zip(*tuples));
-            line_label = fields["description"] + " " + y_right[0];
+            line_label = fields["description"] + " " + get_series_sublabel(right, y_right[0]);
             line.append((axr.plot(points[0], points[1], '-o', color=color.next(), label=line_label, marker=marker.next())));
             right_lines.append((line[-1][0], fields["order"], line_label));
 
     axr.set_title(title);
     axr.title.set_position((0.5, 1.08));
+    import matplotlib.ticker as plticker;
+
+    loc = plticker.MultipleLocator(base=1.0); # this locator puts ticks at regular intervals
+    axr.xaxis.set_major_locator(loc);
+    axl.xaxis.set_major_locator(loc);
 
     handles, labels = axl.get_legend_handles_labels()
 
@@ -106,7 +122,7 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     labels2 = None;
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
-    lgdl = axl.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
+    lgdl = axl.legend(handles2, labels2, loc="lower right", bbox_to_anchor=(legend_xl, legend_yl));
 
     handles, labels = axr.get_legend_handles_labels()
     import operator
@@ -114,7 +130,7 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     labels2 = None;
     hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
     handles2, labels2 = zip(*hl)
-    lgdr = axr.legend(handles2, labels2, loc="lower right", bbox_to_anchor=(legend_x, legend_y));
+    lgdr = axr.legend(handles2, labels2, loc="lower right", bbox_to_anchor=(legend_xr, legend_yr));
 
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
     plt.ylim(ymin=0);
@@ -123,7 +139,7 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     plt.savefig(outfile, dpi=600, bbox_inches='tight');
 
 def main():
-    left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_x, legend_y = setup_optparse();
-    graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_x, legend_y);
+    left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr = setup_optparse();
+    graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr);
 
 main();
