@@ -515,53 +515,70 @@ recordtrial() {
 	var="$1"
 	shift
 
-	runtrial "$@"
-	tput="`extracttput`"
-	avg="`extractavelatency`"
-	all="`extractalllatencies | tail -n+"$((WARMUP + 1))" | sort -n`"
-	ct="`wc -l <<-cw | cut -d" " -f1
-			$all
-		cw`"
-	rtt_999="`extracttaillatency "$ct" 99.9 <<-ycnetalliattcartxe
-			$all
-		ycnetalliattcartxe`"
-	rtt_99="`extracttaillatency "$ct" 99 <<-ycnetalliattcartxe
-			$all
-		ycnetalliattcartxe`"
-	rtt_95="`extracttaillatency "$ct" 95 <<-ycnetalliattcartxe
-			$all
-		ycnetalliattcartxe`"
-	rtt_50="`extracttaillatency "$ct" 50 <<-ycnetalliattcartxe
-			$all
-		ycnetalliattcartxe`"
-	contender_tput="`extractcontendertput`"
-	if [ -z "$header" ]
-	then
-		if [ "$independent" = "cache_ways" ]
+	redo="true"
+	while "$redo"
+	do
+		runtrial "$@"
+		tput="`extracttput`"
+		avg="`extractavelatency`"
+		all="`extractalllatencies | tail -n+"$((WARMUP + 1))" | sort -n`"
+		ct="`wc -l <<-cw | cut -d" " -f1
+				$all
+			cw`"
+		rtt_999="`extracttaillatency "$ct" 99.9 <<-ycnetalliattcartxe
+				$all
+			ycnetalliattcartxe`"
+		rtt_99="`extracttaillatency "$ct" 99 <<-ycnetalliattcartxe
+				$all
+			ycnetalliattcartxe`"
+		rtt_95="`extracttaillatency "$ct" 95 <<-ycnetalliattcartxe
+				$all
+			ycnetalliattcartxe`"
+		rtt_50="`extracttaillatency "$ct" 50 <<-ycnetalliattcartxe
+				$all
+			ycnetalliattcartxe`"
+		contender_tput="`extractcontendertput`"
+		if [ -z "$header" ]
 		then
-			header="string"
-		else
-			header="fraction"
+			if [ "$independent" = "cache_ways" ]
+			then
+				header="string"
+			else
+				header="fraction"
+			fi
+			header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`,intel_cqm/local_bytes"
+			baseline="$header"
+			basealloc="$header"
+			contention="$header"
+			allocation="$header"
 		fi
-		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd,`,intel_cqm/local_bytes"
-		baseline="$header"
-		basealloc="$header"
-		contention="$header"
-		allocation="$header"
-	fi
 
-	"$KEEP_PERF_DATA" || truncate --size=0 ramdisk/perf.data
+		"$KEEP_PERF_DATA" || truncate --size=0 ramdisk/perf.data
 
-	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
+		total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
+		echo "============================================="
+		echo $tput
+		echo $avg
+		echo $rtt_999
+		echo $rtt_99
+		echo $rtt_95
+		echo $rtt_50
+		echo $contender_tput
+		echo "============================================="
+
+		if grep "32\.00 ppb" rtt_server >/dev/null
+		then
+			echo
+			echo "~~~~~~~~~~~ WOAH, MATE! ~~~~~~~~~~~"
+			echo "NETWORK_RTT: Rejecting trial due to mysterious queueing behavior!"
+			echo "~~~~~~~~~~~ WOAH, MATE! ~~~~~~~~~~~"
+			echo
+		else
+			redo="false"
+		fi
+	done
+
 	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 ramdisk/perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`grep -v ^$ rtt_bandwidth | tail -n+2 | tr -d , | tr -s " " | cut -d" " -f2 | paste -sd/ | bc -l`"
-	echo "============================================="
-	echo $tput
-	echo $avg
-	echo $rtt_999
-	echo $rtt_99
-	echo $rtt_95
-	echo $contender_tput
-	echo "============================================="
 }
 
 estimatetotal() {
