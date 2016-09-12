@@ -110,6 +110,6 @@ then
 fi
 eval "$pack" | jaguar/jaguar set "$CATBENCH_JAGFILE" meta.log -
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.unpack "$unpack"
-rm "$CATBENCH_LOGFILE"
+#rm "$CATBENCH_LOGFILE"
 
 exit "$status"
