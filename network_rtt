@@ -493,7 +493,7 @@ runtrial() {
 
 	sudo killall "$SERVER_BIN"
 	waitforexit "./$SERVER_BIN"
-	cat rtt_server >>"$CATBENCH_LOGFILE"
+	cat rtt_server
 
 	kill $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
 	wait $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
@@ -505,7 +505,7 @@ runtrial() {
 		mgdelete trash
 	fi
 	scp -C "$foreign_client:$remote_path/rtt_client" .
-	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
+	sed 's/^/remote: /' rtt_client
 	cat rtt_perf_duration
 	cat rtt_perf
 	cat rtt_bandwidth
