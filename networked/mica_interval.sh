@@ -52,5 +52,5 @@ extracttaillatency() {
 	local ign="$1"
 	local percentile="$2"
 
-	grep "$percentile-th" rtt_client | cut -d" " -f2
+	grep "^$percentile-th" rtt_client | cut -d" " -f2
 }
