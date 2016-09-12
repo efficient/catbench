@@ -54,8 +54,10 @@ def setup_optparse():
                         help="Legend box location x coordinate for right side (default 1.0)");
     parser.add_argument('--legend-yr', dest='legend_yr', type=float, default=0.3,
                         help="Legend box location y coordinate for right side (default 0.3)");
+    parser.add_argument('--notitle', dest='no_title', action='store_true', default=False,
+                        help="Pass this flag to remove title");
     args = parser.parse_args();
-    return args.left_datafile, args.right_datafile, args.series, args.x_left, args.y_left, args.x_right, args.y_right,args.title, args.outfile, args.no_commit_message, args.legend_xl, args.legend_yl, args.legend_xr, args.legend_yr;
+    return args.left_datafile, args.right_datafile, args.series, args.x_left, args.y_left, args.x_right, args.y_right,args.title, args.outfile, args.no_commit_message, args.legend_xl, args.legend_yl, args.legend_xr, args.legend_yr, args.no_title;
 
 def get_series_sublabel(filename, key):
     fd = open(filename, 'r');
@@ -63,7 +65,7 @@ def get_series_sublabel(filename, key):
     return "";
     #return data["legend"]["samples"][key]["description"];
 
-def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr):
+def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr, no_title):
     left_tuples = get_tuples(left, series, x_left, y_left);
     right_tuples = get_tuples(right, series, x_right, y_right);
     left_yvar = y_left[0];
@@ -107,8 +109,9 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
             line.append((axr.plot(points[0], points[1], '-o', color=color.next(), label=line_label, marker=marker.next())));
             right_lines.append((line[-1][0], fields["order"], line_label));
 
-    axr.set_title(title);
-    axr.title.set_position((0.5, 1.08));
+    if(no_title == False):
+        axr.set_title(title);
+        axr.title.set_position((0.5, 1.08));
     import matplotlib.ticker as plticker;
 
     loc = plticker.MultipleLocator(base=1.0); # this locator puts ticks at regular intervals
@@ -139,7 +142,7 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     plt.savefig(outfile, dpi=600, bbox_inches='tight');
 
 def main():
-    left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr = setup_optparse();
+    left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr, no_title = setup_optparse();
     graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr);
 
 main();
