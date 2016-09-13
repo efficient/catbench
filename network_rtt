@@ -568,7 +568,8 @@ recordtrial() {
 		echo $contender_tput
 		echo "============================================="
 
-		if grep "32\.00 ppb" rtt_server >/dev/null
+		# TODO: NEED TO CUT OFF THE TRAILING 's'!
+		if tail -n"$MAIN_DURATION" rtt_server | grep "32\.00 ppb" >/dev/null
 		then
 			echo
 			echo "~~~~~~~~~~~ WOAH, MATE! ~~~~~~~~~~~"
