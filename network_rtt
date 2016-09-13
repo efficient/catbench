@@ -476,8 +476,8 @@ runtrial() {
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
 		( cd ramdisk && taskset 0x4 ../cacheperf "$PERF_CORES" >../rtt_perf_duration ) &
 		taskset 0x4 perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
-		sleep 1
-		echo "r" >rtt_client_pipe_in
+		sleep 5
+		echo "d\nr" >rtt_client_pipe_in
 		onmainprocessing
 
 		# stop
