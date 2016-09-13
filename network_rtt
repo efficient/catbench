@@ -474,8 +474,8 @@ runtrial() {
 		# main processing
 		if [ "$SPAWNCONTENDERS" = "onmainprocessing" ]; then spawncontenders "$contenders" "$mask"; fi
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
-		( cd ramdisk && ../cacheperf "$PERF_CORES" >../rtt_perf_duration ) &
-		perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
+		( cd ramdisk && taskset 0x4 ../cacheperf "$PERF_CORES" >../rtt_perf_duration ) &
+		taskset 0x4 perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
 		sleep 1
 		echo "r" >rtt_client_pipe_in
 		onmainprocessing
@@ -484,7 +484,7 @@ runtrial() {
 		echo "NETWORK_RTT: Stopping..."
 		echo "s" >rtt_client_pipe_in
 		sleep 1
-		( cd ramdisk && ../cacheperf end >../rtt_perf )
+		( cd ramdisk && taskset 0x4 ../cacheperf end >../rtt_perf )
 		killall -INT perf
 		wait $client_pid
 
