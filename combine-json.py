@@ -26,6 +26,32 @@ def setup_optparse():
     args = parser.parse_args();
     return args.file1, args.file2, args.suffix, args.outfile, args.norm, args.norm_suffix, args.norm_x, args.baselinecontention;
 
+constant_keys=("cache_ways", "mite_tput_limit", "zipf_alpha");
+def verify(file1, file2):
+    fd1 = open(file1, 'r');
+    fd2 = open(file2, 'r');
+    json1 = json.load(fd1);
+    json2 = json.load(fd2);
+    data1 = json1.get("data");
+    data2 = json2.get("data");
+    
+    found_violation = {};
+    for key in data1.keys():
+        for entry in data1[key]["samples"]:
+            for const_key in constant_keys:
+                if(const_key not in entry):
+                    continue;
+                for entry2 in data2["baseline"]["samples"]:
+                    if(const_key not in entry2):
+                        continue;
+		    print(entry2[const_key] + " = " + entry[const_key]);
+                    if(entry2[const_key] != entry[const_key]):
+                        found_violation[const_key] = True;
+    for key in found_violation.keys():
+        if(found_violation[key]):
+            print("Warning, variable " + key + " mismatch between baseline file and experiment file");
+        
+
 def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention):
     fd1 = open(file1, 'r');
     fd2 = open(file2, 'r');
@@ -34,17 +60,17 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselineco
     data1 = json1.get("data");
     data2 = json2.get("data");
     for key in data2.keys():
-	if(baselinecontention == True and (key != "baseline" and key != "contention")):
-	    continue;
+        if(baselinecontention == True and (key != "baseline" and key != "contention")):
+            continue;
         new_key = key + suffix;
-	if(new_key in data1):
-		print("Warning, overwriting " + new_key + " in " + file1);
+        if(new_key in data1):
+            print("Warning, overwriting " + new_key + " in " + file1);
         data1[new_key] = data2[key];
-	data1[new_key]["description"] = data1[new_key]["description"] + suffix;
+        data1[new_key]["description"] = data1[new_key]["description"] + suffix;
     if(norm != ""):
         for key in data2.keys():
-	    if(key == norm):
-	        continue;
+            if(key == norm):
+                continue;
             new_key = key + suffix + norm_suffix
             index = 0;
             while(index < len(data2[key]["samples"])):
@@ -54,8 +80,8 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselineco
                     if(base_sample[ylabel] != 0 and ylabel != norm_x):
                         data2[key]["samples"][index][ylabel] = sample[ylabel] / base_sample[ylabel];
                 index += 1
-	    data1[new_key] = data2[key];
-	    data1[new_key]["description"] = data1[new_key]["description"] + suffix + " normalized to " + norm;
+        data1[new_key] = data2[key];
+        data1[new_key]["description"] = data1[new_key]["description"] + suffix + " normalized to " + norm;
     fd1.close();
     fd2.close();
     outfd = open(outfile, 'w');
@@ -63,6 +89,8 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselineco
 
 def main():
     file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention = setup_optparse();
+    if(baselinecontention == True):
+        verify(file1, file2);
     if((norm == "" and norm_suffix == "" and norm_x == "") or (norm != "" and norm_suffix != "" and norm_x != "")):
         combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention);
     else:
