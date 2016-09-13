@@ -57,9 +57,11 @@ insertratioentries() {
 if [ $# -lt 2 ]
 then
 	cat <<-tac
-		Usage: $0 [-o] input_json independent_variable [series]..."
+		Usage: $0 [-o] input_json independent_variable [baseline-contention json file] [series]..."
 
 		-o means to show the offset of the first cache way (default is the number of them)
+		for [baseline-contention json file], note that the presence of this file depends on the filename containing \".json\" in it somewhere.
+		This also means that if a series name contains \".json\" in it anywhere the behavior is undefined
 	tac
 	exit 1
 elif [ $# -ge 3 ] && printf %s "$1" | grep '^-' >/dev/null
@@ -80,6 +82,7 @@ fi
 filetype="pdf"
 name="`basename -s .json "$1"`"
 quest="$2"
+baseline_contention_file="";
 color="Not applicable"
 
 if [ "$quest" = "mite_tput_limit" ]
@@ -100,20 +103,29 @@ eval sed -i"`printf "%s\n" "$bothbases" | processbasepairs "$methodandapparatus"
 [ "$methodandapparatus" = "counttrailingzeroes" ] && jaguar/jaguar get "$name-stripped.json" legend.samples.cache_ways.description | sed 's/ways/of first way/' | jaguar/jaguar set "$name-stripped.json" legend.samples.cache_ways.description -
 extra_flags='--no-commit --notitle'
 
+if printf %s "$3" | grep "\.json" >/dev/null
+then
+	echo "Using baseline/contention data series from file $3"
+	baseline_contention_file="$3"
+	# Try not to break the default behavior, somewhat non-ideal solution
+	shift 1
+	./combine-json.py -i "$name-stripped.json" -a "$baseline_contention_file" --baseline-contention -o "$name-stripped.json"
+fi
+
 shift 2
 if [ -z "$*" ]
 then
 	set allocation basealloc baseline contention
 fi
 
-insertratioentries "$name-stripped.json" LLC_MISS LLC_REFERENCE LLC_MISS_RATIO >"$name-augmented.json"
-mv "$name-augmented.json" "$name-stripped.json"
-insertratioentries "$name-stripped.json" L2_RQSTS/MISS L2_RQSTS/REFERENCES L2_RQSTS/MISS_RATIO >"$name-augmented.json"
-mv "$name-augmented.json" "$name-stripped.json"
-insertratioentries "$name-stripped.json" L2_RQSTS/DEMAND_DATA_RD_MISS L2_RQSTS/ALL_DEMAND_DATA_RD L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO >"$name-augmented.json"
-mv "$name-augmented.json" "$name-stripped.json"
-insertratioentries "$name-stripped.json" L2_RQSTS/CODE_RD_MISS L2_RQSTS/ALL_CODE_RD L2_RQSTS/CODE_RD_MISS_RATIO >"$name-augmented.json"
-mv "$name-augmented.json" "$name-stripped.json"
+#insertratioentries "$name-stripped.json" LLC_MISS LLC_REFERENCE LLC_MISS_RATIO >"$name-augmented.json"
+#mv "$name-augmented.json" "$name-stripped.json"
+#insertratioentries "$name-stripped.json" L2_RQSTS/MISS L2_RQSTS/REFERENCES L2_RQSTS/MISS_RATIO >"$name-augmented.json"
+#mv "$name-augmented.json" "$name-stripped.json"
+#insertratioentries "$name-stripped.json" L2_RQSTS/DEMAND_DATA_RD_MISS L2_RQSTS/ALL_DEMAND_DATA_RD L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO >"$name-augmented.json"
+#mv "$name-augmented.json" "$name-stripped.json"
+#insertratioentries "$name-stripped.json" L2_RQSTS/CODE_RD_MISS L2_RQSTS/ALL_CODE_RD L2_RQSTS/CODE_RD_MISS_RATIO >"$name-augmented.json"
+#mv "$name-augmented.json" "$name-stripped.json"
 ./post-process.py -i "$name-stripped.json" -b 56 -s -p -c -m
 
 # End post processing
