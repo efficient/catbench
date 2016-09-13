@@ -10,21 +10,23 @@ def setup_optparse():
     parser.add_argument('--input', '-i', dest='file1',
                         help='json to append to');
     parser.add_argument('--append', '-a', dest='file2',
-                        help='json to be appended to --input');
-    parser.add_argument('--suffix', '-s', dest='suffix',
+                        help='json to be appended to --input.');
+    parser.add_argument('--suffix', '-s', dest='suffix', default="",
                         help='Suffix to attach to series from the second file');
     parser.add_argument('--outfile', '-o', dest='outfile',
-                        help='Output json');
+                        help='Output json. Note that if -i and -o are the same, -i will be overwritten.');
     parser.add_argument('--norm', '-n', dest='norm', default="",
                         help='Norm to normalize all (other) series against');
     parser.add_argument('--norm-suffix', dest='norm_suffix', default="",
                         help='Suffix to add to normalized series');
     parser.add_argument('--norm-x', dest='norm_x', default="",
                         help='Do not normalize these values');
+    parser.add_argument('--baseline-contention', '-b', dest='baselinecontention', action='store_true', default=False,
+                        help='Only copy baseline and contention (still applies suffix, leave blank for best results). Note that if suffix is empty, a replacement will be done.');
     args = parser.parse_args();
-    return args.file1, args.file2, args.suffix, args.outfile, args.norm, args.norm_suffix, args.norm_x;
+    return args.file1, args.file2, args.suffix, args.outfile, args.norm, args.norm_suffix, args.norm_x, args.baselinecontention;
 
-def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x):
+def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention):
     fd1 = open(file1, 'r');
     fd2 = open(file2, 'r');
     json1 = json.load(fd1);
@@ -32,7 +34,11 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x):
     data1 = json1.get("data");
     data2 = json2.get("data");
     for key in data2.keys():
+	if(baselinecontention == True and (key != "baseline" and key != "contention")):
+	    continue;
         new_key = key + suffix;
+	if(new_key in data1):
+		print("Warning, overwriting " + new_key + " in " + file1);
         data1[new_key] = data2[key];
 	data1[new_key]["description"] = data1[new_key]["description"] + suffix;
     if(norm != ""):
@@ -50,13 +56,15 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x):
                 index += 1
 	    data1[new_key] = data2[key];
 	    data1[new_key]["description"] = data1[new_key]["description"] + suffix + " normalized to " + norm;
+    fd1.close();
+    fd2.close();
     outfd = open(outfile, 'w');
     json.dump(json1, outfd, indent=4, sort_keys=True);
 
 def main():
-    file1, file2, suffix, outfile, norm, norm_suffix, norm_x = setup_optparse();
+    file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention = setup_optparse();
     if((norm == "" and norm_suffix == "" and norm_x == "") or (norm != "" and norm_suffix != "" and norm_x != "")):
-        combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x);
+        combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention);
     else:
         print("Missing one of: --norm, --norm-suffix, --norm-x\n");
 
