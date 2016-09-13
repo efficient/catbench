@@ -59,9 +59,9 @@ then
 	cat <<-tac
 		Usage: $0 [-o] input_json independent_variable [baseline-contention json file] [series]..."
 
-		-o means to show the offset of the first cache way (default is the number of them)
+		-o means to show the offset of the first cache way (default is the number of them).
 		for [baseline-contention json file], note that the presence of this file depends on the filename containing \".json\" in it somewhere.
-		This also means that if a series name contains \".json\" in it anywhere the behavior is undefined
+		If a series name contains \".json\" in it anywhere the behavior is undefined.
 	tac
 	exit 1
 elif [ $# -ge 3 ] && printf %s "$1" | grep '^-' >/dev/null
