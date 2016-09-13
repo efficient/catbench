@@ -143,6 +143,6 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
 
 def main():
     left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr, no_title = setup_optparse();
-    graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr);
+    graph_double(left, right, series, x_left, y_left, x_right, y_right, title, outfile, nocommit, legend_xl, legend_yl, legend_xr, legend_yr, no_title);
 
 main();
