@@ -519,8 +519,8 @@ recordtrial() {
 	var="$1"
 	shift
 
-	redo="true"
-	while "$redo"
+	redo="5"
+	while [ "$redo" -gt "0" ]
 	do
 		runtrial "$@"
 		tput="`extracttput`"
@@ -578,8 +578,9 @@ recordtrial() {
 			echo "NETWORK_RTT: Rejecting trial due to mysterious queueing behavior!"
 			echo "~~~~~~~~~~~ WOAH, MATE! ~~~~~~~~~~~"
 			echo
+			redo="$((redo - 1))"
 		else
-			redo="false"
+			redo="0"
 		fi
 	done
 
