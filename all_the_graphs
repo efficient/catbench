@@ -95,6 +95,12 @@ then
 	echo "Are you sure you didn't mean working_set_size?"
 fi
 
+if printf %s "$quest" | grep "\.json" >/dev/null
+then
+	echo "Error: Missing independent variable or independent variable contains \".json\" which is illegal"
+	exit 2
+fi
+
 # Post Processing
 ./strip "$1" >"$name-stripped.json"
 # Replace cache ways with numbers so graphing works better
