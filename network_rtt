@@ -420,6 +420,8 @@ runtrial() {
 	fi
 	mask="$2"
 
+	exitcode="0"
+
 	if [ -n "$mask" ] && "$cache_partition_mite"
 	then
 		echo "NETWORK_RTT: Setting mask to $mask..."
@@ -453,7 +455,7 @@ runtrial() {
 	# launch remote client
 	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client; echo '$passwd' | sudo -S -v;
 		cd '$CLIENT_DIR'; sudo './$CLIENT_BIN' `genclientargs` <~/'$remote_path/rtt_client_pipe_in' | tee ~/'$remote_path/rtt_client' | (
-			grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready &&
+			{ timeout 120 grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready || echo timeout; } &&
 			cat >/dev/null
 		) >~/'$remote_path/rtt_client_pipe_out'" &
 	client_pid=$!
@@ -468,7 +470,17 @@ runtrial() {
 	# listen to client output
 	while read -r line <rtt_client_pipe_out
 	do
-		if [ "$line" != "ready" ]; then echo "ERROR: Unexpected output from pipe: %line"; exit 1; fi
+		if [ "$line" = "timeout" ]
+		then
+			echo "WARNING: DPDK init timed out; restarting trial..." >&2
+			exitcode="1"
+			kill "$client_pid"
+			break
+		elif [ "$line" != "ready" ]
+		then
+			echo "ERROR: Unexpected output from pipe: %line" >&2
+			exit 1
+		fi
 
 		# warm up
 		if [ "$SPAWNCONTENDERS" = "onwarmup" ]; then spawncontenders "$contenders" "$mask"; fi
@@ -488,7 +500,7 @@ runtrial() {
 		echo "s" >rtt_client_pipe_in
 		sleep 1
 		killall -INT perf
-		wait $client_pid
+		wait "$client_pid"
 
 		break
 	done
@@ -513,6 +525,8 @@ runtrial() {
 	cat rtt_perf_duration
 	cat rtt_perf
 	cat rtt_bandwidth
+
+	return "$exitcode"
 }
 
 recordtrial() {
@@ -522,7 +536,8 @@ recordtrial() {
 	redo="5"
 	while [ "$redo" -gt "0" ]
 	do
-		runtrial "$@"
+		while ! runtrial "$@"; do :; done
+
 		tput="`extracttput`"
 		avg="`extractavelatency`"
 		all="`extractalllatencies | tail -n+"$((WARMUP + 1))" | sort -n`"
