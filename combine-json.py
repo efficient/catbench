@@ -89,8 +89,8 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselineco
 
 def main():
     file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention = setup_optparse();
-    if(baselinecontention == True):
-        verify(file1, file2);
+    #if(baselinecontention == True):
+    #    verify(file1, file2);
     if((norm == "" and norm_suffix == "" and norm_x == "") or (norm != "" and norm_suffix != "" and norm_x != "")):
         combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention);
     else:
