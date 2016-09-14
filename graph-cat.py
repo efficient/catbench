@@ -204,18 +204,17 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                 x1, y1 = xydata[idx];
                 x2, y2 = xydata[idx + 1];
                 if((y1 <= hline_y and hline_y <= y2) or (y1 >= hline_y and hline_y >= y2)):
-                    print (x1, y1, x2, y2);
                     if(y1 == y2):
                         val = x1;
-                        print val;
+                        print("Line " + line.get_label() + " intersects SLO " + str(hline_y) + " at " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
                     elif(hline_y > y1):
                         val = (hline_y - y1) / (y2 - y1) * (x2 - x1) + x1
-                        print val;
+                        print(line.get_label() + " intersects SLO " + str(hline_y) + " at xval: " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
                     elif(hline_y > y2):
                         val = x2 - (hline_y - y2) / (y1 - y2) * (x2 - x1)
-                        print val;
+                        print(line.get_label() + " intersects SLO " + str(hline_y) + " at xval: " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
                     break;
         plt.axhline(y=hline_y, linestyle='dashed');
