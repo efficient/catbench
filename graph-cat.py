@@ -64,6 +64,8 @@ def setup_optparse():
                         help="Minimum x point to graph");
     parser.add_argument('--notitle', dest='no_title', action='store_true', default=False,
                         help="Pass this flag to remove title from graph"); 
+    parser.add_argument('--hline-y', dest='hline_y', default=0, type=int,
+                        help='y value for horizontal line');
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
@@ -71,9 +73,9 @@ def setup_optparse():
         args.ymin = float(args.ymin)
     if(args.ymax != None):
         args.ymax = float(args.ymax)
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort, args.xmax, args.xmin, args.no_title;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort, args.xmax, args.xmin, args.no_title, args.hline_y;
 
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title):
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -193,12 +195,36 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             cur_tick = cur_tick * 10;
         plt.xticks(xticks);
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
+    if(hline_y != 0):
+        ylim_max = ax.get_ylim()[1];
+        # find points (x1, y1), (x2, y2) such that (y1 <= hline_y <= y2)
+        for line in ax.get_lines():
+            xydata = line.get_xydata();
+            for idx in range(0, len(xydata) - 1):
+                x1, y1 = xydata[idx];
+                x2, y2 = xydata[idx + 1];
+                if((y1 <= hline_y and hline_y <= y2) or (y1 >= hline_y and hline_y >= y2)):
+                    print (x1, y1, x2, y2);
+                    if(y1 == y2):
+                        val = x1;
+                        print val;
+                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                    elif(hline_y > y1):
+                        val = (hline_y - y1) / (y2 - y1) * (x2 - x1) + x1
+                        print val;
+                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                    elif(hline_y > y2):
+                        val = x2 - (hline_y - y2) / (y1 - y2) * (x2 - x1)
+                        print val;
+                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                    break;
+        plt.axhline(y=hline_y, linestyle='dashed');
+                
     plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title = setup_optparse();
-    if(cdf == False):
-        graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title);
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y = setup_optparse();
+    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y);
 
 main();
 # Col 0 are the x points
