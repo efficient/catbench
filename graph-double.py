@@ -107,7 +107,7 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
                 continue;
             points = map(list, zip(*tuples));
             line_label = fields["description"] + " " + get_series_sublabel(right, y_right[0]);
-            line.append((axr.plot(points[0], points[1], '-o', color_copy=color_copy.next(), label=line_label, marker=marker.next())));
+            line.append((axr.plot(points[0], points[1], '-o', color=color_copy.next(), label=line_label, marker=marker.next())));
             right_lines.append((line[-1][0], fields["order"], line_label));
 
     if(no_title == False):
