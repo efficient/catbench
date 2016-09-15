@@ -41,10 +41,9 @@ extractaillatencies() {
 }
 
 extracttput() {
-	local all="`grep "tput=" rtt_client | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/' | sort -n`"
-	local lines="`printf "%s\n" "$all" | wc -l`"
+	local all="`grep "tput=" rtt_client | tail -n"$MAIN_DURATION" | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/' | sort -n`"
 
-	printf "%s\n" "$all" | tail -n+"$((lines / 2))" | head -n1
+	printf "%s\n" "$all" | tail -n+"$((MAIN_DURATION / 2))" | head -n1
 }
 
 extractalllatencies() {
