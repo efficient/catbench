@@ -175,7 +175,7 @@ then
 	exit 2
 fi
 
-remotemod="`ssh "$foreign_client" "cd '$remote_path'; git diff --exit-code HEAD >/dev/null; echo \\$?"`"
+remotemod="`ssh "$foreign_client" "cd '$remote_path'; git diff --exit-code --ignore-submodules=dirty HEAD >/dev/null; echo \\$?"`"
 if [ "$remotemod" -ne 0 ]
 then
 	echo "ERROR: Remote repository state uncommitted!" >&2
