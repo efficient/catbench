@@ -169,7 +169,6 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         lgd = ax.legend(handles2, labels2, loc=legend_loc);
     else:
         lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
-
     cur_ymax = cur_ymax * 1.75;
     if(xmin != None):
     	plt.xlim(xmin=xmin);
@@ -201,6 +200,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         plt.xticks(xticks);
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
     if(hline_y != 0):
+    	newax = fig.add_axes(ax.get_position(), frameon=False);
+	newticks = list();
         ylim_max = ax.get_ylim()[1];
         # find points (x1, y1), (x2, y2) such that (y1 <= hline_y <= y2)
         for line in ax.get_lines():
@@ -213,17 +214,31 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                         val = x1;
                         print("Line " + line.get_label() + " intersects SLO " + str(hline_y) + " at " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                        newticks.append(float('%.3f'%(val)));
                     elif(hline_y > y1):
                         val = (hline_y - y1) / (y2 - y1) * (x2 - x1) + x1
                         print(line.get_label() + " intersects SLO " + str(hline_y) + " at xval: " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                        newticks.append(float('%.3f'%(val)));
                     elif(hline_y > y2):
                         val = x2 - (hline_y - y2) / (y1 - y2) * (x2 - x1)
                         print(line.get_label() + " intersects SLO " + str(hline_y) + " at xval: " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                        newticks.append(float('%.3f'%(val)));
                     break;
+        for tick in newticks:
+            index = 0;
+            while(index < len(x_copy)):
+                if(tick - min_dist < x_copy[index] and tick + min_dist > x_copy[index]):
+                    x_copy.pop(index);
+                    index = 0;
+                    continue;
+                index += 1;
         plt.axhline(y=hline_y, linestyle='dashed');
-                
+        newax.set_xticks(newticks);
+        plt.ylim(ymin=0, ymax=ylim_max);
+        ax.set_xticks(x_copy);
+        plt.setp(newax.get_xticklabels(), fontsize=6, rotation=90, color='b');
     plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
