@@ -66,6 +66,8 @@ def setup_optparse():
                         help="Pass this flag to remove title from graph"); 
     parser.add_argument('--hline-y', dest='hline_y', default=0, type=int,
                         help='y value for horizontal line');
+    parser.add_argument('--legend-loc', dest='legend_loc', default=None,
+                        help='bottom right, bottom left, top left, top right, ignores --legend-x and --legend-y');
     args = parser.parse_args();
     if(type(args.series_labels) != list):
         args.series_labels = [args.series_labels];
@@ -73,9 +75,9 @@ def setup_optparse():
         args.ymin = float(args.ymin)
     if(args.ymax != None):
         args.ymax = float(args.ymax)
-    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort, args.xmax, args.xmin, args.no_title, args.hline_y;
+    return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort, args.xmax, args.xmin, args.no_title, args.hline_y, args.legend_loc;
 
-def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y):
+def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y, legend_loc):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
     fig = plt.figure();
@@ -163,7 +165,10 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         # or sort them by labels
         hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
         handles2, labels2 = zip(*hl)
-    lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
+    if(legend_loc != None):
+        lgd = ax.legend(handles2, labels2, loc=legend_loc);
+    else:
+        lgd = ax.legend(handles2, labels2, loc="center right", bbox_to_anchor=(legend_x, legend_y));
 
     cur_ymax = cur_ymax * 1.75;
     if(xmin != None):
@@ -222,8 +227,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
-    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y = setup_optparse();
-    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y);
+    filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y, legend_loc  = setup_optparse();
+    graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y, legend_loc);
 
 main();
 # Col 0 are the x points
