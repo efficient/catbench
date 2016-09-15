@@ -49,7 +49,9 @@ const MICA_GET_RATIO="0.5"
 const MICA_RECORD_ITERATIONS="300000000"
 const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
 const PERF_RECORD_CORES="0"
+const PERF_RECORD_FLAGS="-r"
 const PERF_STAT_CORES="2,4,6,8,10,12,14,16,18,20,22,24,26,28,30"
+const PERF_STAT_FLAGS="-s"
 const KEEP_PERF_DATA="true"
 const TRASH_ALLOC="800"
 const WARMUP="600"
@@ -489,9 +491,9 @@ runtrial() {
 		# main processing
 		if [ "$SPAWNCONTENDERS" = "onmainprocessing" ]; then spawncontenders "$contenders" "$mask"; fi
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
-		taskset 0x4 ./cacheperf -s "$PERF_STAT_CORES" >rtt_contender_duration &
+		taskset 0x4 ./cacheperf $PERF_STAT_FLAGS "$PERF_STAT_CORES" >rtt_contender_duration &
 		sleep 1
-		( cd ramdisk && taskset 0x4 ../cacheperf -r "$PERF_RECORD_CORES" >../rtt_perf_duration ) &
+		( cd ramdisk && taskset 0x4 ../cacheperf $PERF_RECORD_FLAGS "$PERF_RECORD_CORES" >../rtt_perf_duration ) &
 		sleep 1
 		taskset 0x4 perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
 		sleep 5
