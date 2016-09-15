@@ -431,6 +431,7 @@ runtrial() {
 	prephugepages
 	eval "( cd '$SERVER_DIR'; sudo './$SERVER_BIN' `genserverargs` >'$PWD/rtt_server' )" &
 	awaitserverinit
+	unsetmask
 
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
