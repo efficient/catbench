@@ -81,7 +81,6 @@ def graph_double(left, right, series, x_left, y_left, x_right, y_right, title, o
     #axr.ticklabel_format(useOffset=False);
     import itertools;
     marker = itertools.cycle(('o', '>', 'D', 's', 'h', '+', '<', '^'));
-    color = itertools.cycle(('b', 'g', 'r', 'm' ,'y', 'k'));
 
     box = axl.get_position();
     #axl.set_position([box.x0, box.y0, box.width, box.height * 0.7]);
