@@ -19,9 +19,12 @@ from graph_helper import get_aux;
 from graph_helper import get_commit;
 from graph_helper import get_series_aux;
 from graph_helper import color;
+from graph_helper import color_copy;
 from graph_helper import color_alpha;
 from graph_helper import marker;
 from graph_helper import marker_size;
+
+color_map = dict();
 
 def setup_optparse():
     parser = argparse.ArgumentParser();
@@ -121,6 +124,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
 	        val2_cropped = filter(lambda x: x[0] <= xmax and x[0] >= xmin, val2);
             xy = map(list, zip(*val2_cropped));
             line_label = val["description"];
+            color_map[line_label] = color_copy.next();
             line.append((ax.plot(xy[0], xy[1], '-o', color=color.next(), label=line_label, marker=marker.next(), markersize = marker_size, alpha=color_alpha))); #+ str(key2[1])))[0]);
 	    #ax.plot(xy[0], xy[1]);
             temp.append((line[len(line) - 1][0], val["order"], line_label));
@@ -200,11 +204,12 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         plt.xticks(xticks);
     from matplotlib.ticker import ScalarFormatter, FormatStrFormatter
     if(hline_y != 0):
-    	newax = fig.add_axes(ax.get_position(), frameon=False);
-	newticks = list();
+    	newax = list();
+        newticks = list();
         ylim_max = ax.get_ylim()[1];
         # find points (x1, y1), (x2, y2) such that (y1 <= hline_y <= y2)
         for line in ax.get_lines():
+            newax.append((fig.add_axes(ax.get_position(), frameon=False), color_map[line.get_label()], None));
             xydata = line.get_xydata();
             for idx in range(0, len(xydata) - 1):
                 x1, y1 = xydata[idx];
@@ -214,16 +219,19 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                         val = x1;
                         print("Line " + line.get_label() + " intersects SLO " + str(hline_y) + " at " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.3f'%(val))]);
                         newticks.append(float('%.3f'%(val)));
                     elif(hline_y > y1):
                         val = (hline_y - y1) / (y2 - y1) * (x2 - x1) + x1
                         print(line.get_label() + " intersects SLO " + str(hline_y) + " at xval: " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.3f'%(val))]);
                         newticks.append(float('%.3f'%(val)));
                     elif(hline_y > y2):
                         val = x2 - (hline_y - y2) / (y1 - y2) * (x2 - x1)
                         print(line.get_label() + " intersects SLO " + str(hline_y) + " at xval: " + str(val));
                         plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
+                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.3f'%(val))]);
                         newticks.append(float('%.3f'%(val)));
                     break;
         for tick in newticks:
@@ -234,11 +242,18 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                     index = 0;
                     continue;
                 index += 1;
-        plt.axhline(y=hline_y, linestyle='dashed');
-        newax.set_xticks(newticks);
-        plt.ylim(ymin=0, ymax=ylim_max);
         ax.set_xticks(x_copy);
-        plt.setp(newax.get_xticklabels(), fontsize=6, rotation=90, color='b');
+        ax.set_xlim(xmin = min(x_copy), xmax = max(x_copy));
+        plt.axhline(y=hline_y, linestyle='dashed');
+        plt.ylim(ymin=0, ymax=ylim_max);
+        plt.xlim(xmin = min(x_copy), xmax = max(x_copy));
+        for axis in newax:
+            axis[0].set_xticks(axis[2]);
+            axis[0].set_xlim(xmin = min(x_copy), xmax = max(x_copy));
+            axis[0].get_yaxis().set_visible(False);
+            plt.setp(axis[0].get_xticklabels(), fontsize=6, rotation=90, color=axis[1]);
+        plt.ylim(ymin=0, ymax=ylim_max);
+        plt.xlim(xmin = min(x_copy), xmax = max(x_copy));
     plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
