@@ -285,7 +285,7 @@ else
 fi
 
 jaguar/jaguar set "$logfilename" legend.samples.mite_throughput.description string "Mite Throughput"
-jaguar/jaguar set "$logfilename" legend.samples.mite_throughput.unit string "mops"
+jaguar/jaguar set "$logfilename" legend.samples.mite_throughput.unit string "Mops"
 
 jaguar/jaguar set "$logfilename" legend.samples.mean.description string "Mean RTT"
 jaguar/jaguar set "$logfilename" legend.samples.mean.unit string "us"
