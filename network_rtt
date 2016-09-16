@@ -176,7 +176,7 @@ then
 	exit 2
 fi
 
-remotemod="`ssh "$foreign_client" "cd '$remote_path'; git diff --exit-code HEAD >/dev/null; echo \\$?"`"
+remotemod="`ssh "$foreign_client" "cd '$remote_path'; git diff --exit-code --ignore-submodules=dirty HEAD >/dev/null; echo \\$?"`"
 if [ "$remotemod" -ne 0 ]
 then
 	echo "ERROR: Remote repository state uncommitted!" >&2
@@ -421,6 +421,8 @@ runtrial() {
 	fi
 	mask="$2"
 
+	exitcode="0"
+
 	if [ -n "$mask" ] && "$cache_partition_mite"
 	then
 		echo "NETWORK_RTT: Setting mask to $mask..."
@@ -430,6 +432,7 @@ runtrial() {
 	prephugepages
 	eval "( cd '$SERVER_DIR'; sudo './$SERVER_BIN' `genserverargs` >'$PWD/rtt_server' )" &
 	awaitserverinit
+	unsetmask
 
 	echo "NETWORK_RTT: Spawning client..."
 	echo "No need to enter your password at this prompt!"
@@ -454,7 +457,7 @@ runtrial() {
 	# launch remote client
 	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client;
 		cd '$CLIENT_DIR'; sudo -S './$CLIENT_BIN' `genclientargs` <~/'$remote_path/rtt_client_pipe_in' | tee ~/'$remote_path/rtt_client' | (
-			grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready &&
+			{ timeout 120 grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready || echo timeout; } &&
 			cat >/dev/null
 		) >~/'$remote_path/rtt_client_pipe_out'" &
 	client_pid=$!
@@ -466,7 +469,17 @@ runtrial() {
 	# listen to client output
 	while read -r line <rtt_client_pipe_out
 	do
-		if [ "$line" != "ready" ]; then echo "ERROR: Unexpected output from pipe: %line"; exit 1; fi
+		if [ "$line" = "timeout" ]
+		then
+			echo "WARNING: DPDK init timed out; restarting trial..." >&2
+			exitcode="1"
+			kill "$client_pid"
+			break
+		elif [ "$line" != "ready" ]
+		then
+			echo "ERROR: Unexpected output from pipe: %line" >&2
+			exit 1
+		fi
 
 		# warm up
 		if [ "$SPAWNCONTENDERS" = "onwarmup" ]; then spawncontenders "$contenders" "$mask"; fi
@@ -476,21 +489,23 @@ runtrial() {
 		# main processing
 		if [ "$SPAWNCONTENDERS" = "onmainprocessing" ]; then spawncontenders "$contenders" "$mask"; fi
 		echo "NETWORK_RTT: Main processing... ($MAIN_DURATION)"
-		echo "r" >rtt_client_pipe_in
-		perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
+		taskset 0x4 ./cacheperf -s "$PERF_STAT_CORES" >rtt_contender_duration &
 		sleep 1
-		./cacheperf -s "$PERF_STAT_CORES" >rtt_contender_duration &
+		( cd ramdisk && taskset 0x4 ../cacheperf -r "$PERF_RECORD_CORES" >../rtt_perf_duration ) &
 		sleep 1
-		( cd ramdisk && ../cacheperf -r "$PERF_RECORD_CORES" >../rtt_perf_duration ) &
+		taskset 0x4 perf stat -eintel_cqm/local_bytes/ -a 2>rtt_bandwidth &
+		sleep 5
+		echo "d\nr" >rtt_client_pipe_in
 		onmainprocessing
 
 		# stop
 		echo "NETWORK_RTT: Stopping..."
-		( cd ramdisk && ../cacheperf end >../rtt_perf )
-		./cacheperf end >rtt_contender
-		killall -INT perf
 		echo "s" >rtt_client_pipe_in
-		wait $client_pid
+		sleep 1
+		( cd ramdisk && taskset 0x4 ../cacheperf end >../rtt_perf )
+		taskset 0x4 ./cacheperf end >rtt_contender
+		killall -INT perf
+		wait "$client_pid"
 
 		break
 	done
@@ -499,7 +514,7 @@ runtrial() {
 
 	sudo killall "$SERVER_BIN"
 	waitforexit "./$SERVER_BIN"
-	cat rtt_server >>"$CATBENCH_LOGFILE"
+	cat rtt_server
 
 	kill $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
 	wait $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
@@ -511,66 +526,88 @@ runtrial() {
 		mgdelete trash
 	fi
 	scp -C "$foreign_client:$remote_path/rtt_client" .
-	sed 's/^/remote: /' rtt_client >>"$CATBENCH_LOGFILE"
+	sed 's/^/remote: /' rtt_client
 	cat rtt_perf_duration
 	cat rtt_perf
 	cat rtt_contender_duration
 	cat rtt_contender
 	cat rtt_bandwidth
+
+	return "$exitcode"
 }
 
 recordtrial() {
 	var="$1"
 	shift
 
-	runtrial "$@"
-	tput="`extracttput`"
-	avg="`extractavelatency`"
-	all="`extractalllatencies | tail -n+"$((WARMUP + 1))" | sort -n`"
-	ct="`wc -l <<-cw | cut -d" " -f1
-			$all
-		cw`"
-	rtt_999="`extracttaillatency "$ct" 99.9 <<-ycnetalliattcartxe
-			$all
-		ycnetalliattcartxe`"
-	rtt_99="`extracttaillatency "$ct" 99 <<-ycnetalliattcartxe
-			$all
-		ycnetalliattcartxe`"
-	rtt_95="`extracttaillatency "$ct" 95 <<-ycnetalliattcartxe
-			$all
-		ycnetalliattcartxe`"
-	rtt_50="`extracttaillatency "$ct" 50 <<-ycnetalliattcartxe
-			$all
-		ycnetalliattcartxe`"
-	contender_tput="`extractcontendertput`"
-	if [ -z "$header" ]
-	then
-		if [ "$independent" = "cache_ways" ]
+	redo="5"
+	while [ "$redo" -gt "0" ]
+	do
+		while ! runtrial "$@"; do :; done
+
+		tput="`extracttput`"
+		avg="`extractavelatency`"
+		all="`extractalllatencies | tail -n+"$((WARMUP + 1))" | sort -n`"
+		ct="`wc -l <<-cw | cut -d" " -f1
+				$all
+			cw`"
+		rtt_999="`extracttaillatency "$ct" 99.9 <<-ycnetalliattcartxe
+				$all
+			ycnetalliattcartxe`"
+		rtt_99="`extracttaillatency "$ct" 99 <<-ycnetalliattcartxe
+				$all
+			ycnetalliattcartxe`"
+		rtt_95="`extracttaillatency "$ct" 95 <<-ycnetalliattcartxe
+				$all
+			ycnetalliattcartxe`"
+		rtt_50="`extracttaillatency "$ct" 50 <<-ycnetalliattcartxe
+				$all
+			ycnetalliattcartxe`"
+		contender_tput="`extractcontendertput`"
+		if [ -z "$header" ]
 		then
-			header="string"
-		else
-			header="fraction"
+			if [ "$independent" = "cache_ways" ]
+			then
+				header="string"
+			else
+				header="fraction"
+			fi
+			header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd, | sed p | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd, | sed 'p;s/^\|,/&contender-/g' | paste -sd,`,intel_cqm/local_bytes"
+			baseline="$header"
+			basealloc="$header"
+			contention="$header"
+			allocation="$header"
 		fi
-		header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd, | sed p | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd, | sed 'p;s/^\|,/&contender-/g' | paste -sd,`,intel_cqm/local_bytes"
-		baseline="$header"
-		basealloc="$header"
-		contention="$header"
-		allocation="$header"
-	fi
 
-	"$KEEP_PERF_DATA" || truncate --size=0 ramdisk/perf.data
+		"$KEEP_PERF_DATA" || truncate --size=0 ramdisk/perf.data
 
-	total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
-	contender_time="`grep -F "seconds time elapsed" rtt_contender_duration | tr -s " " | cut -d" " -f2`"
+		total_time="`grep -F "seconds time elapsed" rtt_perf_duration | tr -s " " | cut -d" " -f2`"
+		contender_time="`grep -F "seconds time elapsed" rtt_contender_duration | tr -s " " | cut -d" " -f2`"
+		echo "============================================="
+		echo $tput
+		echo $avg
+		echo $rtt_999
+		echo $rtt_99
+		echo $rtt_95
+		echo $rtt_50
+		echo $contender_tput
+		echo "============================================="
+
+		# TODO: NEED TO CUT OFF THE TRAILING 's'!
+		if tail -n"$MAIN_DURATION" rtt_server | grep "32\.00 ppb" >/dev/null
+		then
+			echo
+			echo "~~~~~~~~~~~ WOAH, MATE! ~~~~~~~~~~~"
+			echo "NETWORK_RTT: Rejecting trial due to mysterious queueing behavior!"
+			echo "~~~~~~~~~~~ WOAH, MATE! ~~~~~~~~~~~"
+			echo
+			redo="$((redo - 1))"
+		else
+			redo="0"
+		fi
+	done
+
 	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 ramdisk/perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`cut -f2 rtt_contender | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`grep -v ^$ rtt_bandwidth | tail -n+2 | tr -d , | tr -s " " | cut -d" " -f2 | paste -sd/ | bc -l`"
-	echo "============================================="
-	echo $tput
-	echo $avg
-	echo $rtt_999
-	echo $rtt_99
-	echo $rtt_95
-	echo $contender_tput
-	echo "============================================="
 }
 
 estimatetotal() {

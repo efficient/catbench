@@ -20,7 +20,7 @@ genclientargs() {
 		multiplier="`genclientargs_table_entries_multiplier`"
 	fi
 
-	echo "-n '$MICA_RECORD_ITERATIONS' -o /dev/null -p '$((table_entries * multiplier))' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
+	echo "-n '$MICA_RECORD_ITERATIONS' -o /dev/null '$((table_entries * multiplier))' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
 }
 
 prephugepages() {
@@ -41,7 +41,9 @@ extractaillatencies() {
 }
 
 extracttput() {
-	grep "tput=" rtt_client | tail -n2 | head -n1 | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/'
+	local all="`grep "tput=" rtt_client | tail -n"$MAIN_DURATION" | cut -d"=" -f2 | perl -nle 'print $1 if /(\S+) Mops/' | sort -n`"
+
+	printf "%s\n" "$all" | tail -n+"$((MAIN_DURATION / 2))" | head -n1
 }
 
 extractalllatencies() {

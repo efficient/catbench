@@ -100,6 +100,7 @@ status="$?"
 echo "Command exited with status: $status"
 jaguar/jaguar set "$CATBENCH_JAGFILE" meta.exit "$status"
 
+sleep 10
 logging_cleanup
 pack="base64 -w0 '$CATBENCH_LOGFILE'"
 unpack="base64 -d"
