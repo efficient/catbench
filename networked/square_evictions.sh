@@ -1,6 +1,8 @@
 CONTENDER_BIN="square_evictions"
 SINGLETON_CONTENDER="false"
 
+CONTENDER_TPUT_UNIT="accesses/s"
+
 inherit_default_init="$inherit_default_init CONTENDER_DIR CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 

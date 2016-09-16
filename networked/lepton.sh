@@ -2,6 +2,8 @@ CONTENDER_DIR="."
 CONTENDER_BIN="lepton_wrapper"
 SINGLETON_CONTENDER="false"
 
+CONTENDER_TPUT_UNIT="images/s"
+
 inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 

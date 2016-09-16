@@ -302,6 +302,9 @@ jaguar/jaguar set "$logfilename" legend.samples.95tail-latency.unit string "us"
 jaguar/jaguar set "$logfilename" legend.samples.50tail-latency.description string "Median tail RTT"
 jaguar/jaguar set "$logfilename" legend.samples.50tail-latency.unit string "us"
 
+jaguar/jaguar set "$logfilename" legend.samples.contender_tput.description string "Contender throughput"
+jaguar/jaguar set "$logfilename" legend.samples.contender_tput.unit string "$CONTENDER_TPUT_UNIT"
+
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.description string "Perf datafile"
 jaguar/jaguar set "$logfilename" legend.samples.perf_data.unit string "all ur base64s are belong to me"
 

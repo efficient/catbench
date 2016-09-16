@@ -1,7 +1,7 @@
 # Validates system plugins to ensure they override the appropriate functions.
 
 # Each set of modules should either define each of the following {variables,functions} or include their names in inherit_default_{init,impl}.
-readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN SERVER_MIN_REV CLIENT_DIR CLIENT_BIN CLIENT_MIN_REV CONTENDER_DIR CONTENDER_BIN CONTENDER_MIN_REV PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION EXPECTS_FILES"
+readonly REQUIRED_VAR_INITS="SERVER_DIR SERVER_BIN SERVER_MIN_REV CLIENT_DIR CLIENT_BIN CLIENT_MIN_REV CONTENDER_DIR CONTENDER_BIN CONTENDER_MIN_REV CONTENDER_TPUT_UNIT PERF_INIT_PHRASE SINGLETON_CONTENDER SPAWNCONTENDERS WARMUP_DURATION MAIN_DURATION EXPECTS_FILES"
 readonly REQUIRED_FUN_IMPLS="genserverargs genclientargs gencontenderargs prephugepages awaitserverinit waitbeforeclient extracttput extractavelatency extractalllatencies extracttaillatency extractcontendertput oninit onwarmup onmainprocessing checkserverrev checkclientrev checkcontenderrev"
 
 isfun() {
