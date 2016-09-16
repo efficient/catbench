@@ -86,7 +86,7 @@ def entries2bytes(jsonfile, bytes_per_entry):
     data = jsonfile.get("data");
     legend = jsonfile.get("legend");
     legend["samples"]["working_set_size"] = {};
-    legend["samples"]["working_set_size"]["description"] = "Working set size per second";
+    legend["samples"]["working_set_size"]["description"] = "Working set size";
     legend["samples"]["working_set_size"]["unit"] = "mb";
     for key in data.keys():
         index = 0;
@@ -217,9 +217,10 @@ def add_perf_descriptions(jsonfile):
     legend_samples['999tail-latency']["description"] = "Mite 99.9%-ile tail latency";
     legend_samples['999tail-latency']["unit"] = "us";
 
-    legend_samples['contender_tput'] = {};
-    legend_samples['contender_tput']["description"] = "Contender throughput";
-    legend_samples['contender_tput']["unit"] = "";
+    if('contender_tput' not in legend_samples):
+        legend_samples['contender_tput'] = {};
+        legend_samples['contender_tput']["description"] = "Contender throughput";
+        legend_samples['contender_tput']["unit"] = "Epochs/s";
 
 def change_counter_units(jsonfile):
     data = jsonfile.get("data");
@@ -252,7 +253,7 @@ def add_misses_per_instruction(jsonfile):
                 new_key = datakey + "-per-kilo-instruction";
                 if(new_key not in legend["samples"]):
                     legend["samples"][new_key] = {};
-                    legend["samples"][new_key]["description"] = legend["samples"][datakey]["description"] + " per kilo-instruction";
+                    legend["samples"][new_key]["description"] = ' '.join(legend["samples"][datakey]["description"].split(' ')[:-2]) + " per kilo-instruction";
                     legend["samples"][new_key]["unit"] = "";
                 sample[new_key] = sample[datakey] / sample["instructions"] / 1000;
             index += 1;
