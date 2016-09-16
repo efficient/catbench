@@ -83,6 +83,7 @@ def setup_optparse():
 def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y, legend_loc):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 
+
     fig = plt.figure();
     ax = fig.add_subplot(1,1,1);
     ax.ticklabel_format(useOffset=False);
@@ -119,18 +120,20 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             if(key2 == "description" or key2 == "order"):
                 continue;
             if(xmin == None or (xmax == 0 and xmin == 0)):
-	        val2_cropped = val2;
+	            val2_cropped = val2;
             else:
-	        val2_cropped = filter(lambda x: x[0] <= xmax and x[0] >= xmin, val2);
+	            val2_cropped = filter(lambda x: x[0] <= xmax and x[0] >= xmin, val2);
             xy = map(list, zip(*val2_cropped));
             line_label = val["description"];
             color_map[line_label] = color_copy.next();
+            if(len(val2) == 1):
+                line.append(ax.axhline(y=xy[1][0], color=color.next(), label=line_label, alpha=color_alpha));
+                temp.append((line[-1], val["order"], line_label));
+                continue;
             line.append((ax.plot(xy[0], xy[1], '-o', color=color.next(), label=line_label, marker=marker.next(), markersize = marker_size, alpha=color_alpha))); #+ str(key2[1])))[0]);
-	    #ax.plot(xy[0], xy[1]);
             temp.append((line[len(line) - 1][0], val["order"], line_label));
-            #ax.scatter(xy[0], xy[1]);
         if(x_copy == None):
-	    x_copy = xy[0];
+	        x_copy = xy[0];
         x_copy = list(set(x_copy + xy[0]));
         if(max(xy[0]) > cur_xmax):
             cur_xmax = max(xy[0]);
@@ -218,21 +221,21 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                     if(y1 == y2):
                         val = x1;
                         print("Line " + line.get_label() + " intersects SLO " + str(hline_y) + " at " + str(val));
-                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
-                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.3f'%(val))]);
-                        newticks.append(float('%.3f'%(val)));
+                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed', color=color_map[line.get_label()]);
+                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.2f'%(val))]);
+                        newticks.append(float('%.2f'%(val)));
                     elif(hline_y > y1):
                         val = (hline_y - y1) / (y2 - y1) * (x2 - x1) + x1
                         print(line.get_label() + " intersects SLO " + str(hline_y) + " at xval: " + str(val));
-                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
-                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.3f'%(val))]);
-                        newticks.append(float('%.3f'%(val)));
+                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed', color=color_map[line.get_label()]);
+                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.2f'%(val))]);
+                        newticks.append(float('%.2f'%(val)));
                     elif(hline_y > y2):
                         val = x2 - (hline_y - y2) / (y1 - y2) * (x2 - x1)
                         print(line.get_label() + " intersects SLO " + str(hline_y) + " at xval: " + str(val));
-                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed');
-                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.3f'%(val))]);
-                        newticks.append(float('%.3f'%(val)));
+                        plt.axvline(x=val, ymin=0, ymax=hline_y/ylim_max, linestyle='dashed', color=color_map[line.get_label()]);
+                        newax[-1] = (newax[-1][0], newax[-1][1], [float('%.2f'%(val))]);
+                        newticks.append(float('%.2f'%(val)));
                     break;
         for tick in newticks:
             index = 0;
@@ -244,14 +247,14 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                 index += 1;
         ax.set_xticks(x_copy);
         ax.set_xlim(xmin = min(x_copy), xmax = max(x_copy));
-        plt.axhline(y=hline_y, linestyle='dashed');
+        plt.axhline(y=hline_y, linestyle='dashed', color='k');
         plt.ylim(ymin=0, ymax=ylim_max);
         plt.xlim(xmin = min(x_copy), xmax = max(x_copy));
         for axis in newax:
             axis[0].set_xticks(axis[2]);
             axis[0].set_xlim(xmin = min(x_copy), xmax = max(x_copy));
             axis[0].get_yaxis().set_visible(False);
-            plt.setp(axis[0].get_xticklabels(), fontsize=6, rotation=90, color=axis[1]);
+            plt.setp(axis[0].get_xticklabels(), fontsize=14, rotation=90, color=axis[1]);
         plt.ylim(ymin=0, ymax=ylim_max);
         plt.xlim(xmin = min(x_copy), xmax = max(x_copy));
     plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
