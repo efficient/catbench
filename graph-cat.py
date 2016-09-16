@@ -212,6 +212,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         ylim_max = ax.get_ylim()[1];
         # find points (x1, y1), (x2, y2) such that (y1 <= hline_y <= y2)
         for line in ax.get_lines():
+            if(line.get_label() == "No contention, CAT"):
+                continue;
             newax.append((fig.add_axes(ax.get_position(), frameon=False), color_map[line.get_label()], None));
             xydata = line.get_xydata();
             for idx in range(0, len(xydata) - 1):
