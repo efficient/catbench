@@ -143,7 +143,7 @@ mkdir -p ./graphs/"$name"
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 50tail-latency --title "50% tail latency vs Mica Throughput Limit" -o ./graphs/"$name"/"$name"-50."$filetype" --legend-y 0.7 --legend-x 1.5 --legend-loc "upper left" `eval echo $extra_flags`
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 95tail-latency --title "95% tail latency vs Mica Throughput Limit" -o ./graphs/"$name"/"$name"-95."$filetype" --legend-y 0.7 --legend-x 1.5 --legend-loc "upper left" `eval echo $extra_flags`
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 99tail-latency --title "99% tail latency vs Mica Throughput Limit" -o ./graphs/"$name"/"$name"-99."$filetype" --legend-y 0.7 --legend-x 1.5 --legend-loc "upper left" `eval echo $extra_flags`
-./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "99.9% tail latency vs Mica Throughput Limit" -o ./graphs/"$name"/"$name"-999."$filetype" --legend-y 0.7 --legend-x 0.55 --legend-loc "upper left" `eval echo $extra_flags`
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "99.9% tail latency vs Mica Throughput Limit" -o ./graphs/"$name"/"$name"-999."$filetype" --legend-y 0.7 --legend-x 0.55 --legend-loc "upper left" `eval echo $extra_flags` --ymax 600
 echo "Finished tail graphs"
 # perf graphs
 ./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata "stalled-cycles-scaled" --title "Stalled cycles vs Mite Ways" -o ./graphs/"$name"/"$name"-stalled-cycles."$filetype" --legend-y 0.7 --legend-x 1.5 `eval echo $extra_flags`
@@ -246,5 +246,5 @@ echo "Finished contender perf graphs"
 echo "Finished throughput graphs"
 ./graph-double.py --input-top "$name"-stripped.json --input-bottom "$name"-stripped.json --series allocation contention --xdata-bottom "$quest" --xdata-top "$quest" --ydata-bottom 999tail-latency --ydata-top contender_tput --title "Contender Throughput & Mica 99.9%-ile Tail Latency vs $quest" --outfile ./graphs/"$name"/"$name"-tputandtail."$filetype" --legend-xl 1.0 --legend-yl 0.6 --legend-xr 1.0 --legend-yr 0.4 `eval echo $extra_flags` --legend-loc-top "lower left" --legend-loc-bottom "lower left"
 echo "Finished double graphs"
-./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "Cost analysis" -o ./graphs/"$name"/"$name"-cost."$filetype" --legend-y 0.7 --legend-x 1.5 `eval echo $extra_flags` --legend-loc "upper left" --hline-y "$SLO"
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "Cost analysis" -o ./graphs/"$name"/"$name"-cost."$filetype" --legend-y 0.7 --legend-x 1.5 `eval echo $extra_flags` --legend-loc "upper left" --hline-y "$SLO" --ymax 600
 echo "Finished cost-analysis graphs"
