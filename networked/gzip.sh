@@ -34,7 +34,7 @@ extractcontendertput() {
 
 	if [ "$total_time" != "0" ]
 	then
-		echo $total_filesize / $total_time | bc -l
+		echo "$total_filesize * $contenders / $total_time" | bc -l
 	else
 		echo 0
 	fi

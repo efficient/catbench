@@ -34,7 +34,7 @@ extractcontendertput() {
 
 	if [ "$total_time" != "0" ]
 	then
-		echo $total_count / $total_time | bc -l
+		echo "$total_count * $contenders / $total_time" | bc -l
 	else
 		echo 0
 	fi
