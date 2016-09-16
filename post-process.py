@@ -33,7 +33,28 @@ unit_conversions = {
     'instructions': 1000000,
     'stalled-cycles': 1000000,
     'L2_RQSTS/ALL_DEMAND_REFERENCES': 1000000,
-    "L2_RQSTS/DEMAND_DATA_RD_MISS": 1000000
+    'L2_RQSTS/DEMAND_DATA_RD_MISS': 1000000,
+    'contender-L1-dcache-load-misses': 1000000,
+    'contender-L1-icache-load-misses': 1000000,
+    'contender-L2_RQSTS/ALL_CODE_RD': 1000000,
+    'contender-L2_RQSTS/ALL_DEMAND_DATA_RD': 1000000,
+    'contender-L2_RQSTS/ALL_DEMAND_MISS': 1000000,
+    'contender-L2_RQSTS/CODE_RD_MISS': 1000000,
+    'contender-L2_RQSTS/MISS': 1000000,
+    'contender-L2_RQSTS/REFERENCES': 1000000,
+    'contender-L2_TRANS/CODE_RD': 1000000,
+    'contender-L2_TRANS/DEMAND_DATA_RD': 1000000,
+    'contender-LLC_MISS': 1000000,
+    'contender-LLC_REFERENCE': 1000000,
+    'contender-MEM_LOAD_UOPS_RETIRED/L1_MISS': 1000000,
+    'contender-MEM_LOAD_UOPS_RETIRED/L2_MISS': 1000000,
+    'contender-MEM_LOAD_UOPS_RETIRED/L3_MISS': 1000000,
+    'contender-MEM_UOPS_RETIRED/ALL_LOADS': 1000000,
+    'contender-cpu-cycles': 1000000,
+    'contender-instructions': 1000000,
+    'contender-stalled-cycles': 1000000,
+    'contender-L2_RQSTS/ALL_DEMAND_REFERENCES': 1000000,
+    'contender-L2_RQSTS/DEMAND_DATA_RD_MISS': 1000000
 }
 
 miss_counters = [ 
@@ -55,6 +76,24 @@ miss_counters = [
                     'LLC_REFERENCE',
                     'dTLB-load-misses',
                     'iTLB-load-misses'
+                    'contender-L1-dcache-load-misses',
+                    'contender-L1-icache-load-misses',
+                    'contender-L2_RQSTS/ALL_CODE_RD',
+                    'contender-L2_RQSTS/ALL_DEMAND_DATA_RD',
+                    'contender-L2_RQSTS/ALL_DEMAND_MISS',
+                    'contender-L2_RQSTS/ALL_DEMAND_REFERENCES',
+                    'contender-L2_RQSTS/CODE_RD_MISS',
+                    'contender-L2_RQSTS/CODE_RD_MISS_RATIO',
+                    'contender-L2_RQSTS/DEMAND_DATA_RD_MISS',
+                    'contender-L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO',
+                    'contender-L2_RQSTS/MISS',
+                    'contender-L2_RQSTS/REFERENCES',
+                    'contender-L2_TRANS/CODE_RD',
+                    'contender-L2_TRANS/DEMAND_DATA_RD',
+                    'contender-LLC_MISS',
+                    'contender-LLC_REFERENCE',
+                    'contender-dTLB-load-misses',
+                    'contender-iTLB-load-misses'
 ];
 
 def num2word(num):
@@ -213,6 +252,114 @@ def add_perf_descriptions(jsonfile):
     legend_samples['iTLB-load-misses']["description"] = "iTLB load misses per second";
     legend_samples['iTLB-load-misses']["unit"] = "";
 
+    legend_samples['contender-L1-dcache-load-misses'] = {};
+    legend_samples['contender-L1-dcache-load-misses']["description"] = "L1 dcache load misses per second";
+    legend_samples['contender-L1-dcache-load-misses']["unit"] = "";
+    
+    legend_samples['contender-L1-icache-load-misses'] = {};
+    legend_samples['contender-L1-icache-load-misses']["description"] = "L1 icache load misses per second";
+    legend_samples['contender-L1-icache-load-misses']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/ALL_CODE_RD'] = {};
+    legend_samples['contender-L2_RQSTS/ALL_CODE_RD']["description"] = "L2 code read requests per second";
+    legend_samples['contender-L2_RQSTS/ALL_CODE_RD']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_DATA_RD'] = {};
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_DATA_RD']["description"] = "L2 data read requests per second";
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_DATA_RD']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_MISS'] = {};
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_MISS']["description"] = "L2 all misses per second";
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_MISS']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_REFERENCES'] = {};
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_REFERENCES']["description"] = "L2 all references per second";
+    legend_samples['contender-L2_RQSTS/ALL_DEMAND_REFERENCES']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/CODE_RD_MISS'] = {};
+    legend_samples['contender-L2_RQSTS/CODE_RD_MISS']["description"] = "L2 code read misses per second";
+    legend_samples['contender-L2_RQSTS/CODE_RD_MISS']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/CODE_RD_MISS_RATIO'] = {};
+    legend_samples['contender-L2_RQSTS/CODE_RD_MISS_RATIO']["description"] = "L2 code read miss ratio";
+    legend_samples['contender-L2_RQSTS/CODE_RD_MISS_RATIO']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/DEMAND_DATA_RD_MISS'] = {};
+    legend_samples['contender-L2_RQSTS/DEMAND_DATA_RD_MISS']["description"] = "L2 data read misses per second";
+    legend_samples['contender-L2_RQSTS/DEMAND_DATA_RD_MISS']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO'] = {};
+    legend_samples['contender-L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO']["description"] = "L2 data read miss ratio";
+    legend_samples['contender-L2_RQSTS/DEMAND_DATA_RD_MISS_RATIO']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/MISS'] = {};
+    legend_samples['contender-L2_RQSTS/MISS']["description"] = "L2 misses per second";
+    legend_samples['contender-L2_RQSTS/MISS']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/MISS_RATIO'] = {};
+    legend_samples['contender-L2_RQSTS/MISS_RATIO']["description"] = "L2 miss ratio";
+    legend_samples['contender-L2_RQSTS/MISS_RATIO']["unit"] = "";
+    
+    legend_samples['contender-L2_RQSTS/REFERENCES'] = {};
+    legend_samples['contender-L2_RQSTS/REFERENCES']["description"] = "L2 references per second";
+    legend_samples['contender-L2_RQSTS/REFERENCES']["unit"] = "";
+    
+    legend_samples['contender-L2_TRANS/CODE_RD'] = {};
+    legend_samples['contender-L2_TRANS/CODE_RD']["description"] = "L2 trans code read per second";
+    legend_samples['contender-L2_TRANS/CODE_RD']["unit"] = "";
+    
+    legend_samples['contender-L2_TRANS/DEMAND_DATA_RD'] = {};
+    legend_samples['contender-L2_TRANS/DEMAND_DATA_RD']["description"] = "L2 trans demand data read per second";
+    legend_samples['contender-L2_TRANS/DEMAND_DATA_RD']["unit"] = "";
+    
+    legend_samples['contender-LLC_MISS'] = {};
+    legend_samples['contender-LLC_MISS']["description"] = "LLC misses per second";
+    legend_samples['contender-LLC_MISS']["unit"] = "";
+    
+    legend_samples['contender-LLC_MISS_RATIO'] = {};
+    legend_samples['contender-LLC_MISS_RATIO']["description"] = "LLC miss ratio";
+    legend_samples['contender-LLC_MISS_RATIO']["unit"] = "";
+    
+    legend_samples['contender-LLC_REFERENCE'] = {};
+    legend_samples['contender-LLC_REFERENCE']["description"] = "LLC references per second";
+    legend_samples['contender-LLC_REFERENCE']["unit"] = "";
+    
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L1_MISS'] = {};
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L1_MISS']["description"] = "Mem load uops retired l1 miss per second";
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L1_MISS']["unit"] = "";
+    
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L2_MISS'] = {};
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L2_MISS']["description"] = "Mem load uops retired l2 miss per second";
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L2_MISS']["unit"] = "";
+    
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L3_MISS'] = {};
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L3_MISS']["description"] = "Mem load uops retired l3 miss per second";
+    legend_samples['contender-MEM_LOAD_UOPS_RETIRED/L3_MISS']["unit"] = "";
+    
+    legend_samples['contender-MEM_UOPS_RETIRED/ALL_LOADS'] = {};
+    legend_samples['contender-MEM_UOPS_RETIRED/ALL_LOADS']["description"] = "Mem uops retired all loads per second";
+    legend_samples['contender-MEM_UOPS_RETIRED/ALL_LOADS']["unit"] = "";
+    
+    legend_samples['contender-cpu-cycles'] = {};
+    legend_samples['contender-cpu-cycles']["description"] = "CPU cycles per second";
+    legend_samples['contender-cpu-cycles']["unit"] = "";
+    
+    legend_samples['contender-instructions'] = {};
+    legend_samples['contender-instructions']["description"] = "Instructions per second";
+    legend_samples['contender-instructions']["unit"] = "";
+
+    legend_samples['contender-stalled-cycles'] = {};
+    legend_samples['contender-stalled-cycles']["description"] = "Stalled cycles per second";
+    legend_samples['contender-stalled-cycles']["unit"] = "";
+
+    legend_samples['contender-dTLB-load-misses'] = {};
+    legend_samples['contender-dTLB-load-misses']["description"] = "dTLB load misses per second";
+    legend_samples['contender-dTLB-load-misses']["unit"] = "";
+    
+    legend_samples['contender-iTLB-load-misses'] = {};
+    legend_samples['contender-iTLB-load-misses']["description"] = "iTLB load misses per second";
+    legend_samples['contender-iTLB-load-misses']["unit"] = "";
+
     legend_samples['999tail-latency'] = {};
     legend_samples['999tail-latency']["description"] = "Mite 99.9%-ile tail latency";
     legend_samples['999tail-latency']["unit"] = "us";
@@ -220,7 +367,7 @@ def add_perf_descriptions(jsonfile):
     if('contender_tput' not in legend_samples):
         legend_samples['contender_tput'] = {};
         legend_samples['contender_tput']["description"] = "Contender throughput";
-        legend_samples['contender_tput']["unit"] = "Epochs/s";
+        legend_samples['contender_tput']["unit"] = "epochs/s";
 
 def change_counter_units(jsonfile):
     data = jsonfile.get("data");
