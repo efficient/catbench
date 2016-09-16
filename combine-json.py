@@ -21,10 +21,14 @@ def setup_optparse():
                         help='Suffix to add to normalized series');
     parser.add_argument('--norm-x', dest='norm_x', default="",
                         help='Do not normalize these values');
+    parser.add_argument('--series', '-d', nargs='+', dest='series', default=[],
+                        help='Only copy specified data series (still applies suffix). Note that if suffix is empty, a replacement will be done.')
     parser.add_argument('--baseline-contention', '-b', dest='baselinecontention', action='store_true', default=False,
-                        help='Only copy baseline and contention (still applies suffix, leave blank for best results). Note that if suffix is empty, a replacement will be done.');
+                        help='Only copy baseline and contention (leave suffix blank for best results). Overrides -d switch!');
     args = parser.parse_args();
-    return args.file1, args.file2, args.suffix, args.outfile, args.norm, args.norm_suffix, args.norm_x, args.baselinecontention;
+    if args.baselinecontention:
+        args.series = [baseline, contention];
+    return args.file1, args.file2, args.suffix, args.outfile, args.norm, args.norm_suffix, args.norm_x, set(args.series);
 
 constant_keys=("cache_ways", "mite_tput_limit", "zipf_alpha");
 def verify(file1, file2):
@@ -52,7 +56,7 @@ def verify(file1, file2):
             print("Warning, variable " + key + " mismatch between baseline file and experiment file");
         
 
-def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention):
+def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, series):
     fd1 = open(file1, 'r');
     fd2 = open(file2, 'r');
     json1 = json.load(fd1);
@@ -60,7 +64,7 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselineco
     data1 = json1.get("data");
     data2 = json2.get("data");
     for key in data2.keys():
-        if(baselinecontention == True and (key != "baseline" and key != "contention")):
+        if(len(series) and key not in series):
             continue;
         new_key = key + suffix;
         if(new_key in data1):
@@ -88,11 +92,11 @@ def combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselineco
     json.dump(json1, outfd, indent=4, sort_keys=True);
 
 def main():
-    file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention = setup_optparse();
+    file1, file2, suffix, outfile, norm, norm_suffix, norm_x, series = setup_optparse();
     #if(baselinecontention == True):
     #    verify(file1, file2);
     if((norm == "" and norm_suffix == "" and norm_x == "") or (norm != "" and norm_suffix != "" and norm_x != "")):
-        combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, baselinecontention);
+        combine(file1, file2, suffix, outfile, norm, norm_suffix, norm_x, series);
     else:
         print("Missing one of: --norm, --norm-suffix, --norm-x\n");
 
