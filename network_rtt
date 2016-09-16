@@ -665,6 +665,7 @@ iteration_count=0; for input in $iterator; do iteration_count="$((iteration_coun
 trial_count="$((iteration_count * 4))"
 
 sudo -l >/dev/null
+firstrun="true"
 for input in $iterator
 do
 	eval $independent=$input
@@ -675,7 +676,10 @@ do
 		RUNNING ITERATION: $input
 
 	tac
-	recordtrial baseline
+	if [ "$independent" != "cache_ways" ] || "$firstrun"
+	then
+		recordtrial baseline
+	fi
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
@@ -689,7 +693,10 @@ do
 		RUNNING TRIAL: $input contention
 
 	tac
-	recordtrial contention "$NUM_TRASH"
+	if [ "$independent" != "cache_ways" ] || "$firstrun"
+	then
+		recordtrial contention "$NUM_TRASH"
+	fi
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
@@ -698,6 +705,8 @@ do
 	tac
 	recordtrial allocation "$NUM_TRASH" "$cache_ways"
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
+
+	firstrun="false"
 done
 echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
 echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
