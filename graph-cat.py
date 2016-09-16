@@ -257,6 +257,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         for axis in newax:
             if(axis[2] != None):
                 axis[0].set_xticks(axis[2]);
+                axis[0].tick_params(axis=u'both', which=u'both',length=0)
             else:
                 axis[0].set_xticks([]);
                 print("Series max throughput for SLO is infinite or 0");
