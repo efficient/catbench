@@ -34,6 +34,8 @@ count() {
 	fi
 }
 
+const DEFAULT_NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
+const DEFAULT_NUM_TRASH_LOOP="`seq "$DEFAULT_NUM_TRASH" | paste -sd" "`"
 const DEFAULT_CLIENT_SLEEP="100000"
 const DEFAULT_CLIENT_SLEEP_LOOP="0 10 100 1000 10000 100000"
 const warn DEFAULT_TABLE_ENTRIES="131072"
@@ -47,7 +49,6 @@ const count DEFAULT_CACHE_WAYS_LOOP="0x007 0x00f 0x01f 0x03f 0x07f 0x0ff 0x1ff 0
 
 const MICA_GET_RATIO="0.5"
 const MICA_RECORD_ITERATIONS="300000000"
-const NUM_TRASH="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
 const PERF_RECORD_CORES="0"
 const PERF_RECORD_FLAGS="-r"
 const PERF_STAT_CORES="2,4,6,8,10,12,14,16,18,20,22,24,26,28,30"
@@ -89,6 +90,7 @@ usage() {
 		USAGE: $0 <mode> <plugins> <host on which to run client process> <path to repo on remote system> <mac address of local interface on which to listen>
 
 		<mode> is one of:
+		 -p: Vary the number of contender processes or threads
 		 -s: Vary sleep and fix the number of table entries at $DEFAULT_TABLE_ENTRIES
 		 -t: Vary number of table entries and fix the sleep at $DEFAULT_CLIENT_SLEEP s
 		 -z: Vary zipf alpha
@@ -101,6 +103,7 @@ usage() {
 	ls networked/*.sh | sed 's/.*\/\([^/]*\).sh/ \1/'
 }
 
+num_trash="$DEFAULT_NUM_TRASH"
 client_sleep="$DEFAULT_CLIENT_SLEEP"
 table_entries="$DEFAULT_TABLE_ENTRIES"
 zipf_alpha="$DEFAULT_ZIPF_ALPHA"
@@ -112,6 +115,10 @@ while "$understood"
 do
 	case "$1"
 	in
+		-p)
+			independent="num_trash"
+			iterator="$DEFAULT_NUM_TRASH_LOOP"
+			;;
 		-s)
 			independent="client_sleep"
 			iterator="$DEFAULT_CLIENT_SLEEP_LOOP"
@@ -241,7 +248,11 @@ sudo killall "$SERVER_BIN" 2>/dev/null
 ssh "$foreign_client" "echo '$passwd' | sudo -S killall '$CLIENT_BIN' 2>/dev/null"
 sudo killall "$CONTENDER_BIN" 2>/dev/null
 
-if [ "$independent" = "client_sleep" ]
+if [ "$independent" = "num_trash" ]
+then
+	jaguar/jaguar set "$logfilename" legend.samples.num_trash.description string "Cores running contender"
+	jaguar/jaguar set "$logfilename" legend.samples.num_trash.unit string ""
+elif [ "$independent" = "client_sleep" ]
 then
 	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.description string "Delay between client requests"
 	jaguar/jaguar set "$logfilename" legend.samples.client_sleep.unit string "us"
@@ -676,7 +687,7 @@ do
 		RUNNING ITERATION: $input
 
 	tac
-	if [ "$independent" != "cache_ways" ] || "$firstrun"
+	if [ "$independent" != "num_trash" -a "$independent" != "cache_ways" ] || "$firstrun"
 	then
 		recordtrial baseline
 	fi
@@ -686,7 +697,10 @@ do
 		RUNNING TRIAL: $input basealloc
 
 	tac
-	recordtrial basealloc 0 "$cache_ways"
+	if [ "$independent" != "num_trash" ] || "$firstrun"
+	then
+		recordtrial basealloc 0 "$cache_ways"
+	fi
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
 
@@ -695,7 +709,7 @@ do
 	tac
 	if [ "$independent" != "cache_ways" ] || "$firstrun"
 	then
-		recordtrial contention "$NUM_TRASH"
+		recordtrial contention "$num_trash"
 	fi
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 	eval cat <<-tac
@@ -703,7 +717,7 @@ do
 		RUNNING TRIAL: $input allocation
 
 	tac
-	recordtrial allocation "$NUM_TRASH" "$cache_ways"
+	recordtrial allocation "$num_trash" "$cache_ways"
 	trial_index=$((trial_index + 1)); printprogress "$start_time" "$trial_index" "$trial_count"
 
 	firstrun="false"

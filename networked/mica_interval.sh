@@ -3,7 +3,7 @@ SERVER_BIN="server"
 CLIENT_DIR="../mica2-catbench/build"
 CLIENT_BIN="netbench_interval"
 
-INDEPENDENT_VAR_WHITELIST="cache_ways table_entries mite_tput_limit zipf_alpha"
+INDEPENDENT_VAR_WHITELIST="num_trash cache_ways table_entries mite_tput_limit zipf_alpha"
 
 PERF_INIT_PHRASE="tput="
 
