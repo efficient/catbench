@@ -27,7 +27,7 @@ def setup_optparse():
                         help='Only copy baseline and contention (leave suffix blank for best results). Overrides -d switch!');
     args = parser.parse_args();
     if args.baselinecontention:
-        args.series = [baseline, contention];
+        args.series = ["baseline", "contention"];
     return args.file1, args.file2, args.suffix, args.outfile, args.norm, args.norm_suffix, args.norm_x, set(args.series);
 
 constant_keys=("cache_ways", "mite_tput_limit", "zipf_alpha");
