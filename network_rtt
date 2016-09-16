@@ -556,7 +556,7 @@ recordtrial() {
 	var="$1"
 	shift
 
-	redo="5"
+	redo="1"
 	while [ "$redo" -gt "0" ]
 	do
 		while ! runtrial "$@"; do :; done
