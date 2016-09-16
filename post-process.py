@@ -402,7 +402,8 @@ def add_misses_per_instruction(jsonfile):
                     legend["samples"][new_key] = {};
                     legend["samples"][new_key]["description"] = ' '.join(legend["samples"][datakey]["description"].split(' ')[:-2]) + " per kilo-instruction";
                     legend["samples"][new_key]["unit"] = "";
-                sample[new_key] = sample[datakey] / sample["instructions"] / 1000;
+                if(datakey in sample):
+                    sample[new_key] = sample[datakey] / sample["instructions"] / 1000;
             index += 1;
 
 def main():
