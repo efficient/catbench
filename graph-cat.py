@@ -81,7 +81,14 @@ def setup_optparse():
 
 def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y, legend_loc):
     series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
-
+    isempty = True;
+    for series in series_tuples.keys():
+        for key in series_tuples[series].keys():
+            if(type(series_tuples[series][key]) == list and len(series_tuples[series][key]) > 0):
+                isempty = False;
+    if(isempty):
+        print("No entry for " + ylabels[0] + ", no graph will be saved.");
+        exit();
 
     fig = plt.figure();
     ax = fig.add_subplot(1,1,1);

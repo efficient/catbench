@@ -26,8 +26,8 @@ def get_tuples(filename, slabels, xlabel, ylabels):
         count += 1;
         for sample in series.get("samples"):
             for ylabel in ylabels:
-#TODO what if there is no entry for a particular ylabel?
-                series_tuples[series_name][(xlabel, ylabel)].append((sample.get(xlabel), sample.get(ylabel)));
+	    	if(sample.get(ylabel) != None):
+                    series_tuples[series_name][(xlabel, ylabel)].append((sample.get(xlabel), sample.get(ylabel)));
     fd.close();
     return series_tuples;
 
