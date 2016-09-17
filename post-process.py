@@ -126,7 +126,7 @@ def entries2bytes(jsonfile, bytes_per_entry):
     legend = jsonfile.get("legend");
     legend["samples"]["working_set_size"] = {};
     legend["samples"]["working_set_size"]["description"] = "Working set size";
-    legend["samples"]["working_set_size"]["unit"] = "mb";
+    legend["samples"]["working_set_size"]["unit"] = "MB";
     for key in data.keys():
         index = 0;
         while(index < len(data[key]["samples"])):
