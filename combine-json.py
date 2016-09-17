@@ -98,6 +98,7 @@ def combine(file1, files2, suffix, outfile, norm, norm_suffix, norm_x, series, m
         for idx in range(nsamps):
           order = sorted([each[idx] for each in samps], key=lambda elm: elm[median]);
           res[idx] = order[len(order) / 2];
+          print('Chose ' + group + '.samples[' + str(idx) + '].' + median + ' as \'' + str(res[idx][median]) + '\' out of: ' + str([each[median] for each in order]));
 
     else:
       data2 = datas2[0];
