@@ -19,7 +19,7 @@ def graph():
     temp = list();
     range_top = 2000;
     t_total = np.arange(0, range_top, 1);
-    temp.append(ax.plot(t_total, t_total, 'm:', linewidth=4.0, label="No colocation"));
+    temp.append(ax.plot(t_total, t_total, 'm:', linewidth=4.0, label="NoContention-NoCAT"));
 
     #series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
     em = 0.95;
@@ -30,8 +30,8 @@ def graph():
     #range_top = range_bottom + 1000;
     t_bottom = np.arange(0, range_bottom, 1);
     t_top = np.arange(range_bottom, range_top, 1);
-    temp.append(ax.plot(t_bottom, t_bottom / em - (t_bottom / em) * ek, 'r--', linewidth=2.0, label="No CAT"));
-    temp.append(ax.plot(t_top, (n / ek - n) + (t_top - (n / ek) * em), 'r--', linewidth=2.0));#, label="No CAT"));
+    temp.append(ax.plot(t_bottom, t_bottom / em - (t_bottom / em) * ek, 'r--', linewidth=2.0, label="Contention-NoCAT"));
+    temp.append(ax.plot(t_top, (n / ek - n) + (t_top - (n / ek) * em), 'r--', linewidth=2.0));#, label="Contention-NoCAT"));
 
     em = 0.95;
     ek = 0.99;
@@ -39,8 +39,8 @@ def graph():
     #range_top = range_bottom + 1000;
     t_bottom = np.arange(0, range_bottom, 1);
     t_top = np.arange(range_bottom, range_top, 1);
-    temp.append(ax.plot(t_bottom, t_bottom / em - (t_bottom / em) * ek, 'b-', linewidth=2.0, label="With CAT"));
-    temp.append(ax.plot(t_top, (n / ek - n) + (t_top - (n / ek) * em), 'b-', linewidth=2.0));#, label="With CAT"));
+    temp.append(ax.plot(t_bottom, t_bottom / em - (t_bottom / em) * ek, 'b-', linewidth=2.0, label="Contention-CAT"));
+    temp.append(ax.plot(t_top, (n / ek - n) + (t_top - (n / ek) * em), 'b-', linewidth=2.0));#, label="Contention-CAT"));
 
     handles, labels = ax.get_legend_handles_labels()
     import operator
