@@ -266,6 +266,8 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             plt.setp(axis[0].get_xticklabels(), fontsize=14, rotation=90, color=axis[1]);
         plt.ylim(ymin=0, ymax=ylim_max);
         plt.xlim(xmin = min(x_copy), xmax = max(x_copy));
+    if(user_ymax != None):
+        plt.ylim(ymax=user_ymax);
     plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
 
 def main():
