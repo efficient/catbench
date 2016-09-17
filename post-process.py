@@ -6,10 +6,10 @@ import sys;
 import json;
 
 descriptions = {
-    'allocation': 'Contention, CAT',
-    'baseline': 'No contention, no CAT',
-    'basealloc': 'No contention, CAT',
-    'contention': 'Contention, no CAT'
+    'allocation': 'Contention-CAT',
+    'baseline': 'NoContention-NoCAT',
+    'basealloc': 'NoContention-CAT',
+    'contention': 'Contention-NoCAT'
 }
 
 unit_conversions = {
