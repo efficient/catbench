@@ -37,11 +37,11 @@ def setup_optparse():
         sys.stderr.write('ERROR: Use of --median requires more than one file to --append');
         sys.exit(1);
     else:
-      if isinstance(args.files2, list):
+      if not isinstance(args.files2, list):
+        args.files2 = [args.files2];
+      elif len(args.files2) != 1:
         sys.stderr.write('ERROR: I don\'t know what to do with more than one --append file');
         sys.exit(1);
-      else:
-        args.files2 = [args.files2];
 
     if args.baselinecontention:
         args.series = ["baseline", "contention"];
