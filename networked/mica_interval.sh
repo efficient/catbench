@@ -3,15 +3,32 @@ SERVER_BIN="server"
 CLIENT_DIR="../mica2-catbench/build"
 CLIENT_BIN="netbench_interval"
 
+const PREPOPULATE_TABLE="false"
+
 INDEPENDENT_VAR_WHITELIST="cache_ways table_entries mite_tput_limit zipf_alpha"
 
 PERF_INIT_PHRASE="tput="
 
 inherit_default_init="$inherit_default_init"
-inherit_default_impl="$inherit_default_impl genserverargs extractavelatency"
+inherit_default_impl="$inherit_default_impl extractavelatency"
 
-SERVER_MIN_REV="ec10efe"
+SERVER_MIN_REV="ef82e16"
 CLIENT_MIN_REV="50ece37"
+
+genserverargs() {
+	local multiplier="1"
+	if type genclientargs_table_entries_multiplier >/dev/null 2>&1
+	then
+		multiplier="`genclientargs_table_entries_multiplier`"
+	fi
+
+	if "$PREPOPULATE_TABLE"
+	then
+		echo "'$((table_entries * multiplier))'"
+	else
+		true
+	fi
+}
 
 genclientargs() {
 	local multiplier="1"
