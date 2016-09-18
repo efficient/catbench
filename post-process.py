@@ -12,6 +12,12 @@ descriptions = {
     'contention': 'Contention-NoCAT'
 }
 
+original_descriptions = {
+    'Allocation': 'Contention-CAT',
+    'Baseline': 'NoContention-NoCAT',
+    'Basealloc': 'NoContention-CAT',
+}
+
 unit_conversions = {
     'L1-dcache-load-misses': 1000000,
     'L1-icache-load-misses': 1000000,
@@ -137,8 +143,13 @@ def entries2bytes(jsonfile, bytes_per_entry):
 
 def fix_series_descriptions(jsonfile):
     data = jsonfile.get("data");
+    for key in descriptions.keys():
+        if(key in data):
+            data[key]["description"] = descriptions[key];
     for key in data.keys():
-        data[key]["description"] = descriptions[key];
+        for key2 in original_descriptions:
+            if(key2 in data[key]["description"]):
+                data[key]["description"] = data[key]["description"].replace(key2, original_descriptions[key2]);
 
 def add_perf_descriptions(jsonfile):
     legend = jsonfile.get("legend");
