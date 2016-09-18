@@ -128,6 +128,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
             else:
                 val2_cropped = filter(lambda x: x[0] <= xmax and x[0] >= xmin, val2);
             xy = map(list, zip(*val2_cropped));
+            
             line_label = val["description"];
             color_map[line_label] = color_copy.next();
             if(len(val2) == 1):
@@ -242,11 +243,16 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                         newticks.append(float('%.2f'%(val)));
                         newax[-1] = (newax[-1][0], newax[-1][1], [float('%.2f'%(val))]);
                     if(do_not_append == True):
-                        x_offset = min_xdist * (10 if (val - min(x_copy) < max(x_copy) - val) else -10);
-                        headlen = cur_ymax * 0.05;
-                        headwidth = 0.025 * (max(x_copy) - min(x_copy));
-                        plt.arrow(val + x_offset + (-1 if x_offset < 0 else 1) * headwidth, cur_ymax / 1.5 + headlen, -1 * x_offset, -1 * cur_ymax / 1.5 + hline_y, head_width = headwidth, head_length = headlen, color=newax[-1][1], linewidth=0.5);
-                        plt.annotate('%.2f'%(val), xy = ((val + x_offset + (-1 if x_offset < 0 else 1) * headwidth) * 0.99, (cur_ymax / 1.5 + headlen) * 1.05));
+                        center_x = ((max(x_copy) - min(x_copy)) / 2) + min(x_copy);
+                        center_y = ylim_max / 2. * 1.5;
+                        arrow_width = 0.05;
+                        arrow_height = 10;
+                        len_x = val - center_x;
+                        len_y = center_y - hline_y - arrow_height;
+                        print center_x;
+                        print center_y;
+                        print line.get_label();
+                        ax.annotate('%.2f'%(val), xy=(val, hline_y), xytext = (center_x, center_y), arrowprops=dict(arrowstyle="->", connectionstyle="arc3", color=color_map[line.get_label()]), color=color_map[line.get_label()]);
                     break;
         for tick in newticks:
             index = 0;
