@@ -16,7 +16,6 @@ original_descriptions = {
     'Allocation': 'Contention-CAT',
     'Baseline': 'NoContention-NoCAT',
     'Basealloc': 'NoContention-CAT',
-    'Contention': 'Contention-NoCAT'
 }
 
 unit_conversions = {
