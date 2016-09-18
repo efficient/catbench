@@ -16,6 +16,7 @@ original_descriptions = {
     'Allocation': 'Contention-CAT',
     'Baseline': 'NoContention-NoCAT',
     'Basealloc': 'NoContention-CAT',
+    'Contention': 'Contention-NoCAT'
 }
 
 unit_conversions = {
@@ -148,7 +149,7 @@ def fix_series_descriptions(jsonfile):
             data[key]["description"] = descriptions[key];
     for key in data.keys():
         for key2 in original_descriptions:
-            if(key2 in data[key]["description"]):
+            if(data[key]["description"].startswith(key2)):
                 data[key]["description"] = data[key]["description"].replace(key2, original_descriptions[key2]);
 
 def add_perf_descriptions(jsonfile):
