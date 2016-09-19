@@ -32,7 +32,7 @@ then
 fi
 
 logfilename="$CATBENCH_JAGFILE"
-num_trash="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
+num_trash="`lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev`"
 start_trash="1"
 if [ -n "${2-}" ]
 then
