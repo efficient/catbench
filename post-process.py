@@ -375,6 +375,10 @@ def add_perf_descriptions(jsonfile):
     legend_samples['999tail-latency']["description"] = "Mite 99.9%-ile tail latency";
     legend_samples['999tail-latency']["unit"] = "us";
 
+    legend_samples['mite_throughput'] = {};
+    legend_samples['mite_throughput']["description"] = "Mite Throughput";
+    legend_samples['mite_throughput']["unit"] = "Mops";
+
     if('contender_tput' not in legend_samples):
         legend_samples['contender_tput'] = {};
         legend_samples['contender_tput']["description"] = "Contender throughput";
