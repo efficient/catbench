@@ -33,6 +33,7 @@ fi
 
 logfilename="$CATBENCH_JAGFILE"
 num_trash="`lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev`"
+step_trash="`grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l`"
 start_trash="1"
 if [ -n "${2-}" ]
 then
@@ -54,9 +55,10 @@ jaguar/jaguar set "$logfilename" legend.samples.contender_tput.unit string "epoc
 jaguar/jaguar set "$logfilename" data.basecontender.description string "ContenderOnly"
 
 data="integer,fraction\nnum_trash,contender_tput"
+mask="0x0"
 for num in `seq "$start_trash" "$num_trash"`
 do
-	mask="`printf %#x "$(((1 << num) - 1))"`"
+	mask="`printf %#x "$((mask + (1 << (step_trash * (num - 1)))))"`"
 	printf "\n%s\n" "$num cores (mask $mask):"
 	time="`time -p taskset "$mask" ./setpgrp ./tensorflow_mnist_short 2>&1 | tee /dev/tty | sed -n 's/.*real \(.*\).*/\1/p'`"
 	tput="`printf "%s\n" "1 / $time" | bc -l`"
