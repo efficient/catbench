@@ -56,9 +56,14 @@ jaguar/jaguar set "$logfilename" data.basecontender.description string "Contende
 
 data="integer,fraction\nnum_trash,contender_tput"
 mask="0x0"
-for num in `seq "$start_trash" "$num_trash"`
+for num in `seq "$num_trash"`
 do
 	mask="`printf %#x "$((mask + (1 << (step_trash * (num - 1)))))"`"
+	if [ "$num" -lt "$start_trash" ]
+	then
+		continue
+	fi
+
 	printf "\n%s\n" "$num cores (mask $mask):"
 	time="`time -p taskset "$mask" ./setpgrp ./tensorflow_mnist_short 2>&1 | tee /dev/tty | sed -n 's/.*real \(.*\).*/\1/p'`"
 	tput="`printf "%s\n" "1 / $time" | bc -l`"
