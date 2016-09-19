@@ -1,0 +1,67 @@
+#!/bin/sh
+
+set -eu
+
+trap exit TERM INT QUIT
+trap "killall tensorflow_mnist_short 2>/dev/null || true" EXIT
+
+show_usage="0"
+if [ ! -x setpgrp ]
+then
+	echo "ERROR: setpgrp binary not found; did you build it?" >&2
+	exit 3
+fi
+if [ -z "${CATBENCH_JAGFILE-}" ]
+then
+	cat >&2 <<-tac
+		$0: should be invoked via driver
+
+	tac
+	show_usage="2"
+fi
+if [ "$show_usage" -ne "0" -o $# -gt 2 ]
+then
+	cat <<-tac
+		USAGE: $0 [min core count] [max core count]
+
+		[min core count] defaults to one.
+		[max core count] defaults to one fewer than the number of physical cores on the first CPU socket.
+		If only one of these is specified, it is assumed to be the max.
+	tac
+	exit "$show_usage"
+fi
+
+logfilename="$CATBENCH_JAGFILE"
+num_trash="$(($(lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev) - 1))"
+start_trash="1"
+if [ -n "${2-}" ]
+then
+	start_trash="$1"
+	shift
+fi
+if [ -n "${1-}" ]
+then
+	num_trash="$1"
+fi
+printf "%s\n" "Trying core counts between $start_trash and $num_trash..."
+
+jaguar/jaguar set "$logfilename" legend.samples.num_trash.description string "Cores running contender"
+jaguar/jaguar set "$logfilename" legend.samples.num_trash.unit string ""
+
+jaguar/jaguar set "$logfilename" legend.samples.contender_tput.description string "Contender throughput"
+jaguar/jaguar set "$logfilename" legend.samples.contender_tput.unit string "epochs/s"
+
+jaguar/jaguar set "$logfilename" data.basecontender.description string "Basecontender"
+
+data="integer,fraction\nnum_trash,contender_tput"
+for num in `seq "$start_trash" "$num_trash"`
+do
+	mask="`printf %#x "$(((1 << num) - 1))"`"
+	printf "\n%s\n" "$num cores (mask $mask):"
+	time="`time -p taskset "$mask" ./setpgrp ./tensorflow_mnist_short 2>&1 | tee /dev/tty | sed -n 's/.*real \(.*\).*/\1/p'`"
+	tput="`printf "%s\n" "1 / $time" | bc -l`"
+	printf "%s\n" "time $time s (tput $tput epochs/s)"
+	data="$data\n$num,$tput"
+done
+
+printf "$data" | jaguar/jaguar set "$logfilename" data.basecontender.samples array -
