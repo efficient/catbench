@@ -33,6 +33,7 @@ fi
 
 logfilename="$CATBENCH_JAGFILE"
 num_trash="`lscpu | grep Core | tr -s " " | rev | cut -d" " -f1 | rev`"
+step_trash="`grep -m2 "physical id" /proc/cpuinfo | uniq | wc -l`"
 start_trash="1"
 if [ -n "${2-}" ]
 then
@@ -43,6 +44,7 @@ if [ -n "${1-}" ]
 then
 	num_trash="$1"
 fi
+constrain="$(((1 << (step_trash * num_trash)) - 1))"
 printf "%s\n" "Trying core counts between $start_trash and $num_trash..."
 
 jaguar/jaguar set "$logfilename" legend.samples.num_trash.description string "Cores running contender"
@@ -54,9 +56,15 @@ jaguar/jaguar set "$logfilename" legend.samples.contender_tput.unit string "epoc
 jaguar/jaguar set "$logfilename" data.basecontender.description string "ContenderOnly"
 
 data="integer,fraction\nnum_trash,contender_tput"
-for num in `seq "$start_trash" "$num_trash"`
+mask="0x0"
+for num in `seq "$num_trash"`
 do
-	mask="`printf %#x "$((((1 << num) - 1) << ((2 * num_trash - num - 1) / num_trash)))"`"
+	mask="`printf %#x "$(((mask + ((1 << (step_trash * num)) | num == num_trash)) & constrain))"`"
+	if [ "$num" -lt "$start_trash" ]
+	then
+		continue
+	fi
+
 	printf "\n%s\n" "$num cores (mask $mask):"
 	time="`time -p taskset "$mask" ./setpgrp ./tensorflow_mnist_short 2>&1 | tee /dev/tty | sed -n 's/.*real \(.*\).*/\1/p'`"
 	tput="`printf "%s\n" "1 / $time" | bc -l`"
