@@ -51,7 +51,7 @@ jaguar/jaguar set "$logfilename" legend.samples.num_trash.unit string ""
 jaguar/jaguar set "$logfilename" legend.samples.contender_tput.description string "Contender throughput"
 jaguar/jaguar set "$logfilename" legend.samples.contender_tput.unit string "epochs/s"
 
-jaguar/jaguar set "$logfilename" data.basecontender.description string "Basecontender"
+jaguar/jaguar set "$logfilename" data.basecontender.description string "ContenderOnly"
 
 data="integer,fraction\nnum_trash,contender_tput"
 for num in `seq "$start_trash" "$num_trash"`
