@@ -101,7 +101,6 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     if(grid_y == True):
         ax.yaxis.grid(True);
 
-
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height * 0.7])
 
@@ -127,6 +126,9 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
                 val2_cropped = val2;
             else:
                 val2_cropped = filter(lambda x: x[0] <= xmax and x[0] >= xmin, val2);
+            if(len(val2_cropped) == 0):
+                print("Warning, series " + val["description"] + " has no entries for " + key + ".");
+		continue;
             xy = map(list, zip(*val2_cropped));
             
             line_label = val["description"];
