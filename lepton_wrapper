@@ -1,16 +1,25 @@
 #!/bin/sh
 
-# lepton_wrapper IN-DIR-PATH [LEPTON-OPTIONS]
+# lepton_wrapper IN-DIR-PATH [[ITERS] LEPTON-OPTIONS]
 
 input_dir_path=$1
 shift
+corpus_iters=1
+if [ $# -gt 0 ]
+then
+	corpus_iters=$1
+	shift
+fi
 
 count=0
 
-for filename in "$input_dir_path/"*
+for iter in `seq "$corpus_iters"`
 do
-	lepton "$@" - < "$filename" > /dev/null
-	if [ "$?" -eq 0 ]; then count="$((count + 1))"; fi
+	for filename in "$input_dir_path/"*
+	do
+		./lepton "$@" - < "$filename" > /dev/null
+		if [ "$?" -eq 0 ]; then count="$((count + 1))"; fi
+	done
 done
 
 echo "count: $count"

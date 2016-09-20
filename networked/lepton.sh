@@ -2,6 +2,8 @@ CONTENDER_DIR="."
 CONTENDER_BIN="lepton_wrapper"
 SINGLETON_CONTENDER="false"
 
+const IMAGES_ITERS="3"
+
 CONTENDER_TPUT_UNIT="images/s"
 
 inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
@@ -11,7 +13,7 @@ IMAGES_DIR="images"
 EXPECTS_FILES="$EXPECTS_FILES \"$CONTENDER_DIR/$IMAGES_DIR\""
 
 gencontenderargs() {
-	echo "$IMAGES_DIR -allowprogressive -singlethread -unjailed"
+	echo "$IMAGES_DIR $IMAGES_ITERS -allowprogressive -singlethread -unjailed"
 }
 
 extractcontendertput() {
