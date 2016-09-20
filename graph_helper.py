@@ -4,10 +4,10 @@ import json;
 import itertools;
 marker = itertools.cycle(('o', '>', 'D', 's', 'h', '+', '<', '^'));
 marker_copy = itertools.cycle(('o', '>', 'D', 's', 'h', '+', '<', '^'));
-color = itertools.cycle(('b', 'm', 'k', 'r' ,'y'));
-color_copy = itertools.cycle(('b', 'm', 'k', 'r' ,'y'));
+color = itertools.cycle(('b', 'k', 'r', 'y'));
+color_copy = itertools.cycle(('b', 'k', 'r', 'y'));
 color_alpha = 1.0;
-marker_size = 4;
+marker_size = 6;
 
 def all_close(series, tuples, threshold):
     for name in series:
