@@ -56,11 +56,13 @@ def order_ybar(tuples, xkey, ykey):
         ymax = max(ymax, max(yvals));
     threshold = (ymax - ymin) / 100;
     series_order = order_bucket(series_names, tuples, threshold);
-    series_order = flatten(series_order);
-    series_order.reverse();
+    if(series_order != None):
+    	series_order = flatten(series_order);
+    	series_order.reverse();
+    else:
+        series_order = series_names;
     index = 0;
     for series in series_order:
-        print series;
         tuples[series]["order"] = index;
         index += 1;
 
