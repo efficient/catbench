@@ -59,6 +59,7 @@ def order_ybar(tuples, xkey, ykey):
     threshold = (ymax - ymin) / 100;
     series_order = order_bucket(series_names, tuples, threshold);
     if(series_order != None):
+	series_order = flatten(series_order);
     	series_order.reverse();
     else:
         series_order = series_names;
