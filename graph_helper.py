@@ -84,9 +84,12 @@ def get_tuples(filename, slabels, xlabel, ylabels, nosort):
         series_tuples[series_name]["mean"] = 0;
         for sample in series.get("samples"):
             for ylabel in ylabels:
+	        count = 0;
                 if(sample.get(ylabel) != None):
                     series_tuples[series_name][(xlabel, ylabel)].append((sample.get(xlabel), sample.get(ylabel)));
                     series_tuples[series_name]["mean"] += sample.get(ylabel);
+		    count += 1;
+		series_tuple[series_name]["mean"] /= count;
     fd.close();
     if(nosort == True):
         order_ybar(series_tuples, xlabel, ylabels[0]);
