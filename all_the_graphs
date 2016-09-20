@@ -246,5 +246,6 @@ echo "Finished contender perf graphs"
 echo "Finished throughput graphs"
 ./graph-double.py --input-top "$name"-stripped.json --input-bottom "$name"-stripped.json --series allocation contention --xdata-bottom "$quest" --xdata-top "$quest" --ydata-bottom 999tail-latency --ydata-top contender_tput --title "Contender Throughput & Mica 99.9%-ile Tail Latency vs $quest" --outfile ./graphs/"$name"/"$name"-tputandtail."$filetype" --legend-xl 1.0 --legend-yl 0.6 --legend-xr 1.0 --legend-yr 0.4 `eval echo $extra_flags` --legend-loc-top "lower left" --legend-loc-bottom "lower left"
 echo "Finished double graphs"
-./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "Cost analysis" -o ./graphs/"$name"/"$name"-cost."$filetype" --legend-y 0.7 --legend-x 1.5 `eval echo $extra_flags` --legend-loc "upper left" --hline-y "$SLO" --ymax 600 --nosort
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "Cost analysis" -o ./graphs/"$name"/"$name"-cost-200."$filetype" --legend-y 0.7 --legend-x 1.5 `eval echo $extra_flags` --legend-loc "upper left" --hline-y "200" --ymax 600 --nosort
+./graph-cat.py --input "$name"-stripped.json --series "$@" --xdata "$quest" --ydata 999tail-latency --title "Cost analysis" -o ./graphs/"$name"/"$name"-cost-100."$filetype" --legend-y 0.7 --legend-x 1.5 `eval echo $extra_flags` --legend-loc "upper left" --hline-y "100" --ymax 600 --nosort
 echo "Finished cost-analysis graphs"
