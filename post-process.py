@@ -7,7 +7,7 @@ import json;
 
 descriptions = {
     'allocation': 'Contention-CAT',
-    'baseline': 'NoContention-NoCAT',
+    'baseline': 'NoContention',
     'basealloc': 'NoContention-CAT',
     'contention': 'Contention-NoCAT'
 }
