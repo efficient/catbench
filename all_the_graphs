@@ -122,7 +122,7 @@ fi
 shift 2
 if [ -z "$*" ]
 then
-	set allocation basealloc baseline contention
+	set allocation baseline contention
 fi
 
 #insertratioentries "$name-stripped.json" LLC_MISS LLC_REFERENCE LLC_MISS_RATIO >"$name-augmented.json"
