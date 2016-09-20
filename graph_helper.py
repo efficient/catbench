@@ -29,7 +29,9 @@ def order_bucket(series, tuples, threshold):
         if(name == baseline):
             continue;
         if(all_close(series, tuples, threshold)):
-            return sorted(series).reverse();
+            series = sorted(series, key=lambda x: tuples[x]["description"]);
+	    series.reverse();
+	    return series;
         if(baseline_mean - threshold > cur_mean):
             smaller_bucket.append(name);
         elif(baseline_mean + threshold < cur_mean):
@@ -57,7 +59,6 @@ def order_ybar(tuples, xkey, ykey):
     threshold = (ymax - ymin) / 100;
     series_order = order_bucket(series_names, tuples, threshold);
     if(series_order != None):
-    	series_order = flatten(series_order);
     	series_order.reverse();
     else:
         series_order = series_names;
