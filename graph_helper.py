@@ -29,7 +29,7 @@ def order_bucket(series, tuples, threshold):
         if(name == baseline):
             continue;
         if(all_close(series, tuples, threshold)):
-            return sorted(series);
+            return sorted(series).reverse();
         if(baseline_mean - threshold > cur_mean):
             smaller_bucket.append(name);
         elif(baseline_mean + threshold < cur_mean):
