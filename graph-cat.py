@@ -80,7 +80,7 @@ def setup_optparse():
     return args.datafile, args.series_labels, args.x_label, args.y_labels, args.include_labels, args.title, args.outfile, args.fit, args.ymin, args.ymax, args.no_commit_message, args.logx, args.logy, args.cdf, args.legend_x, args.legend_y, args.grid_y, args.smart_x, args.nosort, args.xmax, args.xmin, args.no_title, args.hline_y, args.legend_loc;
 
 def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user_ymin, user_ymax, no_commit_message, logx, logy, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y, legend_loc):
-    series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
+    series_tuples = get_tuples(filename, slabels, xlabel, ylabels, nosort);
     isempty = True;
     for series in series_tuples.keys():
         for key in series_tuples[series].keys():

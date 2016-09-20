@@ -66,7 +66,7 @@ def order_ybar(tuples, xkey, ykey):
         tuples[series]["order"] = index;
         index += 1;
 
-def get_tuples(filename, slabels, xlabel, ylabels):
+def get_tuples(filename, slabels, xlabel, ylabels, nosort):
     count = 0;
     fd = open(filename, 'r');
     data = json.load(fd);
@@ -79,7 +79,7 @@ def get_tuples(filename, slabels, xlabel, ylabels):
         if(series_name not in series_tuples):
             continue;
         series_tuples[series_name]["description"] = series.get("description");
-        #series_tuples[series_name]["order"] = slabels.index(series_name);
+        series_tuples[series_name]["order"] = slabels.index(series_name);
         count += 1;
         series_tuples[series_name]["mean"] = 0;
         for sample in series.get("samples"):
@@ -88,7 +88,8 @@ def get_tuples(filename, slabels, xlabel, ylabels):
                     series_tuples[series_name][(xlabel, ylabel)].append((sample.get(xlabel), sample.get(ylabel)));
                     series_tuples[series_name]["mean"] += sample.get(ylabel);
     fd.close();
-    order_ybar(series_tuples, xlabel, ylabels[0]);
+    if(nosort == True):
+        order_ybar(series_tuples, xlabel, ylabels[0]);
     return series_tuples;
 
 def get_sample_description(filename, samplename):
