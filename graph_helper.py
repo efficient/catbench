@@ -9,6 +9,61 @@ color_copy = itertools.cycle(('b', 'm', 'k', 'r' ,'y'));
 color_alpha = 1.0;
 marker_size = 4;
 
+def all_close(series, tuples, threshold):
+    for name in series:
+        for comp in series:
+            if(tuples[name]["mean"] + threshold <= tuples[comp]["mean"] or tuples[name]["mean"] - threshold >= tuples[comp]["mean"]):
+                return False;
+    return True;
+
+def order_bucket(series, tuples, threshold):
+    if(len(series) == 1 or len(series) == 0):
+        return series;
+    baseline = series[0];
+    baseline_mean = tuples[baseline]["mean"];
+    smaller_bucket = list();
+    bigger_bucket = list();
+    same_bucket = list();
+    for name in series:
+        cur_mean = tuples[name]["mean"];
+        if(name == baseline):
+            continue;
+        if(all_close(series, tuples, threshold)):
+            return sorted(series);
+        if(baseline_mean - threshold > cur_mean):
+            smaller_bucket.append(name);
+        elif(baseline_mean + threshold < cur_mean):
+            bigger_bucket.append(name);
+        else:
+            same_bucket.append(name);
+    same_bucket.append(baseline);
+    return [order_bucket(smaller_bucket, tuples, threshold), order_bucket(same_bucket, tuples, threshold), order_bucket(bigger_bucket, tuples, threshold)];
+
+def flatten(S):
+    if S == []:
+        return S
+    if isinstance(S[0], list):
+        return flatten(S[0]) + flatten(S[1:])
+    return S[:1] + flatten(S[1:])
+
+def order_ybar(tuples, xkey, ykey):
+    series_names = tuples.keys();
+    ymin = 9999999;
+    ymax = 0;
+    for series in series_names:
+        yvals = [i[0] for i in tuples[series][(xkey, ykey)]];
+        ymin = min(ymin, min(yvals));
+        ymax = max(ymax, max(yvals));
+    threshold = (ymax - ymin) / 100;
+    series_order = order_bucket(series_names, tuples, threshold);
+    series_order = flatten(series_order);
+    series_order.reverse();
+    index = 0;
+    for series in series_order:
+        print series;
+        tuples[series]["order"] = index;
+        index += 1;
+
 def get_tuples(filename, slabels, xlabel, ylabels):
     count = 0;
     fd = open(filename, 'r');
@@ -22,13 +77,16 @@ def get_tuples(filename, slabels, xlabel, ylabels):
         if(series_name not in series_tuples):
             continue;
         series_tuples[series_name]["description"] = series.get("description");
-        series_tuples[series_name]["order"] = slabels.index(series_name);
+        #series_tuples[series_name]["order"] = slabels.index(series_name);
         count += 1;
+        series_tuples[series_name]["mean"] = 0;
         for sample in series.get("samples"):
             for ylabel in ylabels:
-	    	if(sample.get(ylabel) != None):
+                if(sample.get(ylabel) != None):
                     series_tuples[series_name][(xlabel, ylabel)].append((sample.get(xlabel), sample.get(ylabel)));
+                    series_tuples[series_name]["mean"] += sample.get(ylabel);
     fd.close();
+    order_ybar(series_tuples, xlabel, ylabels[0]);
     return series_tuples;
 
 def get_sample_description(filename, samplename):

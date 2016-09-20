@@ -120,7 +120,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
     for key, val in series_tuples.items():
         line = list();
         for key2, val2 in val.items():
-            if(key2 == "description" or key2 == "order"):
+            if(key2 == "description" or key2 == "order" or key2 == "mean"):
                 continue;
             if(xmin == None or (xmax == 0 and xmin == 0)):
                 val2_cropped = val2;
