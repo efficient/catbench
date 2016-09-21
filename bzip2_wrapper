@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# bzip2_wrapper IN-PATH OUT-PATH [BZIP2-OPTIONS]
+
+input_path=$1
+shift
+output_path=$1
+shift
+
+input_size=$(stat --printf="%s" "$input_path")
+echo "input size: $input_size"
+
+output_size=$(bzip2 "$@" -c "$input_path" | tee "$output_path" | wc -c)
+echo "output size: $output_size"
+
