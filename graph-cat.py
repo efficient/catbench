@@ -283,7 +283,7 @@ def graph(filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, user
         plt.xlim(xmin = min(x_copy), xmax = max(x_copy));
     if(user_ymax != None):
         plt.ylim(ymax=user_ymax);
-    plt.savefig(outfile, bbox_extra_artists=(lgd,), bbox_inches='tight');
+    plt.savefig(outfile, bbox_extra_artists=(lgd,), dpi=600, bbox_inches='tight');
 
 def main():
     filename, slabels, xlabel, ylabels, ilabels, title, outfile, fit, ymin, ymax, no_commit_message, logx, logy, cdf, legend_x, legend_y, grid_y, smart_x, nosort, xmax, xmin, no_title, hline_y, legend_loc  = setup_optparse();
