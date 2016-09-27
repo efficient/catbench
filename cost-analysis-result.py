@@ -19,14 +19,14 @@ def graph():
     temp = list();
     range_top = 2000;
     t_total = np.arange(0, range_top, 1);
-    temp.append(ax.plot(t_total, t_total, 'm:', linewidth=4.0, label="NoContention-NoCAT"));
+    temp.append(ax.plot(t_total, t_total, 'm:', linewidth=4.0, label="NoContention"));
 
-    baseline_mite = 5.10;
+    baseline_mite = 5.15;
     #series_tuples = get_tuples(filename, slabels, xlabel, ylabels);
 # Contention
     contention_mite = 4.85
     #contention_mite = 4.33
-    em = 15. / 16.;
+    em = 0.951;
     ek = contention_mite / baseline_mite;
     n = 1000;
     range_bottom = n / ek * em;
@@ -39,7 +39,7 @@ def graph():
 
     allocation_mite = 5.09;
     #allocation_mite = 4.81;
-    em = 15. / 16.;
+    em = 0.951;
     ek = allocation_mite / baseline_mite;
     range_bottom = n / ek * em;
     t_bottom = np.arange(0, range_bottom, 1);
