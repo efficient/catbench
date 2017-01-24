@@ -2,6 +2,7 @@
 
 # Pseudo-modifier for variable declarations.
 # Creates a constant with the specified default value, unless a specialization is found in the environment.
+sudo rm -rf ramdisk/perf*
 const() {
 	local ondefaulthandler=""
 	if [ $# -gt 1 ]
@@ -52,8 +53,8 @@ const MICA_RECORD_ITERATIONS="300000000"
 const PERF_RECORD_CORES="0"
 const PERF_RECORD_FLAGS="-r"
 const PERF_STAT_CORES="2,4,6,8,10,12,14,16,18,20,22,24,26,28,30"
-const PERF_STAT_FLAGS="-s"
-const KEEP_PERF_DATA="true"
+const PERF_STAT_FLAGS="-r"
+const KEEP_PERF_DATA="false"
 const TRASH_ALLOC="800"
 const WARMUP="600"
 
@@ -177,13 +178,13 @@ do
 done
 . networked/.sh
 
-localrev="`git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2`"
-remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2"`"
-if [ "$localrev" != "$remoterev" ]
-then
-	echo "ERROR: Version mismatch between systems!" >&2
-	exit 2
-fi
+#localrev="`git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2`"
+#remoterev="`ssh "$foreign_client" "cd '$remote_path'; git log --no-abbrev-commit --no-decorate -1 | head -n1 | cut -d' ' -f2"`"
+#if [ "$localrev" != "$remoterev" ]
+#then
+	#echo "ERROR: Version mismatch between systems!" >&2
+	#exit 2
+#fi
 
 remotemod="`ssh "$foreign_client" "cd '$remote_path'; git diff --exit-code --ignore-submodules=dirty HEAD >/dev/null; echo \\$?"`"
 if [ "$remotemod" -ne 0 ]
@@ -199,16 +200,16 @@ checkrevision() {
 	whichrev="\"$`echo "$component" | tr [a-z] [A-Z]`_MIN_REV\""
 	whichchk="\"check${component}rev\""
 
-	if eval [ -n "$whichrev" ] && ! eval "$whichchk"
-	then
-		eval printf "\"ERROR: Component '$component' is older than minimum supported version ('%s')!\n\"" "$whichrev" >&2
-		exit "$errorcode"
-	fi
+	#if eval [ -n "$whichrev" ] && ! eval "$whichchk"
+	#then
+		#eval printf "\"ERROR: Component '$component' is older than minimum supported version ('%s')!\n\"" "$whichrev" >&2
+		#exit "$errorcode"
+	#fi
 }
 
-checkrevision server 4
-checkrevision client 5
-checkrevision contender 6
+#checkrevision server 4
+#checkrevision client 5
+#checkrevision contender 6
 
 if [ ! -x setpgrp ]
 then
@@ -471,11 +472,20 @@ runtrial() {
 	dummy_in_pid=$!
 
 	# launch remote client
-	ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client;
+	if [ "$PERF_INIT_PHRASE" = "grpc" ]
+	then
+		ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client;
+		cd '$CLIENT_DIR'; sudo -S './$CLIENT_BIN' `genclientargs` <~/'$remote_path/rtt_client_pipe_in' | tee ~/'$remote_path/rtt_client' | (
+			{ echo ready; } &&
+			cat >/dev/null
+		) >~/'$remote_path/rtt_client_pipe_out'" &
+	else
+		ssh "$foreign_client" "cd '$remote_path'; rm -f rtt_client;
 		cd '$CLIENT_DIR'; sudo -S './$CLIENT_BIN' `genclientargs` <~/'$remote_path/rtt_client_pipe_in' | tee ~/'$remote_path/rtt_client' | (
 			{ timeout 120 grep -Fm1 '$PERF_INIT_PHRASE' >/dev/null && echo ready || echo timeout; } &&
 			cat >/dev/null
 		) >~/'$remote_path/rtt_client_pipe_out'" &
+	fi
 	client_pid=$!
 	echo "$passwd" >rtt_client_pipe_in
 
@@ -485,13 +495,13 @@ runtrial() {
 	# listen to client output
 	while read -r line <rtt_client_pipe_out
 	do
-		if [ "$line" = "timeout" ]
+		if [ "$line" = "timeout" -a $PERF_INIT_PHRASE != "grpc" ]
 		then
 			echo "WARNING: DPDK init timed out; restarting trial..." >&2
 			exitcode="1"
 			kill "$client_pid"
 			break
-		elif [ "$line" != "ready" ]
+		elif [ "$line" != "ready" -a $PERF_INIT_PHRASE != "grpc" ]
 		then
 			echo "ERROR: Unexpected output from pipe: %line" >&2
 			exit 1
@@ -516,7 +526,7 @@ runtrial() {
 
 		# stop
 		echo "NETWORK_RTT: Stopping..."
-		echo "s" >rtt_client_pipe_in
+		echo "s\n" >rtt_client_pipe_in
 		sleep 1
 		( cd ramdisk && taskset 0x4 ../cacheperf end >../rtt_perf )
 		taskset 0x4 ./cacheperf end >rtt_contender
@@ -530,7 +540,7 @@ runtrial() {
 
 	sudo killall "$SERVER_BIN"
 	waitforexit "./$SERVER_BIN"
-	cat rtt_server
+	#cat rtt_server
 
 	kill $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
 	wait $client_pipe_in_pid $client_pipe_out_pid $dummy_in_pid
@@ -543,11 +553,11 @@ runtrial() {
 	fi
 	scp -C "$foreign_client:$remote_path/rtt_client" .
 	sed 's/^/remote: /' rtt_client
-	cat rtt_perf_duration
+	#cat rtt_perf_duration
 	cat rtt_perf
-	cat rtt_contender_duration
-	cat rtt_contender
-	cat rtt_bandwidth
+	#cat rtt_contender_duration
+	#cat rtt_contender
+	#cat rtt_bandwidth
 
 	return "$exitcode"
 }
@@ -588,7 +598,8 @@ recordtrial() {
 			else
 				header="fraction"
 			fi
-			header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,string,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd, | sed p | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,perf_data,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd, | sed 'p;s/^\|,/&contender-/g' | paste -sd,`,intel_cqm/local_bytes"
+			header="$header,fraction,fraction,fraction,fraction,fraction,fraction,fraction,`cut -f1 rtt_perf | sed "s/.*/fraction/" | paste -sd, | sed p | paste -sd,`,fraction\n$independent,mite_throughput,mean,999tail-latency,99tail-latency,95tail-latency,50tail-latency,contender_tput,`tr "\t" " " <rtt_perf | cut -d" " -f1 | tr "." "/" | paste -sd, | sed 'p;s/^\|,/&contender-/g' | paste -sd,`,intel_cqm/local_bytes"
+			echo "$header"
 			baseline="$header"
 			basealloc="$header"
 			contention="$header"
@@ -610,7 +621,8 @@ recordtrial() {
 		echo "============================================="
 
 		# TODO: NEED TO CUT OFF THE TRAILING 's'!
-		if tail -n"$MAIN_DURATION" rtt_server | grep "32\.00 ppb" >/dev/null
+		MAIN_DURATION_COPY=${MAIN_DURATION%?}
+		if tail -n"$MAIN_DURATION_COPY" rtt_server | grep "32\.00 ppb" >/dev/null
 		then
 			echo
 			echo "~~~~~~~~~~~ WOAH, MATE! ~~~~~~~~~~~"
@@ -623,7 +635,7 @@ recordtrial() {
 		fi
 	done
 
-	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,'`base64 -w0 ramdisk/perf.data`',`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`cut -f2 rtt_contender | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`grep -v ^$ rtt_bandwidth | tail -n+2 | tr -d , | tr -s " " | cut -d" " -f2 | paste -sd/ | bc -l`"
+	eval $var="\$$var\\\\n\$$independent,\$tput,\$avg,\$rtt_999,\$rtt_99,\$rtt_95,\$rtt_50,\$contender_tput,`cut -f2 rtt_perf | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`cut -f2 rtt_contender | tr -d "," | sed "s:\$:/$total_time:" | bc -l | paste -sd,`,`grep -v ^$ rtt_bandwidth | tail -n+2 | tr -d , | tr -s " " | cut -d" " -f2 | paste -sd/ | bc -l`"
 }
 
 estimatetotal() {
@@ -725,15 +737,16 @@ do
 
 	firstrun="false"
 done
-echo "$baseline" | jaguar/jaguar set "$logfilename" data.baseline.samples array -
-echo "$basealloc" | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
-echo "$contention" | jaguar/jaguar set "$logfilename" data.contention.samples array -
-echo "$allocation" | jaguar/jaguar set "$logfilename" data.allocation.samples array -
+
+echo "$baseline" | perl -pe 's/,,/,0,/g; s/,,/,0,/g' | jaguar/jaguar set "$logfilename" data.baseline.samples array -
+echo "$basealloc" | perl -pe 's/,,/,0,/g; s/,,/,0,/g' | jaguar/jaguar set "$logfilename" data.basealloc.samples array -
+echo "$contention" | perl -pe 's/,,/,0,/g; s/,,/,0,/g' | jaguar/jaguar set "$logfilename" data.contention.samples array -
+echo "$allocation" | perl -pe 's/,,/,0,/g; s/,,/,0,/g' | jaguar/jaguar set "$logfilename" data.allocation.samples array -
 ssh "$foreign_client" rm -f "$remote_path/rtt_client"
 rm rtt_client
 rm rtt_server
 rm rtt_perf_duration
-rm rtt_perf
+#rm rtt_perf
 rm rtt_contender_duration
 rm rtt_contender
 rm rtt_bandwidth

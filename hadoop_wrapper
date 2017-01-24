@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# hadoop_wrapper IN-DIR-PATH [[ITERS] HADOOP-OPTIONS]
+
+input_dir_path=$1
+rm -rf hadoop_output
+/home/doge/hadoop/bin/hadoop jar ~/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.3.jar wordcount $input_dir_path hadoop_output
