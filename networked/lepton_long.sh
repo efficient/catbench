@@ -1,17 +1,19 @@
 CONTENDER_DIR="."
-CONTENDER_BIN="hadoop_wrapper"
+CONTENDER_BIN="lepton_wrapper"
 SINGLETON_CONTENDER="false"
 
-CONTENDER_TPUT_UNIT="MB/s"
+const IMAGES_ITERS="15"
+
+CONTENDER_TPUT_UNIT="images/s"
 
 inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 
-TEXT_DIR="ramdisk/text_medium"
-EXPECTS_FILES="$EXPECTS_FILES"
+IMAGES_DIR="images"
+EXPECTS_FILES="$EXPECTS_FILES \"$CONTENDER_DIR/$IMAGES_DIR\""
 
 gencontenderargs() {
-	echo "$TEXT_DIR"
+	echo "$IMAGES_DIR $IMAGES_ITERS -allowprogressive -singlethread -unjailed"
 }
 
 extractcontendertput() {
@@ -24,7 +26,7 @@ extractcontendertput() {
 		do
 			in_file="rtt_contender_$((contender - 1))"
 
-			count="$(grep 'Bytes Read= ' $in_file | sed -e 's/[:space:]*Bytes Read=\(.*\)/\1/')"
+			count="$(grep 'count: ' $in_file | sed -e 's/count: \(.*\)/\1/')"
 			total_count="$((total_count + count))"
 
 			# parse the real elapsed time from "time -p"
@@ -36,7 +38,7 @@ extractcontendertput() {
 
 	if [ "$total_time" != "0" ]
 	then
-		echo "`du -sb $TEXT_DIR | cut -f1` * $contenders / $total_time" | bc -l
+		echo "$total_count * $contenders / $total_time" | bc -l
 	else
 		echo 0
 	fi

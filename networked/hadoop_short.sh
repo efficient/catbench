@@ -7,7 +7,7 @@ CONTENDER_TPUT_UNIT="MB/s"
 inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 
-TEXT_DIR="ramdisk/text_medium"
+TEXT_DIR="ramdisk/text_small"
 EXPECTS_FILES="$EXPECTS_FILES"
 
 gencontenderargs() {
@@ -36,7 +36,7 @@ extractcontendertput() {
 
 	if [ "$total_time" != "0" ]
 	then
-		echo "`du -sb $TEXT_DIR | cut -f1` * $contenders / $total_time" | bc -l
+		echo "`du -sb $TEXTID_R | cut -f1` * $contenders / $total_time" | bc -l
 	else
 		echo 0
 	fi

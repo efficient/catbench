@@ -15,8 +15,6 @@ inherit_default_impl="$inherit_default_impl extractavelatency"
 SERVER_MIN_REV="ef82e16"
 CLIENT_MIN_REV="50ece37"
 
-set -x
-
 genserverargs() {
 	local multiplier="1"
 	#if type genclientargs_table_entries_multiplier >/dev/null 2>&1
@@ -40,7 +38,7 @@ genclientargs() {
 	fi
 	sleep 1
 
-	echo "-n '$MICA_RECORD_ITERATIONS' -o /dev/null '$((table_entries * multiplier))' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
+	echo "-n '300000' -o /dev/null '$((table_entries * multiplier))' '$MICA_GET_RATIO' '$zipf_alpha' '$mite_tput_limit'"
 }
 
 prephugepages() {
