@@ -69,9 +69,14 @@ then
 	fi
 fi
 
-CGROUP_PATH="/sys/fs/rscctrl"
-CGROUP_SUBMASK="schemas"
-if [ ! -e "$CGROUP_PATH/tasks" ]
+CGROUP_PATH="/sys/fs/resctrl"
+CGROUP_SUBMASK="schemata"
+if [ -e "/sys/fs/rscctrl" ]
+then
+	# Fall back to Linux 4.7 compatibility mode
+	CGROUP_PATH="/sys/fs/rscctrl"
+	CGROUP_SUBMASK="schemas"
+elif [ ! -e "$CGROUP_PATH/tasks" ]
 then
 	# Fall back to Linux 4.4 compatibility mode
 	CGROUP_PATH="/sys/fs/cgroup/intel_rdt"
@@ -319,17 +324,13 @@ setdefaultmask() {
 	groupmask="$2"
 
 	sudo mkdir "$CGROUP_PATH/$groupname"
-	if [ "$CGROUP_SUBMASK" = "schemas" ]
-	then
-		# Linux 4.7 mode
-		sudo sh -c "cat '$CGROUP_PATH/$groupname/$CGROUP_SUBMASK' | sed 's/=[^;]\+/=$groupmask/' >'$CGROUP_PATH/$groupname/$CGROUP_SUBMASK'"
-	elif [ "$CGROUP_SUBMASK" = "intel_rdt.l3_cbm" ]
+	if [ "$CGROUP_SUBMASK" = "intel_rdt.l3_cbm" ]
 	then
 		# Linux 4.4 compatibility mode
 		sudo sh -c "echo '$groupmask' >'$CGROUP_PATH/$groupname/$CGROUP_SUBMASK'"
 	else
-		echo "INTERNAL ERROR: $CGROUP_SUBMASK: Unrecognized mask file type!" >&2
-		exit 1
+		# Linux 4.7+ mode
+		sudo sh -c "cat '$CGROUP_PATH/$groupname/$CGROUP_SUBMASK' | sed 's/=[^;]\+/=$groupmask/' >'$CGROUP_PATH/$groupname/$CGROUP_SUBMASK'"
 	fi
 	sudo sh -c "echo $$ >'$CGROUP_PATH/$groupname/tasks'"
 }
@@ -341,17 +342,13 @@ unsetmask() {
 mgdelete() {
 	groupname="$1"
 
-	if [ "$CGROUP_SUBMASK" = "schemas" ]
-	then
-		# Linux 4.7 mode
-		sudo rmdir "$CGROUP_PATH/$groupname"
-	elif [ "$CGROUP_SUBMASK" = "intel_rdt.l3_cbm" ]
+	if [ "$CGROUP_SUBMASK" = "intel_rdt.l3_cbm" ]
 	then
 		# Linux 4.4 compatibility mode (requires cgdelete)
 		sudo cgdelete "intel_rdt:$groupname"
 	else
-		echo "INTERNAL ERROR: $CGROUP_SUBMASK: I don't know how to delete groups with this type of mask!" >&2
-		exit 1
+		# Linux 4.7+ mode
+		sudo rmdir "$CGROUP_PATH/$groupname"
 	fi
 }
 
