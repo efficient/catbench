@@ -83,3 +83,16 @@ index 4abab4a..4c52da3 100644
 +#endif
 +
  #endif /* _KCOMPAT_H_ */
+diff --git a/lib/librte_eal/linuxapp/igb_uio/igb_uio.c b/lib/librte_eal/linuxapp/igb_uio/igb_uio.c
+index df41e457a..438e85f36 100644
+--- a/lib/librte_eal/linuxapp/igb_uio/igb_uio.c
++++ b/lib/librte_eal/linuxapp/igb_uio/igb_uio.c
+@@ -380,7 +380,7 @@ igbuio_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
+ 	case RTE_INTR_MODE_MSIX:
+ 		/* Only 1 msi-x vector needed */
+ 		msix_entry.entry = 0;
+-		if (pci_enable_msix(dev, &msix_entry, 1) == 0) {
++		if (pci_enable_msix_range(dev, &msix_entry, 1, 1) == 0) {
+ 			dev_dbg(&dev->dev, "using MSI-X");
+ 			udev->info.irq = msix_entry.vector;
+ 			udev->mode = RTE_INTR_MODE_MSIX;
