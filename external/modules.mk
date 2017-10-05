@@ -5,7 +5,7 @@ $(dir $(lastword $(MAKEFILE_LIST)))%:
 		git submodule update --init $(dir $(lastword $(MAKEFILE_LIST)))$(firstword $(subst /, ,$*)); \
 		if [ -f $(dir $(lastword $(MAKEFILE_LIST)))$(firstword $(subst /, ,$*)).patch ]; \
 		then \
-			cd $(dir $(lastword $(MAKEFILE_LIST)))$(firstword $(subst /, ,$*)) && git apply ../$(firstword $(subst /, ,$*)).patch; \
+			cd $(dir $(lastword $(MAKEFILE_LIST)))$(firstword $(subst /, ,$*)) && git apply -3 ../$(firstword $(subst /, ,$*)).patch; \
 		fi; \
 	fi
 	[ -e $@ ] || $(MAKE) -C $(@D) $(@F)
