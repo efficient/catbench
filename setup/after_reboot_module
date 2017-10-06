@@ -1,0 +1,22 @@
+#!/bin/sh
+
+readonly DPDK_IFACE="04:00.0" # enp130s0f0
+readonly KERN_IFACE="enp4s0f1" # 82:00.1
+readonly    IP_ADDR="192.168.3.1/24"
+
+set -e
+ifacebind="dpdk/tools/dpdk_nic_bind.py"
+if [ ! -e "$ifacebind" ]
+then
+	ifacebind="dpdk/tools/dpdk-devbind.py"
+fi
+
+printf '%s\n%s\n\n%s\n' 20 16384 34 | dpdk/tools/setup.sh || \
+	printf '%s\n' 20 16384 0 "" 33 | dpdk/tools/dpdk-setup.sh
+lsmod | grep uio || sudo modprobe uio
+lsmod | grep igb_uio || sudo insmod dpdk/build/kmod/igb_uio.ko
+sudo "$ifacebind" -u "$DPDK_IFACE"
+sudo "$ifacebind" -b igb_uio "$DPDK_IFACE"
+sudo ip addr flush "$KERN_IFACE"
+sudo ip addr add dev "$KERN_IFACE" "$IP_ADDR"
+sudo ip link set dev "$KERN_IFACE" up

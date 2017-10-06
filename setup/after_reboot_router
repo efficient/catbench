@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+ifacebind="dpdk/tools/dpdk_nic_bind.py"
+if [ ! -e "$ifacebind" ]
+then
+        ifacebind="dpdk/tools/dpdk-devbind.py"
+fi
+
+printf '%s\n%s\n\n%s\n' 20 10000 34 | dpdk/tools/setup.sh || \
+	printf '%s\n' 20 10000 0 "" 33 | dpdk/tools/dpdk-setup.sh
+sudo modprobe uio
+lsmod | grep igb_uio || sudo insmod dpdk/build/kmod/igb_uio.ko
+sudo ip addr flush dev p1p1 || true
+sudo "$ifacebind" -u 02:00.0
+sudo "$ifacebind" -b igb_uio 02:00.0
+sudo ip addr flush dev p1p2 || true
+sudo ip addr add dev p1p2 192.168.3.2/24
+sudo ip link set dev p1p2 up

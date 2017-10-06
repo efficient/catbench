@@ -1,0 +1,17 @@
+#!/bin/sh
+
+if [ $# -ne 1 ]
+then
+	echo "USAGE: $0 <version>"
+	exit 1
+fi
+
+mkdir -p \
+		/usr/local/etc/bash_completion.d/perf \
+		/usr/local/lib64/traceevent/plugins \
+		/usr/local/libexec/perf-core/scripts/perl/Perf-Trace-Util/lib/Perf/Trace \
+		/usr/local/libexec/perf-core/scripts/python/Perf-Trace-Util/lib/Perf/Trace \
+		/usr/local/libexec/perf-core/tests \
+		/usr/local/share/man \
+
+checkinstall --pkgname="linux-perf-$1" --install=no --backup=no make install install-doc prefix=/usr/local
