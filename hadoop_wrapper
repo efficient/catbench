@@ -2,7 +2,10 @@
 
 # hadoop_wrapper IN-DIR-PATH [[ITERS] HADOOP-OPTIONS]
 
+mkdir -p hadoop_output
+mkdir -p $input_dir_path
 input_dir_path=$1
 outdir="hadoop_output/`cat /proc/sys/kernel/random/uuid`"
-/home/doge/hadoop/bin/hadoop jar ~/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.3.jar wordcount $input_dir_path $outdir
-rm -rf outdir
+# Need to link /path/to/hadoop .
+./hadoop/bin/hadoop jar ./hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.3.jar wordcount $input_dir_path $outdir
+rm -rf $outdir

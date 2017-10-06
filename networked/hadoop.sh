@@ -7,7 +7,7 @@ CONTENDER_TPUT_UNIT="MB/s"
 inherit_default_init="$inherit_default_init CONTENDER_MIN_REV"
 inherit_default_impl="$inherit_default_impl"
 
-TEXT_DIR="ramdisk/text_medium"
+TEXT_DIR="text/text_medium"
 EXPECTS_FILES="$EXPECTS_FILES"
 
 gencontenderargs() {

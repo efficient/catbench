@@ -1,0 +1,4 @@
+#!/bin/sh
+rm -rf /tmp/mnist_model/*
+# About 10 minutes
+python mnist.py --steps 8300
